@@ -24,6 +24,9 @@ The `server/` folder is a small add-on that texts every rebbi each morning, read
 
 ## Running it
 
+**Live app:** <https://yaksbbgtr.github.io/Rabbiapp/>. It's published automatically from this branch by `.github/workflows/pages.yml` on every push.
+
+
 No build step and no server needed.
 
 - **Quickest:** open `index.html` in a browser.
