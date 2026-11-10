@@ -75,12 +75,7 @@
         }))),
         h('tbody', talmidim.map(function (t) {
           return h('tr', h('th', h('a', { href: '#/talmid/' + t.id }, Store.displayName(t))), units.map(function (u) {
-            var lvl = (st.mastery[u.id] || {})[t.id] || 0;
-            return h('td', h('button.level.l' + lvl, {
-              'aria-label': Store.displayName(t) + ', ' + u.title + ': ' + window.MASTERY_LEVELS[lvl] + '. Tap to change.',
-              'aria-haspopup': 'menu',
-              onclick: function (e) { UI.levelMenu(e.currentTarget, t.id, u.id); }
-            }, window.MASTERY_LEVELS[lvl]));
+            return h('td', UI.levelSelect(t.id, u.id, Store.displayName(t) + ', ' + u.title));
           }));
         })));
       main.appendChild(h('div.card.scroll-x', table));

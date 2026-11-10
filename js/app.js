@@ -43,7 +43,6 @@
     var route = currentRoute();
     var view = views[route.name] || views.dashboard;
     setMenu(false);
-    UI.closeMenu();
     document.getElementById('topbar-title').textContent = view.short || view.title;
     var main = document.getElementById('main');
     // Re-rendering the same page (after an edit) keeps the scroll position.

@@ -170,64 +170,21 @@
     return opts;
   }
 
-  // Small pop-up menu next to a button: popMenu(buttonEl, [{ label, cls, current, onPick }])
-  var openMenu = null;
-  function closeMenu() {
-    if (!openMenu) return;
-    openMenu.el.remove();
-    document.removeEventListener('pointerdown', openMenu.away, true);
-    document.removeEventListener('keydown', openMenu.key, true);
-    window.removeEventListener('scroll', closeMenu, true);
-    window.removeEventListener('resize', closeMenu);
-    if (openMenu.anchor.isConnected) openMenu.anchor.setAttribute('aria-expanded', 'false');
-    openMenu = null;
-  }
-  function popMenu(anchor, options) {
-    var same = openMenu && openMenu.anchor === anchor;
-    closeMenu();
-    if (same) return;
-    var el = h('div.pop-menu', { role: 'menu' }, options.map(function (o) {
-      return h('button.pop-item' + (o.current ? '.current' : ''), {
-        type: 'button', role: 'menuitemradio', 'aria-checked': o.current ? 'true' : 'false',
-        onclick: function () { closeMenu(); o.onPick(); }
-      }, h('span.' + (o.cls || 'plain'), o.label), o.current ? h('span.tick', '✓') : null);
-    }));
-    document.body.appendChild(el);
-    // Place below the button, or above it when there is no room; keep on screen.
-    var r = anchor.getBoundingClientRect(), mw = el.offsetWidth, mh = el.offsetHeight;
-    var left = Math.min(Math.max(8, r.left + r.width / 2 - mw / 2), window.innerWidth - mw - 8);
-    var top = r.bottom + 6;
-    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
-    el.style.left = left + 'px';
-    el.style.top = top + 'px';
-    anchor.setAttribute('aria-expanded', 'true');
-    openMenu = {
-      el: el, anchor: anchor,
-      away: function (e) { if (!el.contains(e.target) && !anchor.contains(e.target)) closeMenu(); },
-      key: function (e) { if (e.key === 'Escape') { closeMenu(); anchor.focus(); } }
-    };
-    document.addEventListener('pointerdown', openMenu.away, true);
-    document.addEventListener('keydown', openMenu.key, true);
-    window.addEventListener('scroll', closeMenu, true);
-    window.addEventListener('resize', closeMenu);
-    var cur = el.querySelector('.current') || el.querySelector('.pop-item');
-    if (cur) cur.focus({ preventScroll: true });
-  }
-
-  // Menu of the four limud levels for one talmid and unit.
-  function levelMenu(anchor, talmidId, unitId) {
+  // The phone's own pop-up menu (a native select) styled as the colored level pill.
+  function levelSelect(talmidId, unitId, label) {
     var cur = (Store.get().mastery[unitId] || {})[talmidId] || 0;
-    popMenu(anchor, window.MASTERY_LEVELS.map(function (l, i) {
-      return { label: l, cls: 'level.l' + i, current: i === cur, onPick: function () {
-        if (i === cur) return;
-        Store.update(function (s) { (s.mastery[unitId] = s.mastery[unitId] || {})[talmidId] = i; });
-        App.render();
-      } };
-    }));
+    var sel = h('select.level.level-select.l' + cur, { 'aria-label': label || 'Level' },
+      window.MASTERY_LEVELS.map(function (l, i) { return h('option', { value: i, selected: i === cur }, l); }));
+    sel.addEventListener('change', function () {
+      var v = +sel.value;
+      Store.update(function (s) { (s.mastery[unitId] = s.mastery[unitId] || {})[talmidId] = v; });
+      App.render();
+    });
+    return sel;
   }
 
   window.UI = {
-    popMenu: popMenu, closeMenu: closeMenu, levelMenu: levelMenu,
+    levelSelect: levelSelect,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,
     input: input, select: select, fmtDate: fmtDate, hebDate: hebDate, addDays: addDays,
     empty: empty, download: download, copyText: copyText, talmidOptions: talmidOptions

@@ -183,12 +183,8 @@
         h('h2', 'Limud progress'),
         units.length ? h('p.small.muted', 'Tap a level to change it.') : null,
         units.length ? h('ul.list', units.map(function (u) {
-          var lvl = (st.mastery[u.id] || {})[t.id] || 0;
           return h('li.row.between', h('span', h('strong', u.subject), ' ', u.title),
-            h('button.level.l' + lvl, {
-              type: 'button', 'aria-label': u.title + ': ' + window.MASTERY_LEVELS[lvl] + '. Tap to change.',
-              'aria-haspopup': 'menu', onclick: function (e) { UI.levelMenu(e.currentTarget, t.id, u.id); }
-            }, window.MASTERY_LEVELS[lvl]));
+            UI.levelSelect(t.id, u.id, u.title));
         })) : h('p.muted', 'No limud units yet.')));
 
       // Scores: every bechina, so missing ones can be filled in
