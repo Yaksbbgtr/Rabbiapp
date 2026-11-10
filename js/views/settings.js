@@ -24,8 +24,7 @@
         h('div.form-grid',
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
           UI.field('Class name', bind('className', UI.input({ value: s.className }))),
-          UI.field('Yeshiva', bind('school', UI.input({ value: s.school }))),
-          UI.field('What to call points', bind('pointsName', UI.input({ value: s.pointsName })), 'e.g. Points, Stars, Kochavim, Tickets')),
+          UI.field('Yeshiva', bind('school', UI.input({ value: s.school })))),
         h('label.check-row', bind('hebrewFirst', h('input', { type: 'checkbox', checked: s.hebrewFirst }), 'checked'), ' Show Hebrew names throughout the app'),
         h('div.field', h('span.field-label', 'School days (for monthly attendance)'),
           h('div.chips', DAYS.map(function (d, i) {
@@ -70,9 +69,9 @@
         h('h2', 'New year / start over'),
         h('div.row.gap.wrap',
           h('button.btn', { onclick: function () {
-            UI.confirm('Start a new school year? Talmidim, attendance, points, grades, plans and logs are cleared. Your settings, prizes, reasons, jobs and templates are kept. Download a backup first!', function () {
+            UI.confirm('Start a new school year? Talmidim, attendance, grades, plans and logs are cleared. Your settings, jobs and templates are kept. Download a backup first!', function () {
               Store.update(function (x) {
-                x.talmidim = []; x.attendance = {}; x.units = []; x.mastery = {}; x.points = []; x.tests = []; x.scores = {};
+                x.talmidim = []; x.attendance = {}; x.units = []; x.mastery = {}; x.tests = []; x.scores = {};
                 x.lessons = []; x.contacts = []; x.comments = {}; x.notes = [];
                 x.jobs.forEach(function (j) { j.holder = null; });
               });

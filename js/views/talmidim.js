@@ -85,13 +85,11 @@
           return;
         }
         shown.forEach(function (t) {
-          var pts = Store.pointsTotal(t.id);
           list.appendChild(h('a.card.talmid-card', { href: '#/talmid/' + t.id },
             h('div.avatar', initials(t)),
             h('div.grow',
               h('div.name', (t.first || '') + ' ' + (t.last || '')),
-              t.hebName ? h('div.he.muted', t.hebName) : null),
-            h('span.pill', pts + ' ★')));
+              t.hebName ? h('div.he.muted', t.hebName) : null)));
         });
       }
       search.addEventListener('input', draw);
@@ -171,14 +169,12 @@
 
       // Stats
       var a = attendanceSummary(t.id);
-      var pts = Store.pointsTotal(t.id);
       var avg = averageScore(t.id);
       grid.appendChild(h('div.card',
         h('h2', 'At a glance'),
         h('div.stats',
           stat(a.days ? Math.round(100 * a.present / a.days) + '%' : '–', 'attendance'),
           stat(a.absent, 'absences'), stat(a.late, 'lates'),
-          stat(pts, st.settings.pointsName.toLowerCase()),
           stat(avg === null ? '–' : Math.round(avg) + '%', 'bechina avg'))));
 
       // Mastery
@@ -194,23 +190,6 @@
               onclick: function () { pickLevel(t, u); }
             }, window.MASTERY_LEVELS[lvl]));
         })) : h('p.muted', 'No limud units yet.')));
-
-      // Points history
-      var allPoints = st.points.filter(function (p) { return p.talmidId === t.id; })
-        .slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
-      var showAll = !!window.__showAllPoints;
-      var history = showAll ? allPoints : allPoints.slice(0, 10);
-      grid.appendChild(h('div.card',
-        h('div.row.between', h('h2', st.settings.pointsName + ' (' + Store.pointsTotal(t.id) + ')'),
-          h('button.btn.small.primary', { type: 'button', onclick: function () { editPoint(t, null); } }, UI.icon('plus', 16), 'Give')),
-        history.length ? h('p.small.muted', 'Tap any line to change or delete it.') : null,
-        history.length ? h('ul.list', history.map(function (p) {
-          return h('li', h('button.edit-row', { type: 'button', onclick: function () { editPoint(t, p); }, 'aria-label': 'Edit ' + p.reason },
-            h('span', h('span.small.muted', UI.fmtDate(p.date)), ' ', p.reason),
-            h('span.pill' + (p.delta < 0 ? '.neg' : '.pos'), (p.delta > 0 ? '+' : '') + p.delta)));
-        })) : h('p.muted', 'None yet.'),
-        allPoints.length > 10 ? h('button.btn.small', { type: 'button', onclick: function () { window.__showAllPoints = !showAll; App.render(); } },
-          showAll ? 'Show fewer' : 'Show all ' + allPoints.length) : null));
 
       // Scores: every bechina, so missing ones can be filled in
       var tests = st.tests.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
@@ -250,39 +229,6 @@
         m.close(); App.render();
       } }, l);
     })), [{ label: 'Cancel' }]);
-  }
-
-  function editPoint(t, p) {
-    var st = Store.get();
-    var isNew = !p;
-    p = p || { talmidId: t.id, date: Store.todayISO(), delta: 1, reason: '' };
-    var reason = UI.input({ value: p.reason, placeholder: 'e.g. Davened beautifully', list: 'reason-list' });
-    var dl = h('datalist#reason-list', st.pointReasons.map(function (r) { return h('option', { value: r.label }); }));
-    var amount = UI.input({ type: 'number', inputmode: 'numeric', value: p.delta });
-    var date = UI.input({ type: 'date', value: p.date });
-    var quick = h('div.chips', st.pointReasons.map(function (r) {
-      return h('button.chip', { type: 'button', onclick: function () { reason.value = r.label; amount.value = r.delta; } },
-        (r.delta > 0 ? '+' : '') + r.delta + ' ' + r.label);
-    }));
-    UI.modal((isNew ? 'Give ' : 'Edit ') + st.settings.pointsName.toLowerCase() + ' – ' + Store.displayName(t), h('div', dl,
-      isNew ? quick : null,
-      UI.field('Reason', reason),
-      h('div.form-grid', UI.field('Amount (use minus for taking away)', amount), UI.field('Date', date))), [
-      isNew ? null : { label: 'Delete', danger: true, onClick: function () {
-        Store.update(function (s) { s.points = s.points.filter(function (x) { return x.id !== p.id; }); });
-        UI.toast('Deleted'); App.render();
-      } },
-      { label: 'Cancel' },
-      { label: 'Save', primary: true, onClick: function () {
-        var d = parseInt(amount.value, 10);
-        if (!d) { UI.toast('Enter an amount'); return false; }
-        Store.update(function (s) {
-          p.delta = d; p.reason = reason.value.trim() || 'Points'; p.date = date.value || Store.todayISO();
-          if (isNew) { p.id = Store.uid(); s.points.push(p); }
-        });
-        UI.toast('Saved'); App.render();
-      } }
-    ].filter(Boolean));
   }
 
   function editScore(t, x) {

@@ -256,8 +256,6 @@ dl.kv dd { margin: 0; }
 .event.ev-yt span:nth-child(2) { font-weight: 600; color: var(--navy); }
 .event.ev-fast span:nth-child(2) { color: var(--red); }
 .event .he { font-size: .9rem; }
-.leaders { margin: 0 0 6px; padding-left: 22px; }
-.leaders li { display: flex; justify-content: space-between; padding: 5px 0; }
 .notes li { display: flex; gap: 6px; align-items: baseline; }
 .notes li span:nth-child(2) { flex: 1; }
 
@@ -337,28 +335,6 @@ dl.kv dd { margin: 0; }
 .unit-h .link div:last-child { font-weight: 600; color: var(--ink); }
 .unit-actions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
 .mastery td { text-align: center; }
-
-/* ---------- middos ---------- */
-.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin: 12px 0 16px; }
-.pick {
-  border: 2px solid var(--line); background: var(--card); color: var(--ink); border-radius: 12px; padding: 10px 6px;
-  display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; font: inherit;
-}
-.pick .name { font-size: .88rem; font-weight: 600; text-align: center; }
-.pick .pts { font-size: .78rem; color: var(--muted); }
-.pick.on { border-color: var(--gold); background: var(--gold-soft); }
-.pick.on .avatar { background: var(--gold); color: #fff; }
-.reason-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-bottom: 12px; }
-.reason { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 10px; font: inherit; font-size: .9rem; cursor: pointer; text-align: left; }
-.reason:disabled { opacity: .45; cursor: not-allowed; }
-.reason .delta { font-weight: 800; min-width: 28px; text-align: center; border-radius: 8px; padding: 2px 4px; }
-.reason.pos .delta { background: var(--green-soft); color: var(--green); }
-.reason.neg .delta { background: var(--red-soft); color: var(--red); }
-.bar-cell { width: 40%; }
-.bar { height: 10px; border-radius: 6px; background: linear-gradient(90deg, var(--gold), #e8c467); }
-.reward-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.reward { margin: 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-.reward-name { font-weight: 600; }
 
 /* ---------- bechinos ---------- */
 .list-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }

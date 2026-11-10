@@ -131,7 +131,6 @@
           add('Kriah', 'Kriah groups: nekudos review (segol / tzeirei), timed reading', 'Moshe G. improving!');
         }
         add('Dinim', DINIM[dinIdx++ % DINIM.length]);
-        if (d === 2) add('Middos', 'Middah of the week: hakaras hatov – thank-you notes to the cook');
       }
     }
 
@@ -170,20 +169,6 @@
     });
     var yesterday = state.attendance[H.rdToISO(days[0])];
     if (yesterday) { yesterday[byFirst('Chaim').id] = 'A'; yesterday[byFirst('Aryeh').id] = 'L'; }
-
-    // ---------- middos points ----------
-    var reasons = state.pointReasons;
-    days.slice(0, 8).forEach(function (rd, di) {
-      t.forEach(function (s, i) {
-        if ((i + di) % 3 === 0) {
-          var r = reasons[(i + di) % reasons.length];
-          if (r.delta < 0 && (i + di) % 2) r = reasons[0];
-          state.points.push({ id: uid(), talmidId: s.id, date: H.rdToISO(rd), delta: r.delta, reason: r.label });
-        }
-      });
-    });
-
-    state.points.sort(function (a, b) { return a.date.localeCompare(b.date); });
 
     // ---------- bechinos ----------
     var tests = [

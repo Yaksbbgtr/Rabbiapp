@@ -21,7 +21,6 @@
         className: '',
         school: '',
         hebrewFirst: false,
-        pointsName: 'Points',
         attendanceDays: [0, 1, 2, 3, 4, 5], // Sunday-Friday
         setupDone: false
       },
@@ -29,23 +28,6 @@
       attendance: {},          // { 'YYYY-MM-DD': { talmidId: 'P'|'A'|'L'|'E' } }
       units: [],               // limud units: { id, subject, title, date, archived }
       mastery: {},             // { unitId: { talmidId: 0..3 } }
-      points: [],              // { id, talmidId, date, delta, reason }
-      pointReasons: [
-        { label: 'Davened beautifully', delta: 1 },
-        { label: 'Raised hand / answered', delta: 1 },
-        { label: 'Helped a friend', delta: 2 },
-        { label: 'Chazara at home', delta: 2 },
-        { label: 'Kept the seder', delta: 1 },
-        { label: 'Great middos', delta: 2 },
-        { label: 'Talking out of turn', delta: -1 },
-        { label: 'Not prepared', delta: -1 }
-      ],
-      rewards: [
-        { id: uid(), name: 'Sticker', cost: 5 },
-        { id: uid(), name: 'Choose from prize box', cost: 20 },
-        { id: uid(), name: 'Sit in Rebbi\'s chair', cost: 30 },
-        { id: uid(), name: 'Lunch with Rebbi', cost: 50 }
-      ],
       tests: [],               // bechinos: { id, title, subject, date, max }
       scores: {},              // { testId: { talmidId: number } }
       lessons: [],             // planner: { id, date, subject, plan, done, notes }
@@ -113,9 +95,6 @@
       var en = (t.first || '') + (opts.short ? '' : ' ' + (t.last || ''));
       if (state.settings.hebrewFirst && t.hebName) return t.hebName;
       return en.trim() || t.hebName || '?';
-    },
-    pointsTotal: function (talmidId) {
-      return state.points.reduce(function (s, p) { return p.talmidId === talmidId ? s + p.delta : s; }, 0);
     },
 
     exportJSON: function () { return JSON.stringify(state, null, 2); },

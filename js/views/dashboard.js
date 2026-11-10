@@ -12,7 +12,7 @@
       main.appendChild(h('div.welcome',
         h('div.card.hero',
           h('h1', 'Welcome, Rebbi!'),
-          h('p.lead', 'Everything for your kitah in one place: talmidim, attendance, chazara tracking, middos points, bechinos, lesson plans, parent contact, report cards, plus the parsha and Hebrew date.'),
+          h('p.lead', 'Everything for your kitah in one place: talmidim, attendance, chazara tracking, bechinos, lesson plans, parent contact, report cards, plus the parsha and Hebrew date.'),
           h('p.muted', 'All your data stays private on this device. Use Settings → Backup to save a copy or move it to another device.'),
           UI.field('Your name (as it appears on letters)', name),
           UI.field('Class name', cls),
@@ -104,16 +104,6 @@
             h('div', h('strong', l.subject), ' ', h('span', { dir: 'auto' }, l.plan)));
         })) : h('p.muted', 'Nothing planned for today.'),
         h('a.btn', { href: '#/planner' }, 'Open planner')));
-
-      // Middos leaders
-      var totals = talmidim.map(function (t) { return { t: t, pts: Store.pointsTotal(t.id) }; })
-        .sort(function (a, b) { return b.pts - a.pts; }).slice(0, 5);
-      grid.appendChild(h('div.card',
-        h('h2', 'Middos stars'),
-        talmidim.length ? h('ol.leaders', totals.map(function (x) {
-          return h('li', h('span', Store.displayName(x.t)), h('span.pill', x.pts + ' ' + st.settings.pointsName.toLowerCase()));
-        })) : h('p.muted', 'No talmidim yet.'),
-        h('a.btn', { href: '#/middos' }, 'Give points')));
 
       // Follow-ups
       var due = st.contacts.filter(function (c) { return c.followUp && !c.followUpDone && c.followUp <= HebCal.rdToISO(rd + 3); })

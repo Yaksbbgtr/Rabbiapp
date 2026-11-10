@@ -6,16 +6,15 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 
 | Screen | What it does |
 | --- | --- |
-| **Today** | Hebrew date, parshas hashavua, sefiras ha'omer, upcoming yomim tovim and fasts, talmidim's Hebrew birthdays, today's attendance, plan, middos leaders, parent follow-ups, quick notes |
+| **Today** | Hebrew date, parshas hashavua, sefiras ha'omer, upcoming yomim tovim and fasts, talmidim's Hebrew birthdays, today's attendance, plan, parent follow-ups, quick notes |
 | **Talmidim** | Roster with Hebrew names, parents, phones, birthdays, private notes. Scan a printed class list with the phone camera (English and Hebrew names, phone numbers), or paste one in. Each talmid has a profile with everything in one place |
 | **Attendance** | One-tap Here / Late / Absent / Excused, "mark rest here", monthly grid, CSV export, print |
 | **Limud** | Mastery tracker per perek / mishna / sugya (Not yet → Learning → Knows it → Fluent) with a "chazara focus" list of who needs help |
-| **Middos** | Points for good middos with customizable reasons, group awarding, leaderboard, prize store, history with undo |
 | **Bechinos** | Tests and quizzes, fast score entry (Enter jumps to the next talmid), class stats, gradebook |
 | **Planner** | Weekly Sunday–Shabbos plan with Hebrew dates, parsha and yomim tovim, "where we stopped" notes, copy last week |
 | **Parents** | Contact log with follow-up reminders, letter templates with placeholders (`{name}`, `{parsha}`, `{rebbi}`…), open in email or text, class directory, who hasn't been called in 30 days |
-| **Tools** | Fair random picker (everyone gets a turn), chavrusa / group maker, timer, class jobs rotation, gematria calculator |
-| **Reports** | Printable report cards (by subject, mastery, attendance, middos, rebbi's comment, signature lines) for any date range |
+| **Tools** | Fair random picker (everyone gets a turn), chavrusa / group maker, timer, class jobs rotation |
+| **Reports** | Printable report cards (by subject, mastery, attendance, rebbi's comment, signature lines) for any date range |
 | **Settings** | Backup / restore, new-school-year reset, sample class, Hebrew-names mode |
 
 ## Morning attendance texts (demo)
@@ -37,7 +36,7 @@ Data is stored in the browser's `localStorage`. Use **Settings → Download back
 
 ## Hebrew calendar
 
-`js/hebcal.js` is a self-contained implementation of the fixed Hebrew calendar, parsha schedule (chutz la'aretz), yomim tovim and gematria. It has no dependencies.
+`js/hebcal.js` is a self-contained implementation of the fixed Hebrew calendar, parsha schedule (chutz la'aretz), yomim tovim and Hebrew numerals. It has no dependencies.
 
 ```
 node tests/hebcal.test.js

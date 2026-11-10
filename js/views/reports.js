@@ -8,8 +8,6 @@
     var a = window.attendanceSummary(t.id, range.from, range.to);
     var inRange = function (d) { return (!range.from || d >= range.from) && (!range.to || d <= range.to); };
     var tests = st.tests.filter(function (x) { return inRange(x.date) && st.scores[x.id] && st.scores[x.id][t.id] !== undefined; });
-    var pts = st.points.filter(function (p) { return p.talmidId === t.id && inRange(p.date) && p.delta > 0; })
-      .reduce(function (s, p) { return s + p.delta; }, 0);
     var units = st.units.filter(function (u) { return inRange(u.date || ''); });
     // Group test scores by subject
     var bySubject = {};
@@ -38,10 +36,8 @@
           var lvl = (st.mastery[u.id] || {})[t.id] || 0;
           return h('tr', h('td', u.subject), h('td', { dir: 'auto' }, u.title), h('td', window.MASTERY_LEVELS[lvl]));
         })))) : null,
-      h('section.rc-row',
-        h('div', h('h3', 'Attendance'),
-          h('p', a.days ? Math.round(100 * a.present / a.days) + '% present · ' + a.absent + ' absent · ' + a.late + ' late' : 'No attendance recorded.')),
-        h('div', h('h3', 'Middos'), h('p', pts + ' ' + st.settings.pointsName.toLowerCase() + ' earned'))),
+      h('section', h('h3', 'Attendance'),
+        h('p', a.days ? Math.round(100 * a.present / a.days) + '% present · ' + a.absent + ' absent · ' + a.late + ' late' : 'No attendance recorded.')),
       h('section', h('h3', 'Rebbi\'s comments'), h('div.rc-comment', { dir: 'auto' }, st.comments[t.id] || ' ')),
       h('footer.rc-sign', h('div', h('div.sig-line'), h('div.small', st.settings.rebbiName || 'Rebbi')), h('div', h('div.sig-line'), h('div.small', 'Parent signature'))));
   }

@@ -2,7 +2,7 @@
   'use strict';
   var h = UI.h;
   var weekOffset = 0;
-  var SUBJECTS = ['Davening', 'Chumash', 'Rashi', 'Mishnayos', 'Gemara', 'Navi', 'Dinim', 'Parsha', 'Kriah', 'Chazara', 'Middos', 'Story', 'Other'];
+  var SUBJECTS = ['Davening', 'Chumash', 'Rashi', 'Mishnayos', 'Gemara', 'Navi', 'Dinim', 'Parsha', 'Kriah', 'Chazara', 'Story', 'Other'];
 
   function editLesson(l, date) {
     var isNew = !l;
