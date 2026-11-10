@@ -12,7 +12,7 @@
     var method = UI.select(METHODS, c.method);
     var note = h('textarea', { rows: 4, dir: 'auto', placeholder: 'What was discussed?' }, c.note);
     var fu = UI.input({ type: 'date', value: c.followUp });
-    UI.modal(isNew ? 'Log parent contact' : 'Edit contact', h('div',
+    UI.modal(isNew ? 'Log parent call' : 'Edit contact', h('div',
       UI.field('Talmid', who), h('div.form-grid', UI.field('Date', date), UI.field('How', method)),
       UI.field('Notes', note), UI.field('Follow up on', fu, 'Optional – shows on your Today page')), [
       isNew ? null : { label: 'Delete', danger: true, onClick: function () {
@@ -57,7 +57,7 @@
           h('div.seg', [['log', 'Contact log'], ['compose', 'Write a message'], ['directory', 'Directory']].map(function (m) {
             return h('button' + (tab === m[0] ? '.on' : ''), { onclick: function () { tab = m[0]; App.render(); } }, m[1]);
           })),
-          h('button.btn.primary', { onclick: function () { logContact(); } }, UI.icon('plus'), 'Log contact'))));
+          h('button.btn.primary', { onclick: function () { logContact(); } }, UI.icon('plus'), 'Log parent call'))));
 
       if (tab === 'log') {
         var items = st.contacts.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });

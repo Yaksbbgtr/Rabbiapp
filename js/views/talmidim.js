@@ -165,7 +165,7 @@
           kv('Email', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
           kv('Address', t.address)),
         t.notes ? h('div.note-box', { dir: 'auto' }, t.notes) : null,
-        h('button.btn', { onclick: function () { window.logContact && window.logContact(t.id); } }, UI.icon('phone'), 'Log parent contact')));
+        h('button.btn', { onclick: function () { window.logContact && window.logContact(t.id); } }, UI.icon('phone'), 'Log parent call')));
 
       // Stats
       var a = attendanceSummary(t.id);
