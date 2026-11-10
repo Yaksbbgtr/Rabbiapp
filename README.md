@@ -9,7 +9,7 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 | **Today** | Hebrew date, parshas hashavua, sefiras ha'omer, upcoming yomim tovim and fasts, talmidim's Hebrew birthdays, today's attendance, plan, parent follow-ups, quick notes |
 | **Talmidim** | Roster with Hebrew names, parents, phones, birthdays, private notes. Scan a printed class list with the phone camera (English and Hebrew names, phone numbers), or paste one in. Each talmid has a profile with everything in one place |
 | **Attendance** | Everyone starts as Here; tap Late / Absent / Excused for the exceptions and press Save attendance, monthly grid, CSV export, print |
-| **Limud** | Mastery tracker per perek / mishna / sugya (Not yet → Learning → Knows it → Fluent) with a "chazara focus" list of who needs help |
+| **Limud** | One page per limud (perek / mishna / sugya) with the rebbi's source notes, each talmid's level (Not yet → Learning → Knows it → Fluent), a "chazara focus" list, and a Create project button (worksheet / test / coloring page – demo for now) |
 | **Bechinos** | Tests and quizzes, fast score entry (Enter jumps to the next talmid), class stats, gradebook |
 | **Planner** | Weekly Sunday–Shabbos plan with Hebrew dates, parsha and yomim tovim, "where we stopped" notes, copy last week |
 | **Parents** | Contact log with follow-up reminders, eight longer letter templates that ask one question and weave in the talmid's own limud levels, last bechina and absences, open in email or text, class directory, who hasn't been called in 30 days |

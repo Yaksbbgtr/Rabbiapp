@@ -23,6 +23,7 @@
         className: '',
         school: '',
         officeEmail: '',
+        coloringPages: true,
         hebrewFirst: false,
         attendanceDays: [0, 1, 2, 3, 4, 5], // Sunday-Friday
         setupDone: false

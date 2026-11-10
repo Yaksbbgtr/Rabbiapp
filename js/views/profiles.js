@@ -114,6 +114,10 @@
     return h('div.card',
       h('h2', 'Profile'),
       h('p', 'Logged in as ', h('strong', p.name), p.className ? ' · ' + p.className : '', '. Change the name and class above.'),
+      h('label.check-row', h('input', { type: 'checkbox', checked: Store.get().settings.coloringPages !== false, onchange: function (e) {
+        Store.update(function (s) { s.settings.coloringPages = e.target.checked; });
+        UI.toast(e.target.checked ? 'Coloring pages on' : 'Coloring pages off');
+      } }), ' Offer coloring pages under "Create project" (for younger classes)'),
       h('div.row.gap.wrap',
         h('button.btn', { onclick: function () {
           var pin = UI.input({ type: 'password', inputmode: 'numeric', autocomplete: 'off', placeholder: has ? 'New PIN (empty to remove)' : 'Choose a PIN' });

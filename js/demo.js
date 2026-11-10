@@ -93,6 +93,23 @@
 
   function pad(n) { return String(n).padStart(2, '0'); }
 
+  // Sample source notes so the demo limudim aren't empty.
+  function sampleNotes(subject, title) {
+    var byLine = {
+      Chumash: ['Mareh mekomos: Rashi on the first pasuk; Ramban and Sforno on the main question.', 'Kasha to open with: why does the Torah tell us this here?', 'Word list for the sheet: 8 new shorashim.', 'Watch out: boys mix up the two similar pesukim – read them side by side.'],
+      Gemara: ['Mareh mekomos: Rashi d"h on the mishna; Tosafos first d"h; Rambam for the halacha l\'maaseh.', 'Key words to drill: תנן, תניא, מאי טעמא, איבעיא להו.', 'Chazara plan: first sugya b\'al peh by Thursday.', 'Where we got stuck last year: the second tzad – bring a chart.'],
+      Mishnayos: ['Bartenura on each mishna; Tosfos Yom Tov for the strong boys.', 'Act out the case before reading inside.', 'Review game: teams by rows, one mishna each.'],
+      Navi: ['Read inside with Metzudos; Rashi on the hard pesukim.', 'Map of Eretz Yisroel for the places mentioned.', 'Discussion: what middah does this story teach?'],
+      Kriah: ['Flash cards for the new nekudos; 2 minutes a day.', 'Boys who need extra time: see the chazara focus list.', 'Timed reading on Thursday – keep a chart.'],
+      Tefillah: ['Say it together slowly, then one boy at a time.', 'Explain two words each day.', 'Prize for the first boy to know it by heart.'],
+      Parsha: ['Story in the boys\' words first, then the pesukim.', 'Parsha sheet questions: 5 for the Shabbos table.', 'Craft or picture for the main scene.'],
+      Halacha: ['Kitzur Shulchan Aruch inside; Mishna Berura for sources.', 'Practical cases to discuss: 3 real-life questions.', 'Short written quiz at the end of the week.'],
+      Dinim: ['Source in Kitzur Shulchan Aruch; show the boys where it is.', 'Practice the actual bracha or action in class.', 'Review questions for the Shabbos sheet.']
+    };
+    var lines = byLine[subject] || ['Sources and meforshim to bring.', 'Questions to ask the class.', 'What to review next week.'];
+    return 'Source notes – ' + title + '\n\n' + lines.map(function (l) { return '• ' + l; }).join('\n');
+  }
+
   function build(state, uid, todayISO, grade) {
     grade = GRADES[grade] ? grade : 3;
     var G = GRADES[grade];
@@ -173,7 +190,8 @@
       { sub: G.subjects[2], item: 0, weeksAgo: 3, base: 2 }
     ];
     state.units = unitDefs.map(function (u, ui) {
-      var unit = { id: uid(), subject: u.sub.s, title: u.sub.items[u.item].replace('{parsha}', 'Parsha'), date: H.rdToISO(sunday - 7 * u.weeksAgo) };
+      var title = u.sub.items[u.item].replace('{parsha}', 'Parsha');
+      var unit = { id: uid(), subject: u.sub.s, title: title, date: H.rdToISO(sunday - 7 * u.weeksAgo), notes: ui < 2 ? sampleNotes(u.sub.s, title) : '' };
       state.mastery[unit.id] = {};
       t.forEach(function (s, i) {
         var lvl = u.base + ((i * 3 + ui * 5 + grade) % 7 === 0 ? -1 : (i * 5 + ui + grade) % 4 === 0 ? 1 : 0);

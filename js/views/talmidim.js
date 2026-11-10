@@ -183,9 +183,9 @@
         h('h2', 'Limud progress'),
         units.length ? h('p.small.muted', 'Tap a level to change it.') : null,
         units.length ? h('ul.list', units.map(function (u) {
-          return h('li.row.between', h('span', h('strong', u.subject), ' ', u.title),
+          return h('li.row.between', h('a.plain-link', { href: '#/unit/' + u.id }, h('strong', u.subject), ' ', u.title),
             UI.levelSelect(t.id, u.id, u.title));
-        })) : h('p.muted', 'No limud units yet.')));
+        })) : h('p.muted', 'No limudim yet.')));
 
       // Scores: every bechina, so missing ones can be filled in
       var tests = st.tests.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
