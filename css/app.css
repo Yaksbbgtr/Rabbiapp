@@ -97,7 +97,7 @@ p { margin: .3rem 0 .8rem; }
   display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px;
   color: rgba(255, 255, 255, .82); text-decoration: none; font-size: .95rem;
 }
-.nav-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+@media (hover: hover) { .nav-item:hover { background: rgba(255, 255, 255, .08); color: #fff; } }
 .nav-item.active { background: rgba(255, 255, 255, .16); color: #fff; font-weight: 600; }
 .nav-item.active .icon { color: var(--gold); }
 .theme-switch { margin: 14px 4px 4px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .12); }
