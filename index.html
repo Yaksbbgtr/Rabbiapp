@@ -14,7 +14,7 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="brand">
         <img src="icons/icon.svg" alt="" width="36" height="36">
         <div>
@@ -26,11 +26,16 @@
     </aside>
     <div class="content">
       <header class="topbar">
+        <button type="button" class="menu-btn" id="menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="topbar-title" id="topbar-title"></div>
         <div id="header-date" class="header-date"></div>
       </header>
       <main id="main" tabindex="-1"></main>
     </div>
   </div>
+  <div class="nav-backdrop" id="nav-backdrop"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <noscript>Rebbi App needs JavaScript turned on.</noscript>
 

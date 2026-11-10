@@ -24,11 +24,6 @@
         href: '#/' + name, title: v.title, 'aria-current': name === active ? 'page' : null
       }, UI.icon(v.icon), h('span', v.short || v.title)));
     });
-    // Phone only: "More" toggles the full menu
-    nav.appendChild(h('button.nav-item.nav-more', {
-      type: 'button', 'aria-expanded': document.body.classList.contains('nav-open') ? 'true' : 'false',
-      onclick: function () { document.body.classList.toggle('nav-open'); renderNav(active); }
-    }, UI.icon('plus'), h('span', document.body.classList.contains('nav-open') ? 'Less' : 'More')));
   }
 
   function renderHeader() {
@@ -47,7 +42,8 @@
   function render() {
     var route = currentRoute();
     var view = views[route.name] || views.dashboard;
-    document.body.classList.remove('nav-open');
+    setMenu(false);
+    document.getElementById('topbar-title').textContent = view.short || view.title;
     var main = document.getElementById('main');
     // Re-rendering the same page (after an edit) keeps the scroll position.
     var samePage = location.hash === lastHash;
@@ -66,6 +62,24 @@
     if (samePage) window.scrollTo(0, keepY);
     else { window.scrollTo(0, 0); main.focus({ preventScroll: true }); }
   }
+
+  // Phone menu (hamburger)
+  function setMenu(open) {
+    document.body.classList.toggle('nav-open', open);
+    var btn = document.getElementById('menu-btn');
+    if (btn) {
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    }
+  }
+  window.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('menu-btn').addEventListener('click', function () {
+      setMenu(!document.body.classList.contains('nav-open'));
+    });
+    document.getElementById('nav-backdrop').addEventListener('click', function () { setMenu(false); });
+    document.getElementById('nav').addEventListener('click', function (e) { if (e.target.closest('a')) setMenu(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
+  });
 
   window.App = { render: render, go: function (path) { location.hash = '#/' + path; } };
 
