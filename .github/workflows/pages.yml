@@ -24,8 +24,10 @@ jobs:
         with:
           node-version: 22
 
-      - name: Test Hebrew calendar
-        run: node tests/hebcal.test.js
+      - name: Run tests
+        run: |
+          node tests/hebcal.test.js
+          node tests/scan.test.js
 
       - name: Build site (static app only, no server code)
         run: |

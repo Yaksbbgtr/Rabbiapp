@@ -55,6 +55,8 @@
     copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
     shuffle: 'M3 6h4l10 12h4M3 18h4l3-4M14 10l3-4h4M18 3l3 3-3 3M18 15l3 3-3 3',
     chev: 'M9 6l6 6-6 6',
+    camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1.5 1.5 0 1 0 0-.01',
     chevl: 'M15 6l-6 6 6 6'
   };
   function icon(name, size) {

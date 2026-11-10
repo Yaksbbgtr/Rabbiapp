@@ -261,6 +261,23 @@ dl.kv dd { margin: 0; }
 }
 .avatar.lg { width: 64px; height: 64px; font-size: 1.4rem; }
 
+/* ---------- class list scanner ---------- */
+.tips { padding-left: 18px; margin: 0 0 12px; }
+.scan-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+.scan-buttons .btn { flex: 1; min-width: 160px; }
+.scan-preview { display: block; max-width: 100%; max-height: 220px; margin: 0 auto 12px; border-radius: 10px; border: 1px solid var(--line); }
+.progress { height: 10px; background: var(--line); border-radius: 6px; overflow: hidden; }
+.progress-bar { height: 100%; width: 0; background: var(--gold); transition: width .3s; }
+.scan-rows { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.scan-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border: 1px solid var(--line); border-radius: 10px; }
+.scan-row > input[type=checkbox] { margin-top: 10px; }
+.scan-row.off { opacity: .5; }
+.scan-fields { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.scan-fields input { min-height: 36px; padding: 6px 9px; }
+.scan-raw { white-space: pre-wrap; max-height: 160px; overflow: auto; background: var(--bg); padding: 8px; border-radius: 8px; }
+.scan-add { position: sticky; bottom: -10px; background: var(--card); padding: 10px 0 4px; text-align: right; }
+.scan-fields input { min-width: 0; }
+
 /* ---------- attendance ---------- */
 .att-list { padding: 4px 12px; }
 .att-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }

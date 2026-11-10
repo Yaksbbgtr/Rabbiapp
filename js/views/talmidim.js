@@ -80,7 +80,8 @@
           return !q || [t.first, t.last, t.hebName, t.father, t.mother].join(' ').toLowerCase().indexOf(q) >= 0;
         });
         if (!all.length) {
-          list.appendChild(UI.empty('No talmidim yet. Add them one at a time, or paste your whole class list.'));
+          list.appendChild(UI.empty('No talmidim yet. Scan a class list with your camera, paste one, or add talmidim one at a time.',
+            h('button.btn.primary', { onclick: function () { window.ClassListScanner.open(); } }, UI.icon('camera'), 'Scan class list')));
           return;
         }
         shown.forEach(function (t) {
@@ -96,7 +97,8 @@
       search.addEventListener('input', draw);
       main.appendChild(h('div.page-head',
         h('div', h('h1', 'Talmidim'), h('p.muted', all.length + ' in class')),
-        h('div.row.gap',
+        h('div.row.gap.wrap',
+          h('button.btn', { onclick: function () { window.ClassListScanner.open(); } }, UI.icon('camera'), 'Scan class list'),
           h('button.btn', { onclick: bulkAdd }, 'Paste class list'),
           h('button.btn.primary', { onclick: function () { editTalmid(); } }, UI.icon('plus'), 'Add talmid'))));
       main.appendChild(search);
