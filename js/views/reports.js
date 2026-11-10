@@ -2,6 +2,7 @@
   'use strict';
   var h = UI.h;
   var range = { from: '', to: '' };
+  var rangeOpen = false;
 
   function reportCard(t) {
     var st = Store.get();
@@ -76,43 +77,62 @@
   Views.register('reports', {
     title: 'Report cards', short: 'Reports', icon: 'file',
     render: function (main, params) {
+      var st = Store.get();
       var talmidim = Store.activeTalmidim();
       var only = params[0] ? Store.talmid(params[0]) : null;
+      onCommentChange = null;
+
       var from = UI.input({ type: 'date', value: range.from, onchange: function (e) { range.from = e.target.value; App.render(); } });
       var to = UI.input({ type: 'date', value: range.to, onchange: function (e) { range.to = e.target.value; App.render(); } });
+      var fmt = function (d) { return UI.fmtDate(d, { weekday: undefined, year: 'numeric' }); };
+      var rangeText = !range.from && !range.to ? 'the whole year so far'
+        : (range.from ? fmt(range.from) : 'the start') + ' to ' + (range.to ? fmt(range.to) : 'today');
+      var rangeCard = h('details.card.no-print.rc-range', { open: rangeOpen ? true : null },
+        h('summary', 'Reports cover: ', h('strong', rangeText), h('span.muted.small', ' (change)')),
+        h('div.form-grid', UI.field('From', from), UI.field('To', to)),
+        h('button.btn.small', { onclick: function () { range = { from: '', to: '' }; App.render(); } }, 'Whole year'));
+      rangeCard.addEventListener('toggle', function () { rangeOpen = rangeCard.open; });
+
+      // ----- one talmid's report card -----
+      if (only) {
+        var idx = talmidim.findIndex(function (t) { return t.id === only.id; });
+        var prev = talmidim[idx - 1], next = talmidim[idx + 1];
+        main.appendChild(h('a.back.no-print', { href: '#/reports' }, UI.icon('chevl', 16), 'Class list'));
+        main.appendChild(h('div.page-head.no-print',
+          h('div', h('h1', Store.displayName(only)), h('p.muted', 'Tap the comments box to write. It saves as you type.')),
+          h('button.btn.primary', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print this card')));
+        main.appendChild(reportCard(only));
+        main.appendChild(h('div.rc-nav.no-print',
+          prev ? h('a.btn', { href: '#/reports/' + prev.id }, UI.icon('chevl', 16), Store.displayName(prev)) : h('span'),
+          next ? h('a.btn', { href: '#/reports/' + next.id }, Store.displayName(next), UI.icon('chev', 16)) : h('span')));
+        main.appendChild(rangeCard);
+        return;
+      }
+
+      // ----- class list -----
+      var done = talmidim.filter(function (t) { return st.comments[t.id]; }).length;
       main.appendChild(h('div.page-head.no-print',
-        h('div', h('h1', only ? 'Report card' : 'Report cards'), h('p.muted', 'Type each talmid\'s comment right on his report card. Print or save as PDF from the print dialog.')),
-        h('div.row.gap', only ? h('a.btn', { href: '#/reports' }, 'Whole class') : null,
-          h('button.btn.primary', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print'))));
-      main.appendChild(h('div.card.row.gap.wrap.no-print', UI.field('From', from), UI.field('To', to),
-        h('button.btn', { onclick: function () { range = { from: '', to: '' }; App.render(); } }, 'All time')));
+        h('div', h('h1', 'Report cards'), h('p.muted', 'Tap a talmid to open his report card and write his comment.')),
+        talmidim.length ? h('button.btn.primary', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print all') : null));
 
       if (!talmidim.length) { main.appendChild(UI.empty('Add talmidim first.')); return; }
 
-      onCommentChange = null;
-      if (!only) {
-        var warn = h('div.card.warn.no-print');
-        var drawMissing = function () {
-          var missing = talmidim.filter(function (t) { return !Store.get().comments[t.id]; });
-          warn.innerHTML = '';
-          warn.style.display = missing.length ? '' : 'none';
-          warn.appendChild(document.createTextNode('Still need a comment (' + missing.length + '): '));
-          missing.forEach(function (t, i) {
-            if (i) warn.appendChild(document.createTextNode(', '));
-            warn.appendChild(h('button.link.jump', { type: 'button', onclick: function () {
-              var card = document.getElementById('rc-' + t.id);
-              if (!card) return;
-              var ta = card.querySelector('textarea');
-              ta.scrollIntoView({ block: 'center', behavior: 'smooth' });
-              ta.focus({ preventScroll: true });
-            } }, Store.displayName(t)));
-          });
-        };
-        drawMissing();
-        onCommentChange = drawMissing;
-        main.appendChild(warn);
-      }
-      (only ? [only] : talmidim).forEach(function (t) { main.appendChild(reportCard(t)); });
+      main.appendChild(rangeCard);
+      main.appendChild(h('p.small.muted.no-print', done + ' of ' + talmidim.length + ' comments written'));
+      main.appendChild(h('div.card.rc-list.no-print', talmidim.map(function (t) {
+        var avg = window.averageScore(t.id);
+        var has = !!st.comments[t.id];
+        return h('a.rc-list-row', { href: '#/reports/' + t.id },
+          h('div.avatar', window.talmidInitials(t)),
+          h('div.grow',
+            h('div.name', Store.displayName(t)),
+            h('div.small.muted', avg === null ? 'No bechinos yet' : 'Average ' + Math.round(avg) + '%')),
+          h('span.pill' + (has ? '.pos' : '.gold'), has ? 'Comment ✓' : 'Needs comment'),
+          UI.icon('chev', 18));
+      })));
+
+      // All the cards, shown only on paper when "Print all" is pressed.
+      main.appendChild(h('div.print-only', talmidim.map(reportCard)));
     }
   });
 })();
