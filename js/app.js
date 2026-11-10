@@ -81,6 +81,58 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
   });
 
+  // Swipe from the left edge to open the menu; swipe left to close it (phones).
+  (function () {
+    var EDGE = 40, sidebar, backdrop, drag = null;
+    function isPhone() { return window.matchMedia('(max-width: 860px)').matches; }
+    function width() { return sidebar.getBoundingClientRect().width; }
+    function place(x) { // x = how many px of the menu are showing
+      var w = width();
+      x = Math.max(0, Math.min(w, x));
+      sidebar.style.transition = 'none';
+      sidebar.style.transform = 'translateX(' + (x - w) + 'px)';
+      backdrop.style.display = 'block';
+      backdrop.style.opacity = String(x / w);
+    }
+    function release() {
+      sidebar.style.transition = ''; sidebar.style.transform = '';
+      backdrop.style.display = ''; backdrop.style.opacity = '';
+    }
+    document.addEventListener('touchstart', function (e) {
+      sidebar = sidebar || document.getElementById('sidebar');
+      backdrop = backdrop || document.getElementById('nav-backdrop');
+      drag = null;
+      if (!isPhone() || e.touches.length !== 1 || document.querySelector('.modal-overlay')) return;
+      var t = e.touches[0];
+      var open = document.body.classList.contains('nav-open');
+      if (!open && t.clientX > EDGE) return;
+      drag = { x0: t.clientX, y0: t.clientY, open: open, active: false, x: t.clientX, t0: Date.now() };
+    }, { passive: true });
+    document.addEventListener('touchmove', function (e) {
+      if (!drag) return;
+      var t = e.touches[0], dx = t.clientX - drag.x0, dy = t.clientY - drag.y0;
+      if (!drag.active) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        if (Math.abs(dy) > Math.abs(dx) || (drag.open ? dx > 0 : dx < 0)) { drag = null; return; } // scrolling, or wrong way
+        drag.active = true;
+      }
+      if (e.cancelable) e.preventDefault();
+      drag.x = t.clientX;
+      place(drag.open ? width() + dx : dx);
+    }, { passive: false });
+    function end() {
+      if (!drag) return;
+      var d = drag; drag = null;
+      if (!d.active) return;
+      var dx = d.x - d.x0, fast = Math.abs(dx) / Math.max(1, Date.now() - d.t0) > 0.5;
+      var far = Math.abs(dx) > width() * 0.35;
+      release();
+      setMenu(d.open ? !(far || (fast && dx < -20)) : (far || (fast && dx > 20)));
+    }
+    document.addEventListener('touchend', end);
+    document.addEventListener('touchcancel', end);
+  })();
+
   window.App = { render: render, go: function (path) { location.hash = '#/' + path; } };
 
   window.addEventListener('hashchange', render);

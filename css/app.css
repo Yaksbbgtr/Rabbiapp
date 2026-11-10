@@ -101,7 +101,8 @@ main { padding: 24px; max-width: 1200px; width: 100%; outline: none; }
     box-shadow: 4px 0 24px rgba(0, 0, 0, .3);
   }
   body.nav-open .sidebar { transform: none; }
-  .nav-backdrop { position: fixed; inset: 0; background: rgba(10, 15, 25, .5); z-index: 30; }
+  .nav-backdrop { position: fixed; inset: 0; background: rgba(10, 15, 25, .5); z-index: 30; touch-action: none; }
+  .sidebar { touch-action: pan-y; }
   body.nav-open .nav-backdrop { display: block; }
   body.nav-open { overflow: hidden; }
   .nav-item { padding: 13px 12px; font-size: 1rem; }
