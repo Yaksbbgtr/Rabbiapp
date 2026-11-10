@@ -40,6 +40,8 @@
             } }, d);
           })))));
 
+      main.appendChild(Profiles.settingsCard());
+
       var seg = h('div.seg');
       UI.themeButtons(seg, function () { App.render(); });
       main.appendChild(h('div.card',
@@ -63,7 +65,7 @@
       var last = localStorage.getItem('rabbiapp.lastBackup');
       main.appendChild(h('div.card',
         h('h2', 'Backup & devices'),
-        h('p', 'Your data is saved only in this browser on this device. Download a backup regularly, and use it to move your class to another device or browser.'),
+        h('p', 'This profile\'s data is saved only in this browser on this device. Download a backup regularly, and use it to move your class to another device or browser.'),
         h('p.small.muted', last ? 'Last backup: ' + new Date(+last).toLocaleString() : 'No backup downloaded yet.'),
         h('div.row.gap.wrap',
           h('button.btn.primary', { onclick: function () {
@@ -86,12 +88,9 @@
               App.go('talmidim');
             }, 'Start new year');
           } }, 'Start a new school year'),
-          h('button.btn', { onclick: function () {
-            UI.confirm('Replace everything with a sample class?', function () { Store.loadDemo(); App.go('dashboard'); }, 'Load sample');
-          } }, 'Load sample class'),
           h('button.btn.danger', { onclick: function () {
-            UI.confirm('Erase ALL data on this device? This cannot be undone.', function () { Store.reset(); location.hash = '#/welcome'; }, 'Erase everything');
-          } }, 'Erase everything'))));
+            UI.confirm('Erase this profile\'s whole class (talmidim, attendance, grades, plans and logs)? This cannot be undone.', function () { Store.reset(); App.go('talmidim'); }, 'Erase everything');
+          } }, 'Erase this class'))));
 
       main.appendChild(h('div.card',
         h('h2', 'About'),

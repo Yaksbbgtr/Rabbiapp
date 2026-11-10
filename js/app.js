@@ -42,6 +42,14 @@
   var lastHash = null;
   function render() {
     var route = currentRoute();
+    var profile = Store.currentProfile();
+    // Nobody logged in: only the login screen is available.
+    if (!profile) route = { name: 'login', params: [] };
+    else if (route.name === 'login') route = { name: 'dashboard', params: [] };
+    document.body.classList.toggle('logged-out', !profile);
+    var pb = document.getElementById('profile-btn');
+    pb.textContent = profile ? Profiles.initials(profile.name) : '';
+    pb.setAttribute('aria-label', profile ? 'Profile: ' + profile.name : 'Profile');
     var view = views[route.name] || views.dashboard;
     setMenu(false);
     document.getElementById('topbar-title').textContent = view.short || view.title;
@@ -103,7 +111,7 @@
       sidebar = sidebar || document.getElementById('sidebar');
       backdrop = backdrop || document.getElementById('nav-backdrop');
       drag = null;
-      if (!isPhone() || e.touches.length !== 1 || document.querySelector('.modal-overlay')) return;
+      if (!isPhone() || e.touches.length !== 1 || document.querySelector('.modal-overlay') || document.body.classList.contains('logged-out')) return;
       var t = e.touches[0];
       var open = document.body.classList.contains('nav-open');
       if (!open && t.clientX > EDGE) return;
@@ -139,7 +147,7 @@
   window.addEventListener('hashchange', render);
   window.addEventListener('DOMContentLoaded', function () {
     UI.setTheme(UI.getTheme());
-    if (!Store.get().settings.setupDone && !location.hash) location.hash = '#/welcome';
+    document.getElementById('profile-btn').addEventListener('click', function () { Profiles.menu(); });
     render();
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
       // When a new version takes over, reload once so the rebbi sees it right away.

@@ -15,7 +15,8 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 | **Parents** | Contact log with follow-up reminders, eight longer letter templates that ask one question and weave in the talmid's own limud levels, last bechina and absences, open in email or text, class directory, who hasn't been called in 30 days |
 | **Tools** | Fair random picker (everyone gets a turn), chavrusa / group maker, timer, class jobs rotation |
 | **Reports** | Class list that opens each talmid's report card; send them to the school office as separate PDFs through the phone's share sheet; printable report cards (by subject, mastery, attendance, rebbi's comment, signature lines) for any date range |
-| **Settings** | Backup / restore, new-school-year reset, sample class, Hebrew-names mode |
+| **Profiles** | Each rebbi logs in to his own class on the device, with an optional PIN. Sample profiles for grades 1–8 (Kitah Alef to Ches) can be added from the login screen |
+| **Settings** | Backup / restore, new-school-year reset, light/dark mode, Hebrew-names mode, PIN |
 
 ## Morning attendance texts (demo)
 
@@ -32,7 +33,7 @@ No build step and no server needed.
 - **To install as an app (offline, home-screen icon):** host the folder on any static host (GitHub Pages, Netlify, etc.), open it, then choose *Add to Home Screen* / *Install app*.
 - **Locally with offline support:** `python3 -m http.server` in this folder, then visit <http://localhost:8000>.
 
-Data is stored in the browser's `localStorage`. Use **Settings → Download backup** regularly. The backup file also moves a class to another device.
+Data is stored in the browser's `localStorage`, separately for each profile. Use **Settings → Download backup** regularly. The backup file also moves a class to another device.
 
 ## Hebrew calendar
 

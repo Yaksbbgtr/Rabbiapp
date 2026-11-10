@@ -24,9 +24,10 @@
 
       // Everyone starts as "Here". Changes stay a draft until Save attendance is pressed.
       var saved = st.attendance[selected] || null;
-      var draft = drafts[selected];
+      var draftKey = (Store.currentProfile() || {}).id + '|' + selected; // unsaved marks belong to one profile and day
+      var draft = drafts[draftKey];
       if (!draft) {
-        draft = drafts[selected] = {};
+        draft = drafts[draftKey] = {};
         talmidim.forEach(function (t) { draft[t.id] = (saved && saved[t.id]) || 'P'; });
       }
       talmidim.forEach(function (t) { if (!draft[t.id]) draft[t.id] = 'P'; });
@@ -43,7 +44,7 @@
           onclick: function () {
             UI.confirm('Erase the saved attendance for ' + UI.fmtDate(selected) + '?', function () {
               Store.update(function (s) { delete s.attendance[selected]; });
-              delete drafts[selected];
+              delete drafts[draftKey];
               App.render();
             }, 'Erase');
           }
@@ -83,7 +84,7 @@
               Object.keys(s.attendance[selected] || {}).forEach(function (id) { if (!day[id]) day[id] = s.attendance[selected][id]; });
               s.attendance[selected] = day;
             });
-            delete drafts[selected];
+            delete drafts[draftKey];
             UI.toast('Attendance saved: ' + summary);
             App.render();
           }

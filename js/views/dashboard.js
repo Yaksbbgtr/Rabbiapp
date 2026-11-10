@@ -2,39 +2,6 @@
   'use strict';
   var h = UI.h;
 
-  Views.register('welcome', {
-    title: 'Welcome', hidden: true,
-    render: function (main) {
-      var s = Store.get().settings;
-      var name = UI.input({ value: s.rebbiName, placeholder: 'e.g. Rabbi Cohen' });
-      var cls = UI.input({ value: s.className, placeholder: 'e.g. Kitah Daled' });
-      var school = UI.input({ value: s.school, placeholder: 'Yeshiva name' });
-      main.appendChild(h('div.welcome',
-        h('div.card.hero',
-          h('h1', 'Welcome, Rebbi!'),
-          h('p.lead', 'Everything for your kitah in one place: talmidim, attendance, chazara tracking, bechinos, lesson plans, parent contact, report cards, plus the parsha and Hebrew date.'),
-          h('p.muted', 'All your data stays private on this device. Use Settings → Backup to save a copy or move it to another device.'),
-          UI.field('Your name (as it appears on letters)', name),
-          UI.field('Class name', cls),
-          UI.field('Yeshiva', school),
-          h('div.row.gap',
-            h('button.btn.primary', {
-              onclick: function () {
-                Store.update(function (st) {
-                  st.settings.rebbiName = name.value.trim();
-                  st.settings.className = cls.value.trim();
-                  st.settings.school = school.value.trim();
-                  st.settings.setupDone = true;
-                });
-                App.go('talmidim');
-              }
-            }, 'Get started → add talmidim'),
-            h('button.btn', {
-              onclick: function () { Store.loadDemo(); UI.toast('Sample class loaded'); App.go('dashboard'); }
-            }, 'Try it with a sample class')))));
-    }
-  });
-
   Views.register('dashboard', {
     title: 'Today', icon: 'home',
     render: function (main) {
