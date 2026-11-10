@@ -22,57 +22,76 @@
 
       if (mode === 'month') return renderMonth(main, talmidim);
 
-      var dateInput = UI.input({ type: 'date', value: selected, onchange: function (e) { selected = e.target.value || Store.todayISO(); App.render(); } });
+      // Everyone starts as "Here". Changes stay a draft until Save attendance is pressed.
+      var saved = st.attendance[selected] || null;
+      var draft = drafts[selected];
+      if (!draft) {
+        draft = drafts[selected] = {};
+        talmidim.forEach(function (t) { draft[t.id] = (saved && saved[t.id]) || 'P'; });
+      }
+      talmidim.forEach(function (t) { if (!draft[t.id]) draft[t.id] = 'P'; });
+      var dirty = !saved || talmidim.some(function (t) { return saved[t.id] !== draft[t.id]; });
+
+      var dateInput = UI.input({ type: 'date', value: selected, 'aria-label': 'Date', onchange: function (e) { selected = e.target.value || Store.todayISO(); App.render(); } });
       main.appendChild(h('div.card.row.between.wrap',
         h('div.row.gap',
           h('button.icon-btn', { 'aria-label': 'Previous day', onclick: function () { selected = UI.addDays(selected, -1); App.render(); } }, UI.icon('chevl')),
           dateInput,
           h('button.icon-btn', { 'aria-label': 'Next day', onclick: function () { selected = UI.addDays(selected, 1); App.render(); } }, UI.icon('chev')),
           h('span.he.muted', UI.hebDate(selected))),
-        h('div.row.gap',
-          h('button.btn', {
-            onclick: function () {
-              Store.update(function (s) {
-                var day = s.attendance[selected] = s.attendance[selected] || {};
-                talmidim.forEach(function (t) { if (!day[t.id]) day[t.id] = 'P'; });
-              });
-              App.render();
-            }
-          }, 'Mark rest here'),
-          h('button.btn', {
-            onclick: function () {
+        saved ? h('button.btn', {
+          onclick: function () {
+            UI.confirm('Erase the saved attendance for ' + UI.fmtDate(selected) + '?', function () {
               Store.update(function (s) { delete s.attendance[selected]; });
+              delete drafts[selected];
               App.render();
-            }
-          }, 'Clear day'))));
+            }, 'Erase');
+          }
+        }, 'Erase this day') : null));
 
-      var day = st.attendance[selected] || {};
+      main.appendChild(h('p.muted.small', 'Everyone starts as Here. Tap Late, Absent or Excused for the boys who aren\'t, then press Save attendance.'));
+
       var list = h('div.card.att-list');
       talmidim.forEach(function (t) {
-        var cur = day[t.id];
+        var cur = draft[t.id];
         list.appendChild(h('div.att-row',
           h('div.att-name', h('span', Store.displayName(t)), t.hebName && !st.settings.hebrewFirst ? h('span.he.muted.small', t.hebName) : null),
           h('div.att-btns', { role: 'group', 'aria-label': 'Attendance for ' + Store.displayName(t) },
             STATUSES.map(function (s) {
               return h('button.att.' + s[0] + (cur === s[0] ? '.on' : ''), {
                 'aria-pressed': cur === s[0] ? 'true' : 'false',
-                onclick: function () {
-                  Store.update(function (st2) {
-                    var d = st2.attendance[selected] = st2.attendance[selected] || {};
-                    if (d[t.id] === s[0]) delete d[t.id]; else d[t.id] = s[0];
-                    if (!Object.keys(d).length) delete st2.attendance[selected];
-                  });
-                  App.render();
-                }
+                onclick: function () { draft[t.id] = s[0]; App.render(); }
               }, s[1]);
             }))));
       });
       main.appendChild(list);
-      var marked = Object.keys(day).length;
-      main.appendChild(h('p.muted.small', marked + ' of ' + talmidim.length + ' marked'));
+
+      var c = { P: 0, L: 0, A: 0, E: 0 };
+      talmidim.forEach(function (t) { c[draft[t.id]]++; });
+      var summary = c.P + ' here' + (c.L ? ' · ' + c.L + ' late' : '') + (c.A ? ' · ' + c.A + ' absent' : '') + (c.E ? ' · ' + c.E + ' excused' : '');
+      main.appendChild(h('div.save-bar',
+        h('div',
+          h('div.save-status' + (dirty ? '.unsaved' : ''), !saved ? 'Not saved yet' : dirty ? 'Changes not saved' : 'Saved ✓'),
+          h('div.small.muted', summary)),
+        h('button.btn.primary.big', {
+          disabled: !dirty,
+          onclick: function () {
+            Store.update(function (s) {
+              var day = {};
+              talmidim.forEach(function (t) { day[t.id] = draft[t.id]; });
+              // keep records of archived talmidim for this day
+              Object.keys(s.attendance[selected] || {}).forEach(function (id) { if (!day[id]) day[id] = s.attendance[selected][id]; });
+              s.attendance[selected] = day;
+            });
+            delete drafts[selected];
+            UI.toast('Attendance saved: ' + summary);
+            App.render();
+          }
+        }, UI.icon('check'), dirty ? 'Save attendance' : 'Saved')));
     }
   });
 
+  var drafts = {};
   var monthOffset = 0;
   function renderMonth(main, talmidim) {
     var st = Store.get();

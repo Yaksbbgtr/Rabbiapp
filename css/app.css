@@ -305,6 +305,15 @@ dl.kv dd { margin: 0; }
 .att.L.on { background: var(--amber); color: #fff; border-color: var(--amber); }
 .att.A.on { background: var(--red); color: #fff; border-color: var(--red); }
 .att.E.on { background: #6b7280; color: #fff; border-color: #6b7280; }
+.save-bar {
+  position: sticky; bottom: 0; z-index: 4; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 -4px 16px rgba(0, 0, 0, .12);
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); margin: 0 0 16px;
+}
+.save-status { font-weight: 700; color: var(--green); }
+.save-status.unsaved { color: var(--amber); }
+.save-bar .btn:disabled { opacity: .6; }
+@media print { .save-bar { display: none; } }
 .att-cell { text-align: center; font-weight: 600; }
 .att-cell.P { color: var(--green); }
 .att-cell.L { color: var(--amber); background: var(--amber-soft); }
