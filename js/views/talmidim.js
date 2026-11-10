@@ -187,7 +187,7 @@
           return h('li.row.between', h('span', h('strong', u.subject), ' ', u.title),
             h('button.level.l' + lvl, {
               type: 'button', 'aria-label': u.title + ': ' + window.MASTERY_LEVELS[lvl] + '. Tap to change.',
-              onclick: function () { pickLevel(t, u); }
+              'aria-haspopup': 'menu', onclick: function (e) { UI.levelMenu(e.currentTarget, t.id, u.id); }
             }, window.MASTERY_LEVELS[lvl]));
         })) : h('p.muted', 'No limud units yet.')));
 
@@ -220,16 +220,6 @@
     }
   });
 
-
-  function pickLevel(t, u) {
-    var cur = (Store.get().mastery[u.id] || {})[t.id] || 0;
-    var m = UI.modal(u.subject + ': ' + u.title, h('div.level-pick', window.MASTERY_LEVELS.map(function (l, i) {
-      return h('button.level.big.l' + i + (i === cur ? '.current' : ''), { type: 'button', onclick: function () {
-        Store.update(function (s) { (s.mastery[u.id] = s.mastery[u.id] || {})[t.id] = i; });
-        m.close(); App.render();
-      } }, l);
-    })), [{ label: 'Cancel' }]);
-  }
 
   function editScore(t, x) {
     var st = Store.get();

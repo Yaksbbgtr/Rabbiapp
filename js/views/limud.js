@@ -41,7 +41,7 @@
       var used = SUBJECTS.filter(function (s) { return st.units.some(function (u) { return u.subject === s; }); });
 
       main.appendChild(h('div.page-head',
-        h('div', h('h1', 'Limud tracker'), h('p.muted', 'Track who knows each perek, mishna or sugya. Tap a box to change the level.')),
+        h('div', h('h1', 'Limud tracker'), h('p.muted', 'Track who knows each perek, mishna or sugya. Tap a box to choose the level.')),
         h('button.btn.primary', { onclick: function () { editUnit(); } }, UI.icon('plus'), 'New unit')));
 
       main.appendChild(h('div.chips',
@@ -78,10 +78,8 @@
             var lvl = (st.mastery[u.id] || {})[t.id] || 0;
             return h('td', h('button.level.l' + lvl, {
               'aria-label': Store.displayName(t) + ', ' + u.title + ': ' + window.MASTERY_LEVELS[lvl] + '. Tap to change.',
-              onclick: function () {
-                Store.update(function (s) { var mm = s.mastery[u.id] = s.mastery[u.id] || {}; mm[t.id] = ((mm[t.id] || 0) + 1) % 4; });
-                App.render();
-              }
+              'aria-haspopup': 'menu',
+              onclick: function (e) { UI.levelMenu(e.currentTarget, t.id, u.id); }
             }, window.MASTERY_LEVELS[lvl]));
           }));
         })));
