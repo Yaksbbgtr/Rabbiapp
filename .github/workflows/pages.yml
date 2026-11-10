@@ -28,6 +28,7 @@ jobs:
         run: |
           node tests/hebcal.test.js
           node tests/scan.test.js
+          node tests/templates.test.js
 
       - name: Build site (static app only, no server code)
         run: |

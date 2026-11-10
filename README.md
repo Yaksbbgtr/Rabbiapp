@@ -12,7 +12,7 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 | **Limud** | Mastery tracker per perek / mishna / sugya (Not yet → Learning → Knows it → Fluent) with a "chazara focus" list of who needs help |
 | **Bechinos** | Tests and quizzes, fast score entry (Enter jumps to the next talmid), class stats, gradebook |
 | **Planner** | Weekly Sunday–Shabbos plan with Hebrew dates, parsha and yomim tovim, "where we stopped" notes, copy last week |
-| **Parents** | Contact log with follow-up reminders, letter templates with placeholders (`{name}`, `{parsha}`, `{rebbi}`…), open in email or text, class directory, who hasn't been called in 30 days |
+| **Parents** | Contact log with follow-up reminders, eight longer letter templates that ask one question and weave in the talmid's own limud levels, last bechina and absences, open in email or text, class directory, who hasn't been called in 30 days |
 | **Tools** | Fair random picker (everyone gets a turn), chavrusa / group maker, timer, class jobs rotation |
 | **Reports** | Printable report cards (by subject, mastery, attendance, rebbi's comment, signature lines) for any date range |
 | **Settings** | Backup / restore, new-school-year reset, sample class, Hebrew-names mode |
@@ -41,6 +41,7 @@ Data is stored in the browser's `localStorage`. Use **Settings → Download back
 ```
 node tests/hebcal.test.js
 node tests/scan.test.js
+node tests/templates.test.js
 ```
 
 The tests check every day from 1990–2060 against the browser's built-in (ICU) Hebrew calendar, check known parsha dates, and confirm that every year from 5600–6000 reads each parsha exactly once.

@@ -31,20 +31,38 @@
   }
   window.logContact = logContact;
 
-  function fillTemplate(body, t, extra) {
+  // Everything the app knows that can make a message personal.
+  function messageValues(t, detail) {
     var st = Store.get();
-    var p = HebCal.parshaOfWeek(HebCal.isoToRD(Store.todayISO()));
-    var vals = Object.assign({
-      name: t ? (t.first || t.hebName) : '[name]',
-      parent: t ? (t.father || t.mother ? 'Mr. and Mrs. ' + (t.last || '') : 'Parents') : '[parent]',
+    var today = Store.todayISO();
+    var p = HebCal.parshaOfWeek(HebCal.isoToRD(today));
+    var vals = {
+      name: t ? (t.first || t.hebName) : 'your son',
+      parent: t ? (t.last && (t.father || t.mother) ? 'Mr. and Mrs. ' + t.last : 'Parents') : 'Parents',
       rebbi: st.settings.rebbiName || 'Rebbi',
-      class: st.settings.className || '',
-      parsha: p.holiday ? p.en : p.en,
-      date: UI.fmtDate(Store.todayISO(), { weekday: 'long', month: 'long', day: 'numeric' }),
-      hebdate: UI.hebDate(Store.todayISO()),
-      highlight: '[what he did]'
-    }, extra || {});
-    return body.replace(/\{(\w+)\}/g, function (m, k) { return vals[k] !== undefined ? vals[k] : m; });
+      class: st.settings.className || 'our class',
+      parsha: p.en,
+      date: UI.fmtDate(today, { weekday: 'long', month: 'long', day: 'numeric' }),
+      hebdate: UI.hebDate(today),
+      detail: detail || '',
+      strengths: '', working_on: '', bechina: '', score: '', absences: ''
+    };
+    if (!t) return vals;
+    var open = st.units.filter(function (u) { return !u.archived; }).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var lvl = function (u) { return (st.mastery[u.id] || {})[t.id] || 0; };
+    var title = function (u) { return u.title; };
+    vals.strengths = MessageTemplates.joinList(open.filter(function (u) { return lvl(u) >= 2; }).slice(0, 3).map(title));
+    vals.working_on = MessageTemplates.joinList(open.filter(function (u) { return lvl(u) < 2; }).slice(0, 2).map(title));
+    var graded = st.tests.filter(function (x) { var v = (st.scores[x.id] || {})[t.id]; return v !== undefined && v !== '' && v !== null; })
+      .sort(function (a, b) { return b.date.localeCompare(a.date); })[0];
+    if (graded) {
+      var sc = st.scores[graded.id][t.id];
+      vals.bechina = graded.title;
+      vals.score = sc + ' out of ' + graded.max + ' (' + Math.round(100 * sc / graded.max) + '%)';
+    }
+    var a = window.attendanceSummary(t.id, UI.addDays(today, -30), today);
+    if (a.absent >= 2) vals.absences = String(a.absent);
+    return vals;
   }
 
   Views.register('parents', {
@@ -53,7 +71,7 @@
       var st = Store.get();
       main.appendChild(h('div.page-head',
         h('div', h('h1', 'Parent communication')),
-        h('div.row.gap',
+        h('div.row.gap.wrap',
           h('div.seg', [['log', 'Contact log'], ['compose', 'Write a message'], ['directory', 'Directory']].map(function (m) {
             return h('button' + (tab === m[0] ? '.on' : ''), { onclick: function () { tab = m[0]; App.render(); } }, m[1]);
           })),
@@ -88,16 +106,34 @@
 
       if (tab === 'compose') {
         var tplSel = UI.select(st.templates.map(function (t) { return [t.id, t.name]; }), st.templates[0] && st.templates[0].id);
-        var who = UI.select(UI.talmidOptions('— Generic (no name) —'), '');
-        var highlight = UI.input({ placeholder: 'e.g. knew the whole perek by heart' });
-        var out = h('textarea.letter', { rows: 12, dir: 'auto' });
+        var who = UI.select(UI.talmidOptions('— Whole class (no name) —'), '');
+        var detail = h('textarea', { rows: 3, dir: 'auto' });
+        var detailLabel = h('span.field-label');
+        var facts = h('p.small.muted');
+        var out = h('textarea.letter', { rows: 12, dir: 'auto', 'aria-label': 'Message' });
+        var grow = function () { out.style.height = 'auto'; out.style.height = (out.scrollHeight + 4) + 'px'; };
         var draw = function () {
           var tpl = st.templates.find(function (t) { return t.id === tplSel.value; });
           var t = Store.talmid(who.value);
-          out.value = tpl ? fillTemplate(tpl.body, t, highlight.value.trim() ? { highlight: highlight.value.trim() } : null) : '';
+          detailLabel.textContent = (tpl && tpl.ask) || 'Anything specific to add? (optional)';
+          detail.placeholder = (tpl && tpl.eg) || '';
+          var vals = messageValues(t, detail.value);
+          out.value = tpl ? MessageTemplates.fill(tpl.body, vals) : '';
+          var used = [];
+          if (tpl && t) {
+            if (vals.strengths && /\{strengths\}/.test(tpl.body)) used.push('what he knows well');
+            if (vals.working_on && /\{working_on\}/.test(tpl.body)) used.push('what he is still learning');
+            if (vals.bechina && /\{bechina\}/.test(tpl.body)) used.push('his last bechina');
+            if (vals.absences && /\{absences\}/.test(tpl.body)) used.push('his absences');
+          }
+          facts.textContent = !t ? 'Choose a talmid and the message will include his own limud levels, bechinos and attendance.'
+            : used.length ? 'Added from ' + t.first + '\'s records: ' + used.join(', ') + '. You can edit the message before sending.'
+            : 'You can edit the message before sending.';
+          grow();
         };
-        [tplSel, who, highlight].forEach(function (el) { el.addEventListener('input', draw); el.addEventListener('change', draw); });
-        draw();
+        [tplSel, who, detail].forEach(function (el) { el.addEventListener('input', draw); el.addEventListener('change', draw); });
+        out.addEventListener('input', grow);
+        setTimeout(draw, 0);
         var actions = h('div.row.gap.wrap',
           h('button.btn.primary', { onclick: function () { UI.copyText(out.value); } }, UI.icon('copy'), 'Copy'),
           h('button.btn', { onclick: function () {
@@ -110,13 +146,14 @@
           } }, 'Open in messages'),
           h('button.btn', { onclick: function () {
             if (!who.value) { UI.toast('Choose a talmid to log it'); return; }
-            Store.update(function (s) { s.contacts.push({ id: Store.uid(), talmidId: who.value, date: Store.todayISO(), method: 'Note home', note: out.value.slice(0, 300) }); });
+            Store.update(function (s) { s.contacts.push({ id: Store.uid(), talmidId: who.value, date: Store.todayISO(), method: 'Note home', note: (tplSel.selectedOptions[0] ? tplSel.selectedOptions[0].text + ': ' : '') + (detail.value.trim() || out.value.slice(0, 200)) }); });
             UI.toast('Logged');
           } }, 'Log as sent'));
         main.appendChild(h('div.grid.two',
-          h('div.card', UI.field('Template', tplSel), UI.field('Talmid', who), UI.field('Highlight (for {highlight})', highlight),
+          h('div.card', UI.field('What kind of message?', tplSel), UI.field('About which talmid?', who),
+            h('label.field', detailLabel, detail),
             h('button.btn', { onclick: editTemplates }, 'Edit templates')),
-          h('div.card', UI.field('Message', out), actions)));
+          h('div.card', h('h2', 'Message'), out, facts, actions)));
       }
 
       if (tab === 'directory') {
@@ -141,18 +178,21 @@
 
   function editTemplates() {
     var st = Store.get();
-    var rows = st.templates.map(function (t) { return { id: t.id, name: t.name, body: t.body }; });
+    var rows = st.templates.map(function (t) { return { id: t.id, name: t.name, ask: t.ask || '', eg: t.eg || '', body: t.body }; });
     var box = h('div');
     function draw() {
       box.innerHTML = '';
-      box.appendChild(h('p.small.muted', 'Placeholders: {name} {parent} {rebbi} {class} {parsha} {date} {hebdate} {highlight}'));
+      box.appendChild(h('p.small.muted', 'Words in {curly brackets} are filled in automatically: {name} {parent} {rebbi} {class} {parsha} {date} {hebdate}, ' +
+        '{detail} (what you type), {strengths} and {working_on} (from the Limud page), {bechina} and {score} (his last bechina), {absences}. ' +
+        'Put [[double brackets]] around a sentence to leave it out when there is nothing to fill in.'));
       rows.forEach(function (r, i) {
         box.appendChild(h('div.card.tight',
           h('div.row.gap', UI.input({ value: r.name, oninput: function (e) { r.name = e.target.value; } }),
             h('button.icon-btn', { 'aria-label': 'Remove template', onclick: function () { rows.splice(i, 1); draw(); } }, UI.icon('trash', 16))),
-          h('textarea', { rows: 5, dir: 'auto', oninput: function (e) { r.body = e.target.value; } }, r.body)));
+          UI.field('Question to ask the rebbi', UI.input({ value: r.ask, placeholder: 'e.g. What did he do well?', oninput: function (e) { r.ask = e.target.value; } })),
+          h('textarea', { rows: 8, dir: 'auto', 'aria-label': 'Message text', oninput: function (e) { r.body = e.target.value; } }, r.body)));
       });
-      box.appendChild(h('button.btn.small', { onclick: function () { rows.push({ id: Store.uid(), name: 'New template', body: 'Dear {parent},\n\n\n{rebbi}' }); draw(); } }, UI.icon('plus'), 'Add template'));
+      box.appendChild(h('button.btn.small', { onclick: function () { rows.push({ id: Store.uid(), name: 'New template', ask: '', eg: '', body: 'Dear {parent},\n\n[[{detail}]]\n\n{rebbi}' }); draw(); } }, UI.icon('plus'), 'Add template'));
     }
     draw();
     UI.modal('Message templates', box, [{ label: 'Cancel' }, { label: 'Save', primary: true, onClick: function () {

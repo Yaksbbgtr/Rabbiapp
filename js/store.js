@@ -32,11 +32,8 @@
       scores: {},              // { testId: { talmidId: number } }
       lessons: [],             // planner: { id, date, subject, plan, done, notes }
       contacts: [],            // parent log: { id, talmidId, date, method, note, followUp, followUpDone }
-      templates: [
-        { id: uid(), name: 'Great week', body: 'Dear {parent},\n\nI wanted to share that {name} had a wonderful week! He {highlight}. You should have much nachas!\n\n{rebbi}' },
-        { id: uid(), name: 'Parsha sheet', body: 'Dear Parents,\n\nThis week we are learning Parshas {parsha}. Please review the attached sheet with {name} over Shabbos.\n\nGood Shabbos,\n{rebbi}' },
-        { id: uid(), name: 'Missing homework', body: 'Dear {parent},\n\n{name} has not been bringing his chazara sheet signed. Could you please help him remember? Thank you for your partnership!\n\n{rebbi}' }
-      ],
+      templates: window.MessageTemplates.defaults(uid),
+      templatesVersion: window.MessageTemplates.VERSION,
       jobs: [
         { id: uid(), name: 'Chazan', holder: null },
         { id: uid(), name: 'Gabbai', holder: null },
@@ -54,6 +51,7 @@
       var raw = localStorage.getItem(KEY);
       if (!raw) return defaults();
       var data = JSON.parse(raw);
+      window.MessageTemplates.upgrade(data, uid);
       var d = defaults();
       Object.keys(d).forEach(function (k) { if (data[k] === undefined) data[k] = d[k]; });
       data.settings = Object.assign(d.settings, data.settings);
@@ -101,6 +99,7 @@
     importJSON: function (text) {
       var data = JSON.parse(text);
       if (!data || !Array.isArray(data.talmidim)) throw new Error('This does not look like a Rebbi App backup file.');
+      window.MessageTemplates.upgrade(data, uid);
       var d = defaults();
       Object.keys(d).forEach(function (k) { if (data[k] === undefined) data[k] = d[k]; });
       state = data;
