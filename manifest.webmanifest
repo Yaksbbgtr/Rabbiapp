@@ -1,0 +1,13 @@
+{
+  "name": "Rebbi App",
+  "short_name": "Rebbi App",
+  "description": "The all-in-one classroom app for yeshiva ketana rebbeim.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#1e3a5f",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

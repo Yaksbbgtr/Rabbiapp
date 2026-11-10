@@ -1,0 +1,173 @@
+/* Local data store: everything lives in the browser (localStorage). */
+(function () {
+  'use strict';
+  var KEY = 'rabbiapp.v1';
+  var listeners = [];
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function defaults() {
+    return {
+      version: 1,
+      settings: {
+        rebbiName: '',
+        className: '',
+        school: '',
+        hebrewFirst: false,
+        pointsName: 'Points',
+        attendanceDays: [0, 1, 2, 3, 4, 5], // Sunday-Friday
+        setupDone: false
+      },
+      talmidim: [],
+      attendance: {},          // { 'YYYY-MM-DD': { talmidId: 'P'|'A'|'L'|'E' } }
+      units: [],               // limud units: { id, subject, title, date, archived }
+      mastery: {},             // { unitId: { talmidId: 0..3 } }
+      points: [],              // { id, talmidId, date, delta, reason }
+      pointReasons: [
+        { label: 'Davened beautifully', delta: 1 },
+        { label: 'Raised hand / answered', delta: 1 },
+        { label: 'Helped a friend', delta: 2 },
+        { label: 'Chazara at home', delta: 2 },
+        { label: 'Kept the seder', delta: 1 },
+        { label: 'Great middos', delta: 2 },
+        { label: 'Talking out of turn', delta: -1 },
+        { label: 'Not prepared', delta: -1 }
+      ],
+      rewards: [
+        { id: uid(), name: 'Sticker', cost: 5 },
+        { id: uid(), name: 'Choose from prize box', cost: 20 },
+        { id: uid(), name: 'Sit in Rebbi\'s chair', cost: 30 },
+        { id: uid(), name: 'Lunch with Rebbi', cost: 50 }
+      ],
+      tests: [],               // bechinos: { id, title, subject, date, max }
+      scores: {},              // { testId: { talmidId: number } }
+      lessons: [],             // planner: { id, date, subject, plan, done, notes }
+      contacts: [],            // parent log: { id, talmidId, date, method, note, followUp, followUpDone }
+      templates: [
+        { id: uid(), name: 'Great week', body: 'Dear {parent},\n\nI wanted to share that {name} had a wonderful week! He {highlight}. You should have much nachas!\n\n{rebbi}' },
+        { id: uid(), name: 'Parsha sheet', body: 'Dear Parents,\n\nThis week we are learning Parshas {parsha}. Please review the attached sheet with {name} over Shabbos.\n\nGood Shabbos,\n{rebbi}' },
+        { id: uid(), name: 'Missing homework', body: 'Dear {parent},\n\n{name} has not been bringing his chazara sheet signed. Could you please help him remember? Thank you for your partnership!\n\n{rebbi}' }
+      ],
+      jobs: [
+        { id: uid(), name: 'Chazan', holder: null },
+        { id: uid(), name: 'Gabbai', holder: null },
+        { id: uid(), name: 'Line leader', holder: null },
+        { id: uid(), name: 'Board monitor', holder: null },
+        { id: uid(), name: 'Sefarim monitor', holder: null }
+      ],
+      comments: {},            // report card comments { talmidId: text }
+      notes: []                // quick notes { id, date, text, talmidId? }
+    };
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return defaults();
+      var data = JSON.parse(raw);
+      var d = defaults();
+      Object.keys(d).forEach(function (k) { if (data[k] === undefined) data[k] = d[k]; });
+      data.settings = Object.assign(d.settings, data.settings);
+      return data;
+    } catch (e) {
+      console.error('Could not load data', e);
+      return defaults();
+    }
+  }
+
+  var state = load();
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch (e) {
+      alert('Could not save — storage may be full. Please export a backup.');
+    }
+    listeners.forEach(function (fn) { fn(state); });
+  }
+
+  var Store = {
+    uid: uid,
+    todayISO: todayISO,
+    get: function () { return state; },
+    save: save,
+    update: function (fn) { fn(state); save(); },
+    onChange: function (fn) { listeners.push(fn); },
+
+    talmid: function (id) { return state.talmidim.find(function (t) { return t.id === id; }); },
+    activeTalmidim: function () {
+      return state.talmidim.filter(function (t) { return !t.archived; }).sort(function (a, b) {
+        return (a.last || '').localeCompare(b.last || '') || (a.first || '').localeCompare(b.first || '');
+      });
+    },
+    displayName: function (t, opts) {
+      if (!t) return '(removed)';
+      opts = opts || {};
+      var en = (t.first || '') + (opts.short ? '' : ' ' + (t.last || ''));
+      if (state.settings.hebrewFirst && t.hebName) return t.hebName;
+      return en.trim() || t.hebName || '?';
+    },
+    pointsTotal: function (talmidId) {
+      return state.points.reduce(function (s, p) { return p.talmidId === talmidId ? s + p.delta : s; }, 0);
+    },
+
+    exportJSON: function () { return JSON.stringify(state, null, 2); },
+    importJSON: function (text) {
+      var data = JSON.parse(text);
+      if (!data || !Array.isArray(data.talmidim)) throw new Error('This does not look like a Rebbi App backup file.');
+      var d = defaults();
+      Object.keys(d).forEach(function (k) { if (data[k] === undefined) data[k] = d[k]; });
+      state = data;
+      save();
+    },
+    reset: function () { state = defaults(); save(); },
+    loadDemo: function () {
+      state = defaults();
+      var names = [
+        ['Avraham', 'Cohen', 'אברהם', 'Moshe', 'Rivka', 'משה'], ['Yitzchak', 'Levy', 'יצחק', 'Dovid', 'Sarah', 'דוד'],
+        ['Yaakov', 'Friedman', 'יעקב', 'Shmuel', 'Leah', 'שמואל'], ['Moshe', 'Goldberg', 'משה', 'Chaim', 'Chana', 'חיים'],
+        ['Shmuel', 'Katz', 'שמואל', 'Yosef', 'Miriam', 'יוסף'], ['Dovid', 'Rosen', 'דוד', 'Eliezer', 'Esther', 'אליעזר'],
+        ['Yosef', 'Weiss', 'יוסף', 'Binyamin', 'Devorah', 'בנימין'], ['Mordechai', 'Klein', 'מרדכי', 'Aharon', 'Rochel', 'אהרן'],
+        ['Eliyahu', 'Schwartz', 'אליהו', 'Menachem', 'Bracha', 'מנחם'], ['Chaim', 'Stern', 'חיים', 'Yehuda', 'Shira', 'יהודה'],
+        ['Binyamin', 'Gross', 'בנימין', 'Zev', 'Tzipora', 'זאב'], ['Nachum', 'Berger', 'נחום', 'Pinchas', 'Malka', 'פינחס']
+      ];
+      var year = new Date().getFullYear() - 9;
+      state.talmidim = names.map(function (n, i) {
+        return {
+          id: uid(), first: n[0], last: n[1], hebName: n[2] + ' בן ' + n[5], father: n[3] + ' ' + n[1],
+          mother: n[4] + ' ' + n[1], phone: '555-01' + String(10 + i), email: '',
+          birthday: year + '-' + String((i % 12) + 1).padStart(2, '0') + '-' + String(5 + i).padStart(2, '0'),
+          notes: '', archived: false
+        };
+      });
+      var t = state.talmidim;
+      var today = todayISO();
+      state.settings.rebbiName = 'Rebbi';
+      state.settings.className = 'Kitah Gimmel';
+      state.settings.setupDone = true;
+      var u1 = { id: uid(), subject: 'Chumash', title: 'Perek 1: Pesukim 1-10', date: today };
+      var u2 = { id: uid(), subject: 'Mishnayos', title: 'Brachos 1:1', date: today };
+      state.units = [u1, u2];
+      state.mastery[u1.id] = {}; state.mastery[u2.id] = {};
+      t.forEach(function (s, i) {
+        state.mastery[u1.id][s.id] = i % 4;
+        state.mastery[u2.id][s.id] = (i + 2) % 4;
+        state.points.push({ id: uid(), talmidId: s.id, date: today, delta: (i % 5) + 1, reason: 'Kept the seder' });
+      });
+      var test = { id: uid(), title: 'Chumash bechina', subject: 'Chumash', date: today, max: 100 };
+      state.tests = [test];
+      state.scores[test.id] = {};
+      t.forEach(function (s, i) { state.scores[test.id][s.id] = 70 + ((i * 7) % 31); });
+      save();
+    }
+  };
+
+  window.Store = Store;
+})();

@@ -1,0 +1,257 @@
+(function () {
+  'use strict';
+  var h = UI.h;
+
+  function editTalmid(t) {
+    var isNew = !t;
+    t = t || { first: '', last: '', hebName: '', father: '', mother: '', phone: '', phone2: '', email: '', birthday: '', address: '', notes: '', seat: '' };
+    var f = {
+      first: UI.input({ value: t.first, placeholder: 'First name', required: true }),
+      last: UI.input({ value: t.last, placeholder: 'Last name' }),
+      hebName: UI.input({ value: t.hebName, placeholder: 'שם בן שם האב', dir: 'rtl' }),
+      birthday: UI.input({ type: 'date', value: t.birthday }),
+      father: UI.input({ value: t.father }),
+      mother: UI.input({ value: t.mother }),
+      phone: UI.input({ type: 'tel', value: t.phone }),
+      phone2: UI.input({ type: 'tel', value: t.phone2 }),
+      email: UI.input({ type: 'email', value: t.email }),
+      address: UI.input({ value: t.address }),
+      notes: h('textarea', { rows: 3, dir: 'auto', placeholder: 'Allergies, learning needs, what motivates him…' }, t.notes || '')
+    };
+    var body = h('div.form-grid',
+      UI.field('First name', f.first), UI.field('Last name', f.last),
+      UI.field('Hebrew name', f.hebName), UI.field('Birthday', f.birthday, 'Hebrew birthday is calculated automatically'),
+      UI.field('Father', f.father), UI.field('Mother', f.mother),
+      UI.field('Phone', f.phone), UI.field('Second phone', f.phone2),
+      UI.field('Email', f.email), UI.field('Address', f.address),
+      h('div.span2', UI.field('Notes (private)', f.notes)));
+    UI.modal(isNew ? 'Add talmid' : 'Edit ' + Store.displayName(t), body, [
+      { label: 'Cancel' },
+      {
+        label: isNew ? 'Add' : 'Save', primary: true, onClick: function () {
+          if (!f.first.value.trim() && !f.hebName.value.trim()) { f.first.focus(); UI.toast('Please enter a name'); return false; }
+          Store.update(function (s) {
+            Object.keys(f).forEach(function (k) { t[k] = f[k].value.trim(); });
+            if (isNew) { t.id = Store.uid(); t.archived = false; s.talmidim.push(t); }
+          });
+          UI.toast(isNew ? 'Talmid added' : 'Saved');
+          App.render();
+        }
+      }
+    ]);
+  }
+  window.editTalmid = editTalmid;
+
+  function bulkAdd() {
+    var ta = h('textarea', { rows: 10, dir: 'auto', placeholder: 'One talmid per line:\nAvraham Cohen\nYitzchak Levy, יצחק בן דוד\n…' });
+    UI.modal('Add a whole class', h('div',
+      h('p.muted', 'Paste one name per line. Optionally add the Hebrew name after a comma.'), ta), [
+      { label: 'Cancel' },
+      {
+        label: 'Add all', primary: true, onClick: function () {
+          var lines = ta.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+          Store.update(function (s) {
+            lines.forEach(function (l) {
+              var parts = l.split(/[,\t]/);
+              var name = parts[0].trim().split(/\s+/);
+              s.talmidim.push({
+                id: Store.uid(), first: name.shift() || '', last: name.join(' '),
+                hebName: (parts[1] || '').trim(), archived: false
+              });
+            });
+          });
+          UI.toast(lines.length + ' talmidim added');
+          App.render();
+        }
+      }
+    ]);
+  }
+
+  Views.register('talmidim', {
+    title: 'Talmidim', icon: 'users',
+    render: function (main) {
+      var all = Store.activeTalmidim();
+      var search = UI.input({ type: 'search', placeholder: 'Search…', 'aria-label': 'Search talmidim' });
+      var list = h('div.talmid-grid');
+      function draw() {
+        var q = search.value.trim().toLowerCase();
+        list.innerHTML = '';
+        var shown = all.filter(function (t) {
+          return !q || [t.first, t.last, t.hebName, t.father, t.mother].join(' ').toLowerCase().indexOf(q) >= 0;
+        });
+        if (!all.length) {
+          list.appendChild(UI.empty('No talmidim yet. Add them one at a time, or paste your whole class list.'));
+          return;
+        }
+        shown.forEach(function (t) {
+          var pts = Store.pointsTotal(t.id);
+          list.appendChild(h('a.card.talmid-card', { href: '#/talmid/' + t.id },
+            h('div.avatar', initials(t)),
+            h('div.grow',
+              h('div.name', (t.first || '') + ' ' + (t.last || '')),
+              t.hebName ? h('div.he.muted', t.hebName) : null),
+            h('span.pill', pts + ' ★')));
+        });
+      }
+      search.addEventListener('input', draw);
+      main.appendChild(h('div.page-head',
+        h('div', h('h1', 'Talmidim'), h('p.muted', all.length + ' in class')),
+        h('div.row.gap',
+          h('button.btn', { onclick: bulkAdd }, 'Paste class list'),
+          h('button.btn.primary', { onclick: function () { editTalmid(); } }, UI.icon('plus'), 'Add talmid'))));
+      main.appendChild(search);
+      main.appendChild(list);
+      draw();
+
+      var archived = Store.get().talmidim.filter(function (t) { return t.archived; });
+      if (archived.length) {
+        main.appendChild(h('details.card',
+          h('summary', 'Archived talmidim (' + archived.length + ')'),
+          h('ul.list', archived.map(function (t) {
+            return h('li.row.between', h('span', Store.displayName(t)),
+              h('button.btn.small', { onclick: function () { Store.update(function () { t.archived = false; }); App.render(); } }, 'Restore'));
+          }))));
+      }
+    }
+  });
+
+  function initials(t) {
+    var s = ((t.first || '')[0] || '') + ((t.last || '')[0] || '');
+    return s || (t.hebName || '?')[0];
+  }
+  window.talmidInitials = initials;
+
+  Views.register('talmid', {
+    title: 'Talmid', hidden: true, matches: 'talmidim',
+    render: function (main, params) {
+      var t = Store.talmid(params[0]);
+      if (!t) { main.appendChild(UI.empty('Talmid not found.', h('a.btn', { href: '#/talmidim' }, 'Back'))); return; }
+      var st = Store.get();
+      var today = Store.todayISO();
+
+      main.appendChild(h('a.back', { href: '#/talmidim' }, UI.icon('chevl', 16), 'All talmidim'));
+      var bdayInfo = null;
+      if (t.birthday) {
+        var orig = HebCal.isoToRD(t.birthday);
+        var next = HebCal.nextHebrewAnniversary(orig, HebCal.isoToRD(today));
+        bdayInfo = h('div.small.muted', 'Born ' + UI.fmtDate(t.birthday, { year: 'numeric', weekday: undefined }) + ' · ' +
+          HebCal.formatHebrew(HebCal.fromRD(orig)) + ' · next Hebrew birthday ' + UI.fmtDate(HebCal.rdToISO(next)));
+      }
+      main.appendChild(h('div.page-head',
+        h('div.row.gap',
+          h('div.avatar.lg', initials(t)),
+          h('div', h('h1', (t.first || '') + ' ' + (t.last || '')), t.hebName ? h('div.he.big', t.hebName) : null, bdayInfo)),
+        h('div.row.gap',
+          h('a.btn', { href: '#/reports/' + t.id }, UI.icon('print'), 'Report card'),
+          h('button.btn', { onclick: function () { editTalmid(t); } }, UI.icon('edit'), 'Edit'),
+          h('button.btn', {
+            onclick: function () {
+              UI.confirm('Archive ' + Store.displayName(t) + '? His records are kept and he can be restored later.', function () {
+                Store.update(function () { t.archived = true; }); App.go('talmidim');
+              }, 'Archive');
+            }
+          }, 'Archive'))));
+
+      var grid = h('div.grid');
+      main.appendChild(grid);
+
+      // Contact
+      grid.appendChild(h('div.card',
+        h('h2', 'Family'),
+        h('dl.kv',
+          kv('Father', t.father), kv('Mother', t.mother),
+          kv('Phone', t.phone ? h('a', { href: 'tel:' + t.phone }, t.phone) : ''),
+          kv('Phone 2', t.phone2 ? h('a', { href: 'tel:' + t.phone2 }, t.phone2) : ''),
+          kv('Email', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
+          kv('Address', t.address)),
+        t.notes ? h('div.note-box', { dir: 'auto' }, t.notes) : null,
+        h('button.btn', { onclick: function () { window.logContact && window.logContact(t.id); } }, UI.icon('phone'), 'Log parent contact')));
+
+      // Stats
+      var a = attendanceSummary(t.id);
+      var pts = Store.pointsTotal(t.id);
+      var avg = averageScore(t.id);
+      grid.appendChild(h('div.card',
+        h('h2', 'At a glance'),
+        h('div.stats',
+          stat(a.days ? Math.round(100 * a.present / a.days) + '%' : '–', 'attendance'),
+          stat(a.absent, 'absences'), stat(a.late, 'lates'),
+          stat(pts, st.settings.pointsName.toLowerCase()),
+          stat(avg === null ? '–' : Math.round(avg) + '%', 'bechina avg'))));
+
+      // Mastery
+      var units = st.units.filter(function (u) { return !u.archived; });
+      grid.appendChild(h('div.card',
+        h('h2', 'Limud progress'),
+        units.length ? h('ul.list', units.map(function (u) {
+          var lvl = (st.mastery[u.id] || {})[t.id] || 0;
+          return h('li.row.between', h('span', h('strong', u.subject), ' ', u.title), h('span.level.l' + lvl, window.MASTERY_LEVELS[lvl]));
+        })) : h('p.muted', 'No limud units yet.')));
+
+      // Points history
+      var history = st.points.filter(function (p) { return p.talmidId === t.id; }).slice(-10).reverse();
+      grid.appendChild(h('div.card',
+        h('h2', 'Recent ' + st.settings.pointsName.toLowerCase()),
+        history.length ? h('ul.list', history.map(function (p) {
+          return h('li.row.between', h('span', h('span.small.muted', UI.fmtDate(p.date)), ' ', p.reason),
+            h('span.pill' + (p.delta < 0 ? '.neg' : '.pos'), (p.delta > 0 ? '+' : '') + p.delta));
+        })) : h('p.muted', 'None yet.')));
+
+      // Scores
+      var tests = st.tests.filter(function (x) { return st.scores[x.id] && st.scores[x.id][t.id] !== undefined && st.scores[x.id][t.id] !== ''; });
+      grid.appendChild(h('div.card',
+        h('h2', 'Bechinos'),
+        tests.length ? h('ul.list', tests.map(function (x) {
+          var sc = st.scores[x.id][t.id];
+          return h('li.row.between', h('span', h('span.small.muted', UI.fmtDate(x.date)), ' ', x.title),
+            h('strong', sc + ' / ' + x.max));
+        })) : h('p.muted', 'No scores yet.')));
+
+      // Contacts
+      var contacts = st.contacts.filter(function (c) { return c.talmidId === t.id; }).slice().reverse();
+      grid.appendChild(h('div.card',
+        h('h2', 'Parent contact log'),
+        contacts.length ? h('ul.list', contacts.map(function (c) {
+          return h('li', h('div.small.muted', UI.fmtDate(c.date) + ' · ' + c.method), h('div', { dir: 'auto' }, c.note));
+        })) : h('p.muted', 'No contacts logged.')));
+
+      // Report comment
+      var comment = h('textarea', { rows: 4, dir: 'auto', placeholder: 'Comment for the report card…' }, st.comments[t.id] || '');
+      comment.addEventListener('change', function () { Store.update(function (s) { s.comments[t.id] = comment.value; }); UI.toast('Comment saved'); });
+      grid.appendChild(h('div.card', h('h2', 'Report card comment'), comment));
+      void today;
+    }
+  });
+
+  function kv(k, v) { return v ? [h('dt', k), h('dd', { dir: 'auto' }, v)] : null; }
+  function stat(n, label) { return h('div.stat', h('div.stat-n', String(n)), h('div.stat-l', label)); }
+
+  function attendanceSummary(id, from, to) {
+    var att = Store.get().attendance;
+    var r = { days: 0, present: 0, absent: 0, late: 0, excused: 0 };
+    Object.keys(att).forEach(function (date) {
+      if (from && date < from) return;
+      if (to && date > to) return;
+      var v = att[date][id];
+      if (!v) return;
+      r.days++;
+      if (v === 'P') r.present++;
+      if (v === 'L') { r.late++; r.present++; }
+      if (v === 'A') r.absent++;
+      if (v === 'E') { r.excused++; r.absent++; }
+    });
+    return r;
+  }
+  function averageScore(id) {
+    var st = Store.get();
+    var sum = 0, n = 0;
+    st.tests.forEach(function (x) {
+      var v = st.scores[x.id] && st.scores[x.id][id];
+      if (v === undefined || v === '' || v === null || isNaN(v)) return;
+      sum += 100 * Number(v) / (Number(x.max) || 100); n++;
+    });
+    return n ? sum / n : null;
+  }
+  window.attendanceSummary = attendanceSummary;
+  window.averageScore = averageScore;
+})();

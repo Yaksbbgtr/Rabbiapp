@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="description" content="The all-in-one classroom app for yeshiva ketana rebbeim.">
+  <title>Rebbi App</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" width="36" height="36">
+        <div>
+          <div class="brand-name">Rebbi App</div>
+          <div class="brand-class" id="brand-class"></div>
+        </div>
+      </div>
+      <nav id="nav" aria-label="Main"></nav>
+    </aside>
+    <div class="content">
+      <header class="topbar">
+        <div id="header-date" class="header-date"></div>
+      </header>
+      <main id="main" tabindex="-1"></main>
+    </div>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript>Rebbi App needs JavaScript turned on.</noscript>
+
+  <script src="js/hebcal.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/views/dashboard.js"></script>
+  <script src="js/views/talmidim.js"></script>
+  <script src="js/views/attendance.js"></script>
+  <script src="js/views/limud.js"></script>
+  <script src="js/views/middos.js"></script>
+  <script src="js/views/bechinos.js"></script>
+  <script src="js/views/planner.js"></script>
+  <script src="js/views/parents.js"></script>
+  <script src="js/views/tools.js"></script>
+  <script src="js/views/reports.js"></script>
+  <script src="js/views/settings.js"></script>
+</body>
+</html>
