@@ -394,6 +394,15 @@ dl.kv dd { margin: 0; }
 .rc-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .rc-table th, .rc-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid #e5e1d8; }
 .rc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.print-only { display: none; }
+.rc-comment-edit {
+  display: block; width: 100%; min-height: 84px; resize: none; overflow: hidden; font: inherit; line-height: 1.45;
+  background: #fffdf6; color: #1d2433; border: 1px dashed #c9bfa5; border-radius: 8px; padding: 10px;
+}
+.rc-comment-edit:focus { border-style: solid; border-color: #d4a63a; background: #fff; }
+.rc-comment-edit::placeholder { color: #8a8f99; }
+.rc-saved { color: #2f855a; text-transform: none; letter-spacing: 0; font-weight: 600; margin-left: 6px; }
+.link.jump { color: var(--navy-2); text-decoration: underline; }
 .rc-comment { min-height: 70px; border: 1px solid #e5e1d8; border-radius: 8px; padding: 10px; white-space: pre-wrap; }
 .rc-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 30px; }
 .sig-line { border-bottom: 1px solid #1d2433; height: 30px; }
@@ -401,6 +410,7 @@ dl.kv dd { margin: 0; }
 /* ---------- print ---------- */
 @media print {
   body { background: #fff; color: #000; }
+  .print-only { display: block; }
   .sidebar, .topbar, .no-print, .btn, .icon-btn, .seg, .chips, #toast, .back { display: none !important; }
   main { padding: 0; max-width: none; }
   .card { box-shadow: none; border: 0; padding: 0; }
