@@ -311,7 +311,17 @@ dl.kv dd { margin: 0; }
 .level.l1 { background: var(--amber-soft); color: var(--amber); }
 .level.l2 { background: var(--blue-soft); color: var(--navy); }
 .level.l3 { background: var(--green-soft); color: var(--green); }
-.legend .level, li .level { cursor: default; }
+.legend .level, li span.level { cursor: default; }
+.edit-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;
+  border: 0; background: none; padding: 2px 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.edit-row:hover .pill, .edit-row:hover .score { text-decoration: underline; }
+.score { white-space: nowrap; padding: 4px 10px; border-radius: 8px; background: var(--blue-soft); color: var(--navy); }
+.score.muted { background: transparent; border: 1px dashed var(--line); font-weight: 500; }
+.level-pick { display: flex; flex-direction: column; gap: 8px; }
+.level.big { font-size: 1.05rem; padding: 14px; width: 100%; }
+.level.current { outline: 3px solid var(--gold); }
 .unit-h { min-width: 140px; }
 .unit-h .link div:last-child { font-weight: 600; color: var(--ink); }
 .unit-actions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }

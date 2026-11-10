@@ -43,14 +43,17 @@
       p.holiday ? p.en : (p.en ? 'Parshas ' + p.en : '')));
   }
 
+  var lastHash = null;
   function render() {
     var route = currentRoute();
     var view = views[route.name] || views.dashboard;
     document.body.classList.remove('nav-open');
     var main = document.getElementById('main');
+    // Re-rendering the same page (after an edit) keeps the scroll position.
+    var samePage = location.hash === lastHash;
+    var keepY = window.scrollY;
+    lastHash = location.hash;
     main.innerHTML = '';
-    main.scrollTop = 0;
-    window.scrollTo(0, 0);
     renderNav(view.matches || route.name);
     renderHeader();
     document.title = view.title + ' · Rebbi App';
@@ -60,7 +63,8 @@
       console.error(e);
       main.appendChild(h('div.card', h('h2', 'Something went wrong'), h('pre', String(e && e.stack || e))));
     }
-    main.focus({ preventScroll: true });
+    if (samePage) window.scrollTo(0, keepY);
+    else { window.scrollTo(0, 0); main.focus({ preventScroll: true }); }
   }
 
   window.App = { render: render, go: function (path) { location.hash = '#/' + path; } };

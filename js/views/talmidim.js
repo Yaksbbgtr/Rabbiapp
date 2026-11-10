@@ -185,29 +185,45 @@
       var units = st.units.filter(function (u) { return !u.archived; });
       grid.appendChild(h('div.card',
         h('h2', 'Limud progress'),
+        units.length ? h('p.small.muted', 'Tap a level to change it.') : null,
         units.length ? h('ul.list', units.map(function (u) {
           var lvl = (st.mastery[u.id] || {})[t.id] || 0;
-          return h('li.row.between', h('span', h('strong', u.subject), ' ', u.title), h('span.level.l' + lvl, window.MASTERY_LEVELS[lvl]));
+          return h('li.row.between', h('span', h('strong', u.subject), ' ', u.title),
+            h('button.level.l' + lvl, {
+              type: 'button', 'aria-label': u.title + ': ' + window.MASTERY_LEVELS[lvl] + '. Tap to change.',
+              onclick: function () { pickLevel(t, u); }
+            }, window.MASTERY_LEVELS[lvl]));
         })) : h('p.muted', 'No limud units yet.')));
 
       // Points history
-      var history = st.points.filter(function (p) { return p.talmidId === t.id; }).slice(-10).reverse();
+      var allPoints = st.points.filter(function (p) { return p.talmidId === t.id; })
+        .slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
+      var showAll = !!window.__showAllPoints;
+      var history = showAll ? allPoints : allPoints.slice(0, 10);
       grid.appendChild(h('div.card',
-        h('h2', 'Recent ' + st.settings.pointsName.toLowerCase()),
+        h('div.row.between', h('h2', st.settings.pointsName + ' (' + Store.pointsTotal(t.id) + ')'),
+          h('button.btn.small.primary', { type: 'button', onclick: function () { editPoint(t, null); } }, UI.icon('plus', 16), 'Give')),
+        history.length ? h('p.small.muted', 'Tap any line to change or delete it.') : null,
         history.length ? h('ul.list', history.map(function (p) {
-          return h('li.row.between', h('span', h('span.small.muted', UI.fmtDate(p.date)), ' ', p.reason),
-            h('span.pill' + (p.delta < 0 ? '.neg' : '.pos'), (p.delta > 0 ? '+' : '') + p.delta));
-        })) : h('p.muted', 'None yet.')));
+          return h('li', h('button.edit-row', { type: 'button', onclick: function () { editPoint(t, p); }, 'aria-label': 'Edit ' + p.reason },
+            h('span', h('span.small.muted', UI.fmtDate(p.date)), ' ', p.reason),
+            h('span.pill' + (p.delta < 0 ? '.neg' : '.pos'), (p.delta > 0 ? '+' : '') + p.delta)));
+        })) : h('p.muted', 'None yet.'),
+        allPoints.length > 10 ? h('button.btn.small', { type: 'button', onclick: function () { window.__showAllPoints = !showAll; App.render(); } },
+          showAll ? 'Show fewer' : 'Show all ' + allPoints.length) : null));
 
-      // Scores
-      var tests = st.tests.filter(function (x) { return st.scores[x.id] && st.scores[x.id][t.id] !== undefined && st.scores[x.id][t.id] !== ''; });
+      // Scores: every bechina, so missing ones can be filled in
+      var tests = st.tests.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
       grid.appendChild(h('div.card',
         h('h2', 'Bechinos'),
+        tests.length ? h('p.small.muted', 'Tap a score to change it.') : null,
         tests.length ? h('ul.list', tests.map(function (x) {
-          var sc = st.scores[x.id][t.id];
-          return h('li.row.between', h('span', h('span.small.muted', UI.fmtDate(x.date)), ' ', x.title),
-            h('strong', sc + ' / ' + x.max));
-        })) : h('p.muted', 'No scores yet.')));
+          var sc = st.scores[x.id] && st.scores[x.id][t.id];
+          var has = sc !== undefined && sc !== '' && sc !== null;
+          return h('li', h('button.edit-row', { type: 'button', onclick: function () { editScore(t, x); }, 'aria-label': 'Edit score for ' + x.title },
+            h('span', h('span.small.muted', UI.fmtDate(x.date)), ' ', x.title),
+            h('strong.score' + (has ? '' : '.muted'), has ? sc + '/' + x.max : 'add')));
+        })) : h('p.muted', 'No bechinos yet.')));
 
       // Contacts
       var contacts = st.contacts.filter(function (c) { return c.talmidId === t.id; }).slice().reverse();
@@ -224,6 +240,75 @@
       void today;
     }
   });
+
+
+  function pickLevel(t, u) {
+    var cur = (Store.get().mastery[u.id] || {})[t.id] || 0;
+    var m = UI.modal(u.subject + ': ' + u.title, h('div.level-pick', window.MASTERY_LEVELS.map(function (l, i) {
+      return h('button.level.big.l' + i + (i === cur ? '.current' : ''), { type: 'button', onclick: function () {
+        Store.update(function (s) { (s.mastery[u.id] = s.mastery[u.id] || {})[t.id] = i; });
+        m.close(); App.render();
+      } }, l);
+    })), [{ label: 'Cancel' }]);
+  }
+
+  function editPoint(t, p) {
+    var st = Store.get();
+    var isNew = !p;
+    p = p || { talmidId: t.id, date: Store.todayISO(), delta: 1, reason: '' };
+    var reason = UI.input({ value: p.reason, placeholder: 'e.g. Davened beautifully', list: 'reason-list' });
+    var dl = h('datalist#reason-list', st.pointReasons.map(function (r) { return h('option', { value: r.label }); }));
+    var amount = UI.input({ type: 'number', inputmode: 'numeric', value: p.delta });
+    var date = UI.input({ type: 'date', value: p.date });
+    var quick = h('div.chips', st.pointReasons.map(function (r) {
+      return h('button.chip', { type: 'button', onclick: function () { reason.value = r.label; amount.value = r.delta; } },
+        (r.delta > 0 ? '+' : '') + r.delta + ' ' + r.label);
+    }));
+    UI.modal((isNew ? 'Give ' : 'Edit ') + st.settings.pointsName.toLowerCase() + ' – ' + Store.displayName(t), h('div', dl,
+      isNew ? quick : null,
+      UI.field('Reason', reason),
+      h('div.form-grid', UI.field('Amount (use minus for taking away)', amount), UI.field('Date', date))), [
+      isNew ? null : { label: 'Delete', danger: true, onClick: function () {
+        Store.update(function (s) { s.points = s.points.filter(function (x) { return x.id !== p.id; }); });
+        UI.toast('Deleted'); App.render();
+      } },
+      { label: 'Cancel' },
+      { label: 'Save', primary: true, onClick: function () {
+        var d = parseInt(amount.value, 10);
+        if (!d) { UI.toast('Enter an amount'); return false; }
+        Store.update(function (s) {
+          p.delta = d; p.reason = reason.value.trim() || 'Points'; p.date = date.value || Store.todayISO();
+          if (isNew) { p.id = Store.uid(); s.points.push(p); }
+        });
+        UI.toast('Saved'); App.render();
+      } }
+    ].filter(Boolean));
+  }
+
+  function editScore(t, x) {
+    var st = Store.get();
+    var cur = st.scores[x.id] && st.scores[x.id][t.id];
+    var inp = UI.input({ type: 'number', inputmode: 'decimal', value: cur === undefined ? '' : cur, min: 0, max: x.max });
+    var pct = h('div.muted', '');
+    function upd() { pct.textContent = inp.value === '' ? '' : Math.round(100 * inp.value / x.max) + '%'; }
+    inp.addEventListener('input', upd); upd();
+    function save() {
+      if (inp.value !== '' && (isNaN(inp.value) || Number(inp.value) < 0)) { UI.toast('Enter a number'); return false; }
+      Store.update(function (s) {
+        s.scores[x.id] = s.scores[x.id] || {};
+        if (inp.value === '') delete s.scores[x.id][t.id]; else s.scores[x.id][t.id] = Number(inp.value);
+      });
+      UI.toast('Saved'); App.render();
+    }
+    var m = UI.modal(x.title + ' – ' + Store.displayName(t), h('div',
+      h('p.small.muted', x.subject + ' · ' + UI.fmtDate(x.date)),
+      UI.field('Score out of ' + x.max, inp), pct), [
+      cur === undefined ? null : { label: 'Clear score', danger: true, onClick: function () { inp.value = ''; return save(); } },
+      { label: 'Cancel' },
+      { label: 'Save', primary: true, onClick: save }
+    ].filter(Boolean));
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (save() !== false) m.close(); } });
+  }
 
   function kv(k, v) { return v ? [h('dt', k), h('dd', { dir: 'auto' }, v)] : null; }
   function stat(n, label) { return h('div.stat', h('div.stat-n', String(n)), h('div.stat-l', label)); }
