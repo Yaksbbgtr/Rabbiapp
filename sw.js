@@ -1,4 +1,8 @@
-/* Offline support: cache the app shell, serve cache-first, refresh in background. */
+/*
+ * Offline support.
+ * Online: always fetch the newest files (bypassing the browser cache) and keep a copy.
+ * Offline: serve the saved copy.
+ */
 var CACHE = 'rebbi-app-v1';
 var ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
@@ -7,24 +11,35 @@ var ASSETS = [
   'js/views/middos.js', 'js/views/bechinos.js', 'js/views/planner.js', 'js/views/parents.js',
   'js/views/tools.js', 'js/views/reports.js', 'js/views/settings.js'
 ];
+
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    return Promise.all(ASSETS.map(function (url) {
+      return fetch(url, { cache: 'reload' }).then(function (res) { if (res.ok) return c.put(url, res); });
+    }));
+  }).then(function () { return self.skipWaiting(); }));
 });
+
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (keys) {
     return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
+
 self.addEventListener('fetch', function (e) {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request).then(function (cached) {
-    var network = fetch(e.request).then(function (res) {
-      if (res && res.ok && new URL(e.request.url).origin === location.origin) {
+  var req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return; // let the browser handle CDN files
+  e.respondWith(
+    fetch(req, { cache: 'no-cache' }).then(function (res) {
+      if (res && res.ok) {
         var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+        caches.open(CACHE).then(function (c) { c.put(req, copy); });
       }
       return res;
-    }).catch(function () { return cached; });
-    return cached || network;
-  }));
+    }).catch(function () {
+      return caches.match(req, { ignoreSearch: true }).then(function (hit) {
+        return hit || caches.match('index.html');
+      });
+    })
+  );
 });

@@ -70,7 +70,16 @@
     if (!Store.get().settings.setupDone && !location.hash) location.hash = '#/welcome';
     render();
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+      // When a new version takes over, reload once so the rebbi sees it right away.
+      var hadController = !!navigator.serviceWorker.controller;
+      var reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (hadController && !reloaded) { reloaded = true; location.reload(); }
+      });
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+        reg.update();
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) reg.update(); });
+      }).catch(function () {});
     }
   });
 })();
