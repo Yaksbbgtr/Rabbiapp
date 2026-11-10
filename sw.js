@@ -5,7 +5,8 @@
  */
 var CACHE = 'rebbi-app-v1';
 var ASSETS = [
-  './', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css',
+  './', 'index.html', 'manifest.webmanifest', 'css/app.css',
+  'icons/logo-white.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png',
   'js/hebcal.js', 'js/store.js', 'js/demo.js', 'js/ui.js', 'js/scan.js', 'js/app.js',
   'js/views/dashboard.js', 'js/views/talmidim.js', 'js/views/attendance.js', 'js/views/limud.js',
   'js/views/middos.js', 'js/views/bechinos.js', 'js/views/planner.js', 'js/views/parents.js',

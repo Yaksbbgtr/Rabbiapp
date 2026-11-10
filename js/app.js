@@ -31,7 +31,7 @@
     var rd = HebCal.dateToRD(new Date());
     var hd = HebCal.fromRD(rd);
     var p = HebCal.parshaOfWeek(rd);
-    document.getElementById('brand-class').textContent = s.className || 'Rebbi App';
+    document.getElementById('brand-class').textContent = s.className ? ' · ' + s.className : '';
     document.getElementById('header-date').innerHTML = '';
     document.getElementById('header-date').appendChild(h('span',
       h('span.he', HebCal.formatHebrew(hd)), ' · ',
