@@ -190,6 +190,7 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 0; accent-color: #
 .list { list-style: none; padding: 0; margin: 0 0 6px; }
 .list > li { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .list > li:last-child { border-bottom: 0; }
+.list > li.row { gap: 10px; }
 .check-row { display: flex; gap: 10px; align-items: flex-start; }
 .empty { text-align: center; padding: 40px 16px; color: var(--muted); border: 2px dashed var(--line); border-radius: var(--radius); margin-bottom: 16px; }
 .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }

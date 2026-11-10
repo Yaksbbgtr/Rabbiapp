@@ -130,41 +130,7 @@
     reset: function () { state = defaults(); save(); },
     loadDemo: function () {
       state = defaults();
-      var names = [
-        ['Avraham', 'Cohen', 'אברהם', 'Moshe', 'Rivka', 'משה'], ['Yitzchak', 'Levy', 'יצחק', 'Dovid', 'Sarah', 'דוד'],
-        ['Yaakov', 'Friedman', 'יעקב', 'Shmuel', 'Leah', 'שמואל'], ['Moshe', 'Goldberg', 'משה', 'Chaim', 'Chana', 'חיים'],
-        ['Shmuel', 'Katz', 'שמואל', 'Yosef', 'Miriam', 'יוסף'], ['Dovid', 'Rosen', 'דוד', 'Eliezer', 'Esther', 'אליעזר'],
-        ['Yosef', 'Weiss', 'יוסף', 'Binyamin', 'Devorah', 'בנימין'], ['Mordechai', 'Klein', 'מרדכי', 'Aharon', 'Rochel', 'אהרן'],
-        ['Eliyahu', 'Schwartz', 'אליהו', 'Menachem', 'Bracha', 'מנחם'], ['Chaim', 'Stern', 'חיים', 'Yehuda', 'Shira', 'יהודה'],
-        ['Binyamin', 'Gross', 'בנימין', 'Zev', 'Tzipora', 'זאב'], ['Nachum', 'Berger', 'נחום', 'Pinchas', 'Malka', 'פינחס']
-      ];
-      var year = new Date().getFullYear() - 9;
-      state.talmidim = names.map(function (n, i) {
-        return {
-          id: uid(), first: n[0], last: n[1], hebName: n[2] + ' בן ' + n[5], father: n[3] + ' ' + n[1],
-          mother: n[4] + ' ' + n[1], phone: '555-01' + String(10 + i), email: '',
-          birthday: year + '-' + String((i % 12) + 1).padStart(2, '0') + '-' + String(5 + i).padStart(2, '0'),
-          notes: '', archived: false
-        };
-      });
-      var t = state.talmidim;
-      var today = todayISO();
-      state.settings.rebbiName = 'Rebbi';
-      state.settings.className = 'Kitah Gimmel';
-      state.settings.setupDone = true;
-      var u1 = { id: uid(), subject: 'Chumash', title: 'Perek 1: Pesukim 1-10', date: today };
-      var u2 = { id: uid(), subject: 'Mishnayos', title: 'Brachos 1:1', date: today };
-      state.units = [u1, u2];
-      state.mastery[u1.id] = {}; state.mastery[u2.id] = {};
-      t.forEach(function (s, i) {
-        state.mastery[u1.id][s.id] = i % 4;
-        state.mastery[u2.id][s.id] = (i + 2) % 4;
-        state.points.push({ id: uid(), talmidId: s.id, date: today, delta: (i % 5) + 1, reason: 'Kept the seder' });
-      });
-      var test = { id: uid(), title: 'Chumash bechina', subject: 'Chumash', date: today, max: 100 };
-      state.tests = [test];
-      state.scores[test.id] = {};
-      t.forEach(function (s, i) { state.scores[test.id][s.id] = 70 + ((i * 7) % 31); });
+      window.DemoData.build(state, uid, todayISO);
       save();
     }
   };
