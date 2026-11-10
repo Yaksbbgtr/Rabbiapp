@@ -27,6 +27,7 @@
   }
 
   function renderHeader() {
+    UI.themeButtons(document.getElementById('theme-seg'), function () { if (currentRoute().name === 'settings') render(); });
     var s = Store.get().settings;
     var rd = HebCal.dateToRD(new Date());
     var hd = HebCal.fromRD(rd);
@@ -137,6 +138,7 @@
 
   window.addEventListener('hashchange', render);
   window.addEventListener('DOMContentLoaded', function () {
+    UI.setTheme(UI.getTheme());
     if (!Store.get().settings.setupDone && !location.hash) location.hash = '#/welcome';
     render();
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

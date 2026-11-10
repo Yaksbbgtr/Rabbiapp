@@ -39,6 +39,13 @@
             } }, d);
           })))));
 
+      var seg = h('div.seg');
+      UI.themeButtons(seg, function () { App.render(); });
+      main.appendChild(h('div.card',
+        h('h2', 'Appearance'),
+        seg,
+        h('p.small.muted', 'Light or Dark stays that way on this device. Auto follows the phone\'s own light/dark setting.')));
+
       var file = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
       file.addEventListener('change', function () {
         var f = file.files[0];

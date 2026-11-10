@@ -11,6 +11,10 @@
   <link rel="icon" href="icons/favicon-48.png" sizes="48x48" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-title" content="Rebbi App">
+  <script>
+    // Apply the chosen appearance before the page draws (light / dark / follow the phone).
+    try { var t = localStorage.getItem('rabbiapp.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  </script>
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -22,6 +26,7 @@
         <div class="brand-sub"><span class="brand-name">Rebbi App</span><span class="brand-class" id="brand-class"></span></div>
       </div>
       <nav id="nav" aria-label="Main"></nav>
+      <div class="theme-switch"><div class="label">Appearance</div><div class="theme-seg" id="theme-seg" role="group" aria-label="Appearance"></div></div>
     </aside>
     <div class="content">
       <header class="topbar">

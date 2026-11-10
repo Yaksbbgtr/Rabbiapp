@@ -183,7 +183,33 @@
     return sel;
   }
 
+  // Appearance: 'light', 'dark' or 'system' (follow the phone). Saved on this device.
+  var THEMES = [['light', 'Light'], ['dark', 'Dark'], ['system', 'Auto']];
+  function getTheme() {
+    try { var t = localStorage.getItem('rabbiapp.theme'); return t === 'light' || t === 'dark' ? t : 'system'; } catch (e) { return 'system'; }
+  }
+  function setTheme(t) {
+    try { if (t === 'system') localStorage.removeItem('rabbiapp.theme'); else localStorage.setItem('rabbiapp.theme', t); } catch (e) { /* ignore */ }
+    if (t === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var meta = document.querySelector('meta[name=theme-color]');
+    if (meta) meta.setAttribute('content', dark ? '#1b2130' : '#1e3a5f');
+  }
+  // Light / Dark / Auto buttons; cls is the wrapper class to fill.
+  function themeButtons(container, after) {
+    container.innerHTML = '';
+    var cur = getTheme();
+    THEMES.forEach(function (t) {
+      container.appendChild(h('button' + (cur === t[0] ? '.on' : ''), {
+        type: 'button', 'aria-pressed': cur === t[0] ? 'true' : 'false',
+        onclick: function () { setTheme(t[0]); themeButtons(container, after); if (after) after(); }
+      }, t[1]));
+    });
+  }
+
   window.UI = {
+    getTheme: getTheme, setTheme: setTheme, themeButtons: themeButtons,
     levelSelect: levelSelect,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,
     input: input, select: select, fmtDate: fmtDate, hebDate: hebDate, addDays: addDays,
