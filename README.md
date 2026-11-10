@@ -18,6 +18,10 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 | **Reports** | Printable report cards (by subject, mastery, attendance, middos, rebbi's comment, signature lines) for any date range |
 | **Settings** | Backup / restore, new-school-year reset, sample class, Hebrew-names mode |
 
+## Morning attendance texts (demo)
+
+The `server/` folder is a small add-on that texts every rebbi each morning, reads his reply ("Yanky, Moshe K"), and records the absences, ready to send to Parent Locker once that connection is available. See [server/README.md](server/README.md).
+
 ## Running it
 
 No build step and no server needed.

@@ -1,0 +1,34 @@
+{
+  "school": "Yeshiva Ketana (demo)",
+  "rebbeim": [
+    {
+      "id": "r1",
+      "name": "Rabbi Cohen",
+      "phone": "+15550001001",
+      "className": "Kitah Gimmel",
+      "talmidim": [
+        { "id": "g1", "first": "Avraham", "last": "Adler", "hebrew": "אברהם", "aliases": ["Avi", "Avrumi"] },
+        { "id": "g2", "first": "Yitzchak", "last": "Levy", "hebrew": "יצחק", "aliases": ["Itzy", "Yitzy"] },
+        { "id": "g3", "first": "Yaakov", "last": "Friedman", "hebrew": "יעקב", "aliases": ["Yanky", "Yankel"] },
+        { "id": "g4", "first": "Moshe", "last": "Goldberg", "hebrew": "משה", "aliases": [] },
+        { "id": "g5", "first": "Moshe", "last": "Katz", "hebrew": "משה", "aliases": ["Moishy"] },
+        { "id": "g6", "first": "Dovid", "last": "Rosen", "hebrew": "דוד", "aliases": ["Duvi", "David"] },
+        { "id": "g7", "first": "Shmuel", "last": "Weiss", "hebrew": "שמואל", "aliases": ["Shmuli"] }
+      ]
+    },
+    {
+      "id": "r2",
+      "name": "Rabbi Klein",
+      "phone": "+15550001002",
+      "className": "Kitah Daled",
+      "talmidim": [
+        { "id": "d1", "first": "Mordechai", "last": "Stern", "hebrew": "מרדכי", "aliases": ["Motty", "Mordy"] },
+        { "id": "d2", "first": "Eliyahu", "last": "Schwartz", "hebrew": "אליהו", "aliases": ["Eli"] },
+        { "id": "d3", "first": "Chaim", "last": "Gross", "hebrew": "חיים", "aliases": ["Chaimy"] },
+        { "id": "d4", "first": "Binyamin", "last": "Berger", "hebrew": "בנימין", "aliases": ["Benny", "Binyomin"] },
+        { "id": "d5", "first": "Nachum", "last": "Klein", "hebrew": "נחום", "aliases": [] },
+        { "id": "d6", "first": "Yosef", "last": "Weber", "hebrew": "יוסף", "aliases": ["Yossi", "Yoseph"] }
+      ]
+    }
+  ]
+}

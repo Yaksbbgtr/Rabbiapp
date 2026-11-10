@@ -1,0 +1,6 @@
+data/state.json
+data/state.json.tmp
+data/parentlocker-queue.json
+# real roster with phone numbers stays private
+data/school.json
+.env

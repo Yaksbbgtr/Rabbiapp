@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance Texts – Demo</title>
+<style>
+  :root { --navy:#1e3a5f; --gold:#d4a63a; --bg:#f6f3ec; --card:#fff; --ink:#1d2433; --muted:#6b7280; --line:#e5e1d8;
+          --green:#2f855a; --green-soft:#e3f4ea; --red:#c53030; --red-soft:#fde8e8; --amber:#b7791f; --amber-soft:#fdf1dc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--navy); color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:1.15rem; margin:0; }
+  header .sub { opacity:.8; font-size:.85rem; }
+  main { display:grid; grid-template-columns: 380px 1fr; gap:20px; padding:20px; max-width:1200px; margin:0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding:12px; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:1rem; margin:0 0 10px; }
+  .btn { border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px 14px; font:inherit; cursor:pointer; }
+  .btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  header .btn.primary { background:var(--gold); border-color:var(--gold); color:#1d2433; font-weight:600; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .banner { background:var(--amber-soft); color:#7a4f0f; border-radius:10px; padding:10px 12px; font-size:.88rem; margin-bottom:16px; }
+  /* phone */
+  .phone { background:#111; border-radius:36px; padding:14px; max-width:380px; }
+  .screen { background:#fff; border-radius:26px; overflow:hidden; display:flex; flex-direction:column; height:600px; }
+  .phone-top { padding:12px 14px; border-bottom:1px solid var(--line); text-align:center; }
+  .phone-top select { font:inherit; border:0; font-weight:600; background:transparent; text-align:center; }
+  .chat { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:6px; background:#fafafa; }
+  .bubble { max-width:82%; padding:8px 12px; border-radius:18px; white-space:pre-wrap; font-size:.92rem; line-height:1.35; }
+  .bubble.out { align-self:flex-start; background:#e9e9eb; color:#111; border-bottom-left-radius:4px; }
+  .bubble.in { align-self:flex-end; background:#0b84ff; color:#fff; border-bottom-right-radius:4px; }
+  .time { font-size:.7rem; color:var(--muted); align-self:center; margin-top:6px; }
+  .compose { display:flex; gap:6px; padding:10px; border-top:1px solid var(--line); }
+  .compose input { flex:1; border:1px solid var(--line); border-radius:18px; padding:9px 14px; font:inherit; }
+  .compose button { border:0; background:#0b84ff; color:#fff; border-radius:50%; width:38px; height:38px; font-size:1.1rem; cursor:pointer; }
+  .hints { display:flex; gap:6px; flex-wrap:wrap; padding:0 10px 10px; }
+  .hints button { border:1px solid var(--line); background:#fff; border-radius:999px; padding:4px 10px; font-size:.78rem; cursor:pointer; }
+  /* tables */
+  table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { font-size:.75rem; color:var(--muted); font-weight:600; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.78rem; font-weight:600; }
+  .A { background:var(--red-soft); color:var(--red); }
+  .L { background:var(--amber-soft); color:var(--amber); }
+  .P { background:var(--green-soft); color:var(--green); }
+  .waiting { background:#eef1f6; color:#4a5568; }
+  .sent { background:var(--green-soft); color:var(--green); }
+  .error { background:var(--red-soft); color:var(--red); }
+  .muted { color:var(--muted); }
+  .small { font-size:.85rem; }
+  .class-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  pre { background:#f3f4f6; border-radius:8px; padding:10px; font-size:.78rem; overflow-x:auto; max-height:220px; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Morning attendance texts</h1><div class="sub" id="sub"></div></div>
+  <div class="row">
+    <button class="btn primary" id="send">Send morning texts now</button>
+    <button class="btn" id="reset">Reset demo</button>
+  </div>
+</header>
+<main>
+  <section>
+    <div class="banner" id="banner"></div>
+    <div class="phone">
+      <div class="screen">
+        <div class="phone-top"><div class="small muted">Pretend you are…</div><select id="who" aria-label="Rebbi"></select></div>
+        <div class="chat" id="chat" aria-live="polite"></div>
+        <div class="hints" id="hints"></div>
+        <form class="compose" id="compose">
+          <input id="text" placeholder="Text message" autocomplete="off" aria-label="Reply">
+          <button aria-label="Send">↑</button>
+        </form>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="card"><h2>Today's attendance</h2><div id="classes"></div></div>
+    <div class="card">
+      <h2>Parent Locker</h2>
+      <p class="small muted" id="pl-status"></p>
+      <div id="pl"></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  var data = null, current = null;
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function label(s) { return { A: 'Absent', L: 'Late', P: 'Here' }[s]; }
+
+  function load() {
+    return fetch('api/overview').then(function (r) { return r.json(); }).then(function (d) { data = d; render(); });
+  }
+  function post(path, body) {
+    return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); });
+  }
+
+  function render() {
+    $('sub').textContent = (data.school || '') + ' · ' + data.date + ' · texts go out at ' + data.sendTime + ' (' + data.timeZone + ') on school days';
+    $('banner').innerHTML = data.smsProvider === 'twilio'
+      ? '<strong>Live mode:</strong> real text messages are being sent.'
+      : '<strong>Demo mode:</strong> no real texts are sent. Choose a rebbi on the phone, press “Send morning texts now”, and reply as him.';
+    var who = $('who');
+    if (!who.options.length) {
+      data.rebbeim.forEach(function (r) { who.add(new Option(r.name + ' – ' + r.className, r.id)); });
+      current = data.rebbeim[0] && data.rebbeim[0].id;
+    }
+    who.value = current;
+    var rebbi = data.rebbeim.find(function (r) { return r.id === current; });
+
+    // Chat
+    var chat = $('chat');
+    var msgs = data.messages.filter(function (m) { return rebbi && m.phone === rebbi.phone; });
+    chat.innerHTML = msgs.length ? '' : '<div class="time">No messages yet</div>';
+    var lastDay = '';
+    msgs.forEach(function (m) {
+      var d = new Date(m.at);
+      var day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      if (day !== lastDay) { chat.insertAdjacentHTML('beforeend', '<div class="time">' + day + ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</div>'); lastDay = day; }
+      chat.insertAdjacentHTML('beforeend', '<div class="bubble ' + (m.direction === 'in' ? 'in' : 'out') + '">' + esc(m.body) + '</div>');
+    });
+    chat.scrollTop = chat.scrollHeight;
+
+    // Hints built from this rebbi's class
+    var hints = $('hints');
+    hints.innerHTML = '';
+    if (rebbi) {
+      var t = rebbi.talmidim;
+      [t[0] && t[0].name.split(' ')[0] + ', ' + (t[2] ? t[2].name.split(' ')[0] : ''), t[1] && t[1].name.split(' ')[0] + ' late', 'none', 'list', 'undo']
+        .filter(Boolean).forEach(function (h) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = h;
+          b.onclick = function () { $('text').value = h; $('text').focus(); };
+          hints.appendChild(b);
+        });
+    }
+
+    // Classes
+    $('classes').innerHTML = data.rebbeim.map(function (r) {
+      var out = r.talmidim.filter(function (s) { return s.status !== 'P'; });
+      var status = r.answered ? '✅ answered' : r.prompted ? '⏳ waiting for reply' : '— not texted yet';
+      return '<div class="class-head"><h3 style="margin:10px 0 4px">' + esc(r.className) + ' <span class="muted small">' + esc(r.name) + '</span></h3><span class="small muted">' + status + '</span></div>' +
+        (out.length ? '<table><tbody>' + out.map(function (s) {
+          return '<tr><td>' + esc(s.name) + '</td><td><span class="pill ' + s.status + '">' + label(s.status) + '</span></td></tr>';
+        }).join('') + '</tbody></table>' : '<p class="small muted">' + (r.answered ? 'Everyone here' : 'No absences reported') + ' · ' + r.talmidim.length + ' boys</p>');
+    }).join('');
+
+    // Parent Locker queue
+    $('pl-status').innerHTML = data.parentLockerConnected
+      ? 'Connected. Attendance is sent automatically after each reply.'
+      : 'Not connected yet. Each reply is saved below as <strong>waiting</strong>, ready to send to Parent Locker once the school gets integration access.';
+    $('pl').innerHTML = data.parentLocker.length ? data.parentLocker.map(function (q) {
+      var abs = q.records.filter(function (x) { return x.status !== 'P'; });
+      return '<div class="class-head"><strong>' + esc(q.className) + '</strong><span class="pill ' + q.status + '">' + q.status + '</span></div>' +
+        '<p class="small">' + (abs.length ? abs.map(function (x) { return esc(x.name) + ' (' + label(x.status) + ')'; }).join(', ') : 'All present') +
+        ' <span class="muted">· updated ' + new Date(q.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</span></p>' +
+        '<details><summary class="small muted">What would be sent</summary><pre>' + esc(JSON.stringify(q.records, null, 2)) + '</pre></details>';
+    }).join('') : '<p class="small muted">Nothing yet today.</p>';
+  }
+
+  $('who').onchange = function (e) { current = e.target.value; render(); };
+  $('compose').onsubmit = function (e) {
+    e.preventDefault();
+    var text = $('text').value.trim();
+    if (!text) return;
+    $('text').value = '';
+    post('api/demo/reply', { rebbiId: current, text: text }).then(load);
+  };
+  $('send').onclick = function () { post('api/demo/send-morning').then(load); };
+  $('reset').onclick = function () { if (confirm('Clear all demo messages and attendance?')) post('api/demo/reset').then(load); };
+
+  load();
+  setInterval(load, 4000);
+})();
+</script>
+</body>
+</html>
