@@ -432,6 +432,14 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .rc-table th, .rc-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid #e5e1d8; }
 .rc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .print-only { display: none; }
+/* Off-screen stage for making PDFs: always light colors, print layout. */
+.pdf-render {
+  position: fixed; left: -10000px; top: 0; width: 800px; background: #fff; color: #1d2433;
+  --ink: #1d2433; --muted: #6b7280; --line: #e5e1d8; --card: #fff; --bg: #f6f3ec; --navy: #1e3a5f;
+}
+.pdf-render .no-print { display: none !important; }
+.pdf-render .print-only { display: block; }
+.pdf-render .report-card { border: 0; border-radius: 0; margin: 0; max-width: none; width: 800px; padding: 36px 40px; }
 .rc-list { padding: 4px 14px; }
 .rc-range summary { cursor: pointer; }
 .rc-range[open] summary { margin-bottom: 12px; }

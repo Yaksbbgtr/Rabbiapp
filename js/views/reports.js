@@ -67,6 +67,8 @@
     return h('section', h('h3', 'Rebbi\'s comments ', saved), ta, printed);
   }
 
+  window.buildReportCard = reportCard;
+
   function letter(p) {
     if (p >= 97) return '(A+)'; if (p >= 93) return '(A)'; if (p >= 90) return '(A-)';
     if (p >= 87) return '(B+)'; if (p >= 83) return '(B)'; if (p >= 80) return '(B-)';
@@ -100,7 +102,9 @@
         main.appendChild(h('a.back.no-print', { href: '#/reports' }, UI.icon('chevl', 16), 'Class list'));
         main.appendChild(h('div.page-head.no-print',
           h('div', h('h1', Store.displayName(only)), h('p.muted', 'Tap the comments box to write. It saves as you type.')),
-          h('button.btn.primary', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print this card')));
+          h('div.row.gap.wrap',
+            h('button.btn.primary', { onclick: function () { window.SendReports.open([only]); } }, UI.icon('send'), 'Send to office'),
+            h('button.btn', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print this card'))));
         main.appendChild(reportCard(only));
         main.appendChild(h('div.rc-nav.no-print',
           prev ? h('a.btn', { href: '#/reports/' + prev.id }, UI.icon('chevl', 16), Store.displayName(prev)) : h('span'),
@@ -113,7 +117,9 @@
       var done = talmidim.filter(function (t) { return st.comments[t.id]; }).length;
       main.appendChild(h('div.page-head.no-print',
         h('div', h('h1', 'Report cards'), h('p.muted', 'Tap a talmid to open his report card and write his comment.')),
-        talmidim.length ? h('button.btn.primary', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print all') : null));
+        talmidim.length ? h('div.row.gap.wrap',
+          h('button.btn.primary', { onclick: function () { window.SendReports.open(talmidim); } }, UI.icon('send'), 'Send reports to office'),
+          h('button.btn', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print all')) : null));
 
       if (!talmidim.length) { main.appendChild(UI.empty('Add talmidim first.')); return; }
 

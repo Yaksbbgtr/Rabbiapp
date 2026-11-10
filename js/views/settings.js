@@ -24,7 +24,8 @@
         h('div.form-grid',
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
           UI.field('Class name', bind('className', UI.input({ value: s.className }))),
-          UI.field('Yeshiva', bind('school', UI.input({ value: s.school })))),
+          UI.field('Yeshiva', bind('school', UI.input({ value: s.school }))),
+          UI.field('School office email', bind('officeEmail', UI.input({ type: 'email', value: s.officeEmail || '', placeholder: 'office@yeshiva.org' })), 'Where report cards are sent')),
         h('label.check-row', bind('hebrewFirst', h('input', { type: 'checkbox', checked: s.hebrewFirst }), 'checked'), ' Show Hebrew names throughout the app'),
         h('div.field', h('span.field-label', 'School days (for monthly attendance)'),
           h('div.chips', DAYS.map(function (d, i) {
