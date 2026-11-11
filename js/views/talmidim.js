@@ -169,6 +169,7 @@
           kv('Email', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
           kv('Address', t.address)),
         t.notes ? h('div.note-box', { dir: 'auto' }, t.notes) : null,
+        window.lastContactBlock(t),
         h('div.row.gap.wrap',
           h('button.btn.primary', { type: 'button', onclick: function () { window.contactParent(t, 'call'); } }, UI.icon('phone'), 'Call'),
           h('button.btn', { type: 'button', onclick: function () { window.contactParent(t, 'text'); } }, 'Text'),

@@ -2,7 +2,7 @@
   'use strict';
   var h = UI.h;
   var tab = 'log';
-  var METHODS = ['Phone call', 'Text', 'Email', 'Note home', 'In person', 'PTA'];
+  var METHODS = ['Phone call', 'Text', 'Email', 'Note home', 'In person', 'PTA', 'In touch'];
 
   // Every number saved for a talmid's family, labelled.
   function parentPhones(t) {
@@ -43,6 +43,29 @@
       }, 600);
     });
   }
+  // When the family was last contacted, and a one-tap reset that marks today.
+  function lastContact(t) {
+    var list = Store.get().contacts.filter(function (c) { return c.talmidId === t.id; }).sort(function (a, b) { return b.date.localeCompare(a.date); });
+    return list[0] || null;
+  }
+  function daysSince(iso) { return HebCal.isoToRD(Store.todayISO()) - HebCal.isoToRD(iso); }
+  function lastContactBlock(t) {
+    var st = Store.get();
+    var limit = parseInt(st.settings.contactReminderDays, 10) || 30;
+    var last = lastContact(t);
+    var days = last ? daysSince(last.date) : null;
+    var over = last ? days >= limit : true;
+    var text = !last ? 'No contact logged yet'
+      : 'Last in touch ' + UI.fmtDate(last.date) + ' · ' + last.method + ' · ' + (days === 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago');
+    return h('div.last-contact' + (over ? '.over' : ''),
+      h('div', h('span.pill' + (over ? '.neg' : '.pos'), over ? (last ? 'Due' : 'Never') : 'OK'), ' ', h('span.small', text)),
+      h('button.btn.small', { type: 'button', title: 'Mark that you were in touch today', onclick: function () {
+        Store.update(function (s) { s.contacts.push({ id: Store.uid(), talmidId: t.id, date: Store.todayISO(), method: 'In touch', note: 'In touch with parents (reset)', followUp: '', followUpDone: false }); });
+        UI.toast('Marked in touch today'); App.render();
+      } }, 'Reset – in touch today'));
+  }
+  window.lastContactBlock = lastContactBlock;
+
   function bestNumber(t) { var n = parentPhones(t)[0]; return n ? n.number : ''; }
   window.parentPhones = parentPhones; window.contactParent = contactParent; window.bestNumber = bestNumber;
 

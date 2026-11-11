@@ -420,6 +420,8 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .source-notes { min-height: 220px; line-height: 1.55; resize: none; overflow: hidden; }
 .plain-link { color: inherit; text-decoration: none; }
 .plain-link:hover { text-decoration: underline; }
+.last-contact { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: var(--bg); margin: 4px 0 12px; }
+.last-contact.over { background: var(--red-soft); }
 .pick-parent { display: flex; flex-direction: column; gap: 8px; }
 .pick-parent-btn { justify-content: flex-start; text-align: left; white-space: normal; }
 .pick-parent-btn > span { display: flex; flex-direction: column; }
