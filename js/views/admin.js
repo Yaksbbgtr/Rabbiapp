@@ -122,7 +122,10 @@
   var issueFilter = 'open';
 
   // Each office section is its own page in the menu.
-  function openIssueCount() { return Issues.all().filter(function (x) { return x.issue.status !== 'done'; }).length; }
+  function openIssueCount() { return Issues.officeUnreadCount(); }
+  // Issues that were new when the office opened the page keep a "New" tag until it leaves the page.
+  var freshIds = {};
+  window.addEventListener('hashchange', function () { if (location.hash !== '#/admin-issues') freshIds = {}; });
   function section(name, title, short, icon, sub, draw, badge) {
     Views.register(name, {
       title: title, short: short, icon: icon, admin: true, adminOnly: true, badge: badge,
@@ -429,6 +432,10 @@
   // ================= Issues =================
   function renderIssues(main, list) {
     var items = Issues.all();
+    // Opening the Issues page reads them: clear the indicator, but tag what was new.
+    var seenNow = items.filter(function (x) { return Issues.officeUnread(x.issue); });
+    seenNow.forEach(function (x) { freshIds[x.issue.id] = true; Issues.markOfficeSeen(x); });
+    if (seenNow.length) setTimeout(App.render, 0);
     var shown = items.filter(function (x) { return issueFilter === 'all' || (issueFilter === 'done' ? x.issue.status === 'done' : x.issue.status !== 'done'); });
     main.appendChild(h('div.card.row.between.wrap',
       h('div.seg', [['open', 'Open'], ['done', 'Done'], ['all', 'All']].map(function (f) {
@@ -437,7 +444,11 @@
       h('button.btn.primary', { type: 'button', onclick: function () { Issues.report('', function () { App.render(); }); } }, UI.icon('plus'), 'New issue')));
     main.appendChild(h('p.small.muted', 'Issues reported by rebbeim and staff on this device, as tasks. Rebbeim on other devices: their reports arrive in their backup files. Each task shows the rebbi\'s cell and, when it\'s about a talmid, the parents\' cells.'));
     if (!shown.length) { main.appendChild(UI.empty(items.length ? 'Nothing here.' : 'No issues yet. Rebbeim report them from a talmid\'s page or the Today page; the office can add one with New issue.')); return; }
-    shown.forEach(function (item) { main.appendChild(Issues.taskCard(item, function () { App.render(); })); });
+    shown.forEach(function (item) {
+      var card = Issues.taskCard(item, function () { App.render(); });
+      if (freshIds[item.issue.id]) { card.classList.add('fresh'); card.insertBefore(h('span.pill.neg.fresh-tag', 'New'), card.firstChild); }
+      main.appendChild(card);
+    });
     void list;
   }
 

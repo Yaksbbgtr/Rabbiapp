@@ -122,6 +122,11 @@
   function isOffice(i, n) { return n.office !== undefined ? !!n.office : n.by !== i.by; }
   // Office responses the rebbi hasn't opened yet.
   function unread(i) { var office = (i.notes || []).filter(function (n) { return isOffice(i, n); }).length; return Math.max(0, office - (i.seenOffice || 0)); }
+  // For the office: the report itself plus each rebbi reply count as messages; unseen ones light the indicator.
+  function rebbiMessages(i) { return 1 + (i.notes || []).filter(function (n) { return !isOffice(i, n); }).length; }
+  function officeUnread(i) { return rebbiMessages(i) > (i.officeSeen || 0); }
+  function officeUnreadCount() { return all().filter(function (x) { return officeUnread(x.issue); }).length; }
+  function markOfficeSeen(item) { change(item, function (x) { x.officeSeen = rebbiMessages(x); }); }
   function unreadCount() { return (Store.get().issues || []).reduce(function (n, i) { return n + (unread(i) ? 1 : 0); }, 0); }
 
   // What a rebbi sees of his own reports.
@@ -129,5 +134,5 @@
     return (Store.get().issues || []).slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
 
-  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount };
+  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount, officeUnread: officeUnread, officeUnreadCount: officeUnreadCount, markOfficeSeen: markOfficeSeen };
 })();
