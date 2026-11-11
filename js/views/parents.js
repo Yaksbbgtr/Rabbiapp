@@ -4,9 +4,51 @@
   var tab = 'log';
   var METHODS = ['Phone call', 'Text', 'Email', 'Note home', 'In person', 'PTA'];
 
-  function logContact(talmidId, c) {
+  // Every number saved for a talmid's family, labelled.
+  function parentPhones(t) {
+    if (!t) return [];
+    var list = [];
+    var add = function (who, name, number) { if (number && String(number).trim()) list.push({ who: who, name: name || '', number: String(number).trim() }); };
+    add('Father', t.father, t.fatherPhone);
+    add('Mother', t.mother, t.motherPhone);
+    add('Home', '', t.phone);
+    add('Other', '', t.phone2);
+    return list;
+  }
+  function telHref(kind, number, body) {
+    var n = number.replace(/[^\d+*#]/g, '');
+    return kind === 'text' ? 'sms:' + n + (body ? '?&body=' + encodeURIComponent(body) : '') : 'tel:' + n;
+  }
+  // Pick which parent to reach (asks only when there is more than one number), then call cb(entry).
+  function pickNumber(t, kind, cb) {
+    var nums = parentPhones(t);
+    if (!nums.length) {
+      UI.modal('No phone number', h('p', 'There is no phone number saved for ' + Store.displayName(t) + '\'s family yet.'), [
+        { label: 'Close' }, { label: 'Add one', primary: true, onClick: function () { window.editTalmid(t); } }]);
+      return;
+    }
+    if (nums.length === 1) { cb(nums[0]); return; }
+    var m = UI.modal((kind === 'text' ? 'Text' : 'Call') + ' whom?', h('div.pick-parent', nums.map(function (n) {
+      return h('button.btn.big.pick-parent-btn', { type: 'button', onclick: function () { m.close(); cb(n); } },
+        UI.icon(kind === 'text' ? 'copy' : 'phone', 18),
+        h('span', h('strong', n.who + (n.name ? ' – ' + n.name : '')), h('span.small.muted', ' ' + n.number)));
+    })), [{ label: 'Cancel' }]);
+  }
+  // Open the phone's dialer or Messages, then offer to log it.
+  function contactParent(t, kind, body) {
+    pickNumber(t, kind, function (n) {
+      location.href = telHref(kind, n.number, body);
+      setTimeout(function () {
+        logContact(t.id, null, { method: kind === 'text' ? 'Text' : 'Phone call', note: (kind === 'text' ? 'Texted ' : 'Called ') + n.who.toLowerCase() + (n.name ? ' (' + n.name + ')' : '') + ': ' });
+      }, 600);
+    });
+  }
+  function bestNumber(t) { var n = parentPhones(t)[0]; return n ? n.number : ''; }
+  window.parentPhones = parentPhones; window.contactParent = contactParent; window.bestNumber = bestNumber;
+
+  function logContact(talmidId, c, preset) {
     var isNew = !c;
-    c = c || { talmidId: talmidId || '', date: Store.todayISO(), method: 'Phone call', note: '', followUp: '' };
+    c = c || Object.assign({ talmidId: talmidId || '', date: Store.todayISO(), method: 'Phone call', note: '', followUp: '' }, preset || {});
     var who = UI.select(UI.talmidOptions('— Choose talmid —'), c.talmidId);
     var date = UI.input({ type: 'date', value: c.date });
     var method = UI.select(METHODS, c.method);
@@ -90,17 +132,28 @@
               h('input', { type: 'checkbox', checked: c.followUpDone, onchange: function (e) { Store.update(function () { c.followUpDone = e.target.checked; }); App.render(); } }),
               ' Follow up ' + UI.fmtDate(c.followUp)) : null);
         }))));
-        // Talmidim not contacted in 30 days
-        var cutoff = UI.addDays(Store.todayISO(), -30);
+        // Talmidim whose family hasn't been contacted in a while
+        var days = parseInt(st.settings.contactReminderDays, 10) || 30;
+        var cutoff = UI.addDays(Store.todayISO(), -days);
         var quiet = Store.activeTalmidim().filter(function (t) {
           return !st.contacts.some(function (c) { return c.talmidId === t.id && c.date >= cutoff; });
         });
-        if (quiet.length && Store.activeTalmidim().length) {
-          main.appendChild(h('div.card', h('h2', 'Haven\'t heard from you in 30 days'),
-            h('p.muted.small', 'A quick positive call goes a long way.'),
-            h('div.chips', quiet.map(function (t) {
-              return h('button.chip', { onclick: function () { logContact(t.id); } }, Store.displayName(t));
-            }))));
+        var daysSel = UI.select([[7, '1 week'], [14, '2 weeks'], [21, '3 weeks'], [30, '1 month'], [45, '6 weeks'], [60, '2 months'], [90, '3 months']], days, { 'aria-label': 'Remind me after' });
+        daysSel.addEventListener('change', function () { Store.update(function (x) { x.settings.contactReminderDays = +daysSel.value; }); App.render(); });
+        if (Store.activeTalmidim().length) {
+          main.appendChild(h('div.card',
+            h('div.row.between.wrap', h('h2', 'Haven\'t been in touch in ' + days + ' days'),
+              h('label.row.gap.small.muted', 'Remind me after ', daysSel)),
+            quiet.length ? h('p.muted.small', 'A quick positive call goes a long way. Call or text opens your phone, then logs it.') : h('p.muted', 'You\'ve been in touch with every family. Nice!'),
+            quiet.length ? h('ul.list', quiet.map(function (t) {
+              var nums = parentPhones(t);
+              return h('li.row.between.gap.wrap',
+                h('span', h('strong', Store.displayName(t)), nums.length ? h('span.small.muted', ' · ' + nums.map(function (n) { return n.who; }).join(' / ')) : h('span.small.muted', ' · no number')),
+                h('span.row.gap',
+                  h('button.btn.small.primary', { type: 'button', onclick: function () { contactParent(t, 'call'); } }, UI.icon('phone', 16), 'Call'),
+                  h('button.btn.small', { type: 'button', onclick: function () { contactParent(t, 'text'); } }, 'Text'),
+                  h('button.btn.small', { type: 'button', onclick: function () { logContact(t.id); } }, 'Log')));
+            })) : null));
         }
       }
 
@@ -142,7 +195,8 @@
           } }, 'Open in email'),
           h('button.btn', { onclick: function () {
             var t = Store.talmid(who.value);
-            location.href = 'sms:' + (t && t.phone ? t.phone.replace(/[^\d+]/g, '') : '') + '?&body=' + encodeURIComponent(out.value);
+            if (!t) { location.href = 'sms:?&body=' + encodeURIComponent(out.value); return; }
+            pickNumber(t, 'text', function (n) { location.href = telHref('text', n.number, out.value); });
           } }, 'Open in messages'),
           h('button.btn', { onclick: function () {
             if (!who.value) { UI.toast('Choose a talmid to log it'); return; }
@@ -163,7 +217,7 @@
             h('thead', h('tr', ['Talmid', 'Father', 'Mother', 'Phone', 'Email'].map(function (x) { return h('th', x); }))),
             h('tbody', talmidim.map(function (t) {
               return h('tr', h('th', h('a', { href: '#/talmid/' + t.id }, Store.displayName(t))), h('td', t.father || ''), h('td', t.mother || ''),
-                h('td', t.phone ? h('a', { href: 'tel:' + t.phone }, t.phone) : ''), h('td', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''));
+                h('td', parentPhones(t).map(function (n, i) { return [i ? h('br') : null, h('span.small.muted', n.who + ' '), h('a', { href: telHref('call', n.number) }, n.number)]; })), h('td', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''));
             }))),
           h('div.row.gap',
             h('button.btn', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print'),

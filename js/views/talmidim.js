@@ -4,7 +4,7 @@
 
   function editTalmid(t) {
     var isNew = !t;
-    t = t || { first: '', last: '', hebName: '', father: '', mother: '', phone: '', phone2: '', email: '', birthday: '', address: '', notes: '', seat: '' };
+    t = t || { first: '', last: '', hebName: '', father: '', mother: '', fatherPhone: '', motherPhone: '', phone: '', phone2: '', email: '', birthday: '', address: '', notes: '', seat: '' };
     var f = {
       first: UI.input({ value: t.first, placeholder: 'First name', required: true }),
       last: UI.input({ value: t.last, placeholder: 'Last name' }),
@@ -12,8 +12,10 @@
       birthday: UI.input({ type: 'date', value: t.birthday }),
       father: UI.input({ value: t.father }),
       mother: UI.input({ value: t.mother }),
+      fatherPhone: UI.input({ type: 'tel', value: t.fatherPhone || '', placeholder: 'Cell' }),
+      motherPhone: UI.input({ type: 'tel', value: t.motherPhone || '', placeholder: 'Cell' }),
       phone: UI.input({ type: 'tel', value: t.phone }),
-      phone2: UI.input({ type: 'tel', value: t.phone2 }),
+      phone2: UI.input({ type: 'tel', value: t.phone2 || '' }),
       email: UI.input({ type: 'email', value: t.email }),
       address: UI.input({ value: t.address }),
       notes: h('textarea', { rows: 3, dir: 'auto', placeholder: 'Allergies, learning needs, what motivates him…' }, t.notes || '')
@@ -21,8 +23,9 @@
     var body = h('div.form-grid',
       UI.field('First name', f.first), UI.field('Last name', f.last),
       UI.field('Hebrew name', f.hebName), UI.field('Birthday', f.birthday, 'Hebrew birthday is calculated automatically'),
-      UI.field('Father', f.father), UI.field('Mother', f.mother),
-      UI.field('Phone', f.phone), UI.field('Second phone', f.phone2),
+      UI.field('Father', f.father), UI.field('Father\'s cell', f.fatherPhone),
+      UI.field('Mother', f.mother), UI.field('Mother\'s cell', f.motherPhone),
+      UI.field('Home phone', f.phone), UI.field('Other phone', f.phone2),
       UI.field('Email', f.email), UI.field('Address', f.address),
       h('div.span2', UI.field('Notes (private)', f.notes)));
     UI.modal(isNew ? 'Add talmid' : 'Edit ' + Store.displayName(t), body, [
@@ -159,13 +162,17 @@
       grid.appendChild(h('div.card',
         h('h2', 'Family'),
         h('dl.kv',
-          kv('Father', t.father), kv('Mother', t.mother),
-          kv('Phone', t.phone ? h('a', { href: 'tel:' + t.phone }, t.phone) : ''),
-          kv('Phone 2', t.phone2 ? h('a', { href: 'tel:' + t.phone2 }, t.phone2) : ''),
+          kv('Father', [t.father || '', t.fatherPhone ? [t.father ? ' · ' : '', h('a', { href: 'tel:' + t.fatherPhone.replace(/[^\d+]/g, '') }, t.fatherPhone)] : null]),
+          kv('Mother', [t.mother || '', t.motherPhone ? [t.mother ? ' · ' : '', h('a', { href: 'tel:' + t.motherPhone.replace(/[^\d+]/g, '') }, t.motherPhone)] : null]),
+          kv('Home', t.phone ? h('a', { href: 'tel:' + t.phone.replace(/[^\d+]/g, '') }, t.phone) : ''),
+          kv('Other', t.phone2 ? h('a', { href: 'tel:' + t.phone2.replace(/[^\d+]/g, '') }, t.phone2) : ''),
           kv('Email', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
           kv('Address', t.address)),
         t.notes ? h('div.note-box', { dir: 'auto' }, t.notes) : null,
-        h('button.btn', { onclick: function () { window.logContact && window.logContact(t.id); } }, UI.icon('phone'), 'Log parent call')));
+        h('div.row.gap.wrap',
+          h('button.btn.primary', { type: 'button', onclick: function () { window.contactParent(t, 'call'); } }, UI.icon('phone'), 'Call'),
+          h('button.btn', { type: 'button', onclick: function () { window.contactParent(t, 'text'); } }, 'Text'),
+          h('button.btn', { type: 'button', onclick: function () { window.logContact && window.logContact(t.id); } }, 'Log parent call'))));
 
       // Stats
       var a = attendanceSummary(t.id);
@@ -242,7 +249,10 @@
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (save() !== false) m.close(); } });
   }
 
-  function kv(k, v) { return v ? [h('dt', k), h('dd', { dir: 'auto' }, v)] : null; }
+  function kv(k, v) {
+    var empty = !v || (Array.isArray(v) && !v.some(function (x) { return x && (typeof x !== 'string' || x.trim()); }));
+    return empty ? null : [h('dt', k), h('dd', { dir: 'auto' }, v)];
+  }
   function stat(n, label) { return h('div.stat', h('div.stat-n', String(n)), h('div.stat-l', label)); }
 
   function attendanceSummary(id, from, to) {

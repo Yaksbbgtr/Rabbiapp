@@ -24,6 +24,7 @@
         school: '',
         officeEmail: '',
         coloringPages: true,
+        contactReminderDays: 30,
         hebrewFirst: false,
         attendanceDays: [0, 1, 2, 3, 4, 5], // Sunday-Friday
         setupDone: false

@@ -129,8 +129,10 @@
       state.talmidim.push({
         id: uid(), first: f[0], last: last, hebName: f[1] + ' בן ' + father[1],
         father: father[0] + ' ' + last, mother: mother + ' ' + last,
-        phone: '(555) 01' + pad(10 + k) + '-' + (2000 + grade * 100 + k * 37),
-        phone2: k % 3 === 0 ? '(555) 01' + pad(40 + k) + '-' + (3100 + k * 13) : '',
+        fatherPhone: '(555) 01' + pad(10 + k) + '-' + (2000 + grade * 100 + k * 37),
+        motherPhone: k % 3 === 2 ? '' : '(555) 01' + pad(40 + k) + '-' + (3100 + k * 13),
+        phone: k % 3 === 0 ? '(555) 01' + pad(70 + k) + '-' + (4200 + k * 7) : '',
+        phone2: '',
         email: father[0].toLowerCase() + '.' + last.toLowerCase() + '@example.com',
         address: (100 + k * 17 + grade) + ' ' + STREETS[(k + grade) % STREETS.length],
         birthday: (thisYear - 5 - grade + (month > 8 ? -1 : 0)) + '-' + pad(month) + '-' + pad(day),

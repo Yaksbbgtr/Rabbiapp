@@ -118,6 +118,24 @@
       }
       // Tap anywhere on the timer (not a button) to start/stop
       box.addEventListener('click', function (e) { if (!e.target.closest('button')) toggle(); });
+      // Type any time: minutes and seconds
+      function editTime() {
+        var mins = UI.input({ type: 'number', inputmode: 'numeric', min: 0, max: 180, value: Math.floor(timer.total / 60), 'aria-label': 'Minutes' });
+        var secs = UI.input({ type: 'number', inputmode: 'numeric', min: 0, max: 59, value: timer.total % 60, 'aria-label': 'Seconds' });
+        function apply() {
+          var total = (parseInt(mins.value, 10) || 0) * 60 + (parseInt(secs.value, 10) || 0);
+          if (total <= 0) { UI.toast('Enter a time'); return false; }
+          setTime(Math.min(total, 180 * 60));
+        }
+        var m = UI.modal('Set the timer', h('div',
+          h('div.form-grid', UI.field('Minutes', mins), UI.field('Seconds', secs)),
+          h('p.small.muted', 'Up to 3 hours.')), [
+          { label: 'Cancel' },
+          { label: 'Set', primary: true, onClick: apply }
+        ]);
+        [mins, secs].forEach(function (inp) { inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (apply() !== false) m.close(); } }); });
+        mins.select();
+      }
       // Keyboard in full screen: space = start/stop, R = reset, Esc = leave
       function onKey(e) {
         if (!document.body.contains(box)) { document.removeEventListener('keydown', onKey); return; }
@@ -140,7 +158,8 @@
         h('h2', 'Timer'),
         box,
         h('p.small.muted', 'Tap the numbers to start or stop.'),
-        h('div.chips', [1, 2, 3, 5, 10, 15].map(function (m) { return h('button.chip', { type: 'button', onclick: function () { setTime(m * 60); } }, m + ' min'); })),
+        h('div.chips', [1, 2, 3, 5, 10, 15, 20, 30].map(function (m) { return h('button.chip', { type: 'button', onclick: function () { setTime(m * 60); } }, m + ' min'); }),
+          h('button.chip', { type: 'button', onclick: editTime }, UI.icon('edit', 14), 'Edit time…')),
         h('div.row.gap.wrap',
           startBtn,
           h('button.btn', { type: 'button', onclick: function () { setTime(timer.total); } }, 'Reset'),
