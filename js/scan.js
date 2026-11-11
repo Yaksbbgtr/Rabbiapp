@@ -224,7 +224,7 @@
               onchange: function (e) { r.on = e.target.checked; draw(); } }),
             h('div.scan-fields',
               inp('first', 'First name'), inp('last', 'Last name'),
-              inp('hebName', 'Hebrew name', { dir: 'rtl' }), inp('phone', 'Phone', { type: 'tel' })),
+              inp('hebName', 'Hebrew name', { dir: 'rtl' }), inp('phone', 'Father\'s cell', { type: 'tel' })),
             r.dup ? h('span.pill.muted.small', 'already in class') : null));
         });
         refreshBtn();
@@ -234,7 +234,7 @@
         Store.update(function (s) {
           chosen.forEach(function (r) {
             s.talmidim.push({ id: Store.uid(), first: r.first.trim(), last: r.last.trim(), hebName: r.hebName.trim(),
-              phone: r.phone.trim(), archived: false });
+              fatherPhone: r.phone.trim(), archived: false });
           });
         });
         m.close();

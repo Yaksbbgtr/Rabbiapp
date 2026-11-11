@@ -4,7 +4,7 @@
 
   function editTalmid(t) {
     var isNew = !t;
-    t = t || { first: '', last: '', hebName: '', father: '', mother: '', fatherPhone: '', motherPhone: '', phone: '', phone2: '', email: '', birthday: '', address: '', notes: '', seat: '' };
+    t = t || { first: '', last: '', hebName: '', father: '', mother: '', fatherPhone: '', motherPhone: '', email: '', birthday: '', address: '', notes: '', seat: '' };
     var f = {
       first: UI.input({ value: t.first, placeholder: 'First name', required: true }),
       last: UI.input({ value: t.last, placeholder: 'Last name' }),
@@ -14,8 +14,6 @@
       mother: UI.input({ value: t.mother }),
       fatherPhone: UI.input({ type: 'tel', value: t.fatherPhone || '', placeholder: 'Cell' }),
       motherPhone: UI.input({ type: 'tel', value: t.motherPhone || '', placeholder: 'Cell' }),
-      phone: UI.input({ type: 'tel', value: t.phone }),
-      phone2: UI.input({ type: 'tel', value: t.phone2 || '' }),
       email: UI.input({ type: 'email', value: t.email }),
       address: UI.input({ value: t.address }),
       notes: h('textarea', { rows: 3, dir: 'auto', placeholder: 'Allergies, learning needs, what motivates him…' }, t.notes || '')
@@ -25,7 +23,6 @@
       UI.field('Hebrew name', f.hebName), UI.field('Birthday', f.birthday, 'Hebrew birthday is calculated automatically'),
       UI.field('Father', f.father), UI.field('Father\'s cell', f.fatherPhone),
       UI.field('Mother', f.mother), UI.field('Mother\'s cell', f.motherPhone),
-      UI.field('Home phone', f.phone), UI.field('Other phone', f.phone2),
       UI.field('Email', f.email), UI.field('Address', f.address),
       h('div.span2', UI.field('Notes (private)', f.notes)));
     UI.modal(isNew ? 'Add talmid' : 'Edit ' + Store.displayName(t), body, [
@@ -164,8 +161,6 @@
         h('dl.kv',
           kv('Father', [t.father || '', t.fatherPhone ? [t.father ? ' · ' : '', h('a', { href: 'tel:' + t.fatherPhone.replace(/[^\d+]/g, '') }, t.fatherPhone)] : null]),
           kv('Mother', [t.mother || '', t.motherPhone ? [t.mother ? ' · ' : '', h('a', { href: 'tel:' + t.motherPhone.replace(/[^\d+]/g, '') }, t.motherPhone)] : null]),
-          kv('Home', t.phone ? h('a', { href: 'tel:' + t.phone.replace(/[^\d+]/g, '') }, t.phone) : ''),
-          kv('Other', t.phone2 ? h('a', { href: 'tel:' + t.phone2.replace(/[^\d+]/g, '') }, t.phone2) : ''),
           kv('Email', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
           kv('Address', t.address)),
         t.notes ? h('div.note-box', { dir: 'auto' }, t.notes) : null,

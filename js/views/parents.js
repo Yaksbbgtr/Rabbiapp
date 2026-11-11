@@ -11,8 +11,6 @@
     var add = function (who, name, number) { if (number && String(number).trim()) list.push({ who: who, name: name || '', number: String(number).trim() }); };
     add('Father', t.father, t.fatherPhone);
     add('Mother', t.mother, t.motherPhone);
-    add('Home', '', t.phone);
-    add('Other', '', t.phone2);
     return list;
   }
   function telHref(kind, number, body) {

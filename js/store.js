@@ -53,6 +53,14 @@
 
   function prepare(data) {
     window.MessageTemplates.upgrade(data, uid);
+    // Older versions kept "phone" / "phone2"; now only the father's and mother's cells exist.
+    (data.talmidim || []).forEach(function (t) {
+      if (t.phone && !t.fatherPhone) t.fatherPhone = t.phone;
+      else if (t.phone && !t.motherPhone) t.motherPhone = t.phone;
+      if (t.phone2 && !t.motherPhone) t.motherPhone = t.phone2;
+      else if (t.phone2 && !t.fatherPhone) t.fatherPhone = t.phone2;
+      delete t.phone; delete t.phone2;
+    });
     var d = defaults();
     Object.keys(d).forEach(function (k) { if (data[k] === undefined) data[k] = d[k]; });
     data.settings = Object.assign(d.settings, data.settings);
