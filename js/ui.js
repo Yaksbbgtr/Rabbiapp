@@ -85,7 +85,20 @@
   function modal(title, body, actions) {
     var overlay = h('div.modal-overlay');
     var close = function () { overlay.remove(); document.removeEventListener('keydown', onKey); };
-    function onKey(e) { if (e.key === 'Escape') close(); }
+    // Escape closes; Enter presses the blue (primary) button. Shift+Enter still adds a line in a text box.
+    // Only the topmost dialog reacts, and Enter on a focused button presses that button as usual.
+    function onKey(e) {
+      var tops = document.querySelectorAll('.modal-overlay');
+      if (tops[tops.length - 1] !== overlay) return;
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing || e.defaultPrevented) return;
+      var t = e.target;
+      if (t && t.closest && (t.closest('button, a') || !overlay.contains(t) && t !== document.body)) return;
+      var primary = overlay.querySelector('.modal-actions .btn.primary');
+      if (!primary) return;
+      e.preventDefault();
+      primary.click();
+    }
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
     var footer = h('div.modal-actions');
