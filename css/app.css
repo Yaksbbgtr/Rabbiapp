@@ -345,6 +345,7 @@ dl.kv dd { margin: 0; }
 .msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; }
 .msg.from-office { align-self: flex-start; background: var(--blue-soft); }
 .msg.from-me { align-self: flex-end; background: var(--green-soft); }
+.msg-plan { margin-top: 8px; white-space: nowrap; }
 .issue.pri-high { border-left-color: var(--gold); }
 .issue.pri-urgent { border-left-color: var(--red); }
 .issue.done { opacity: .65; }

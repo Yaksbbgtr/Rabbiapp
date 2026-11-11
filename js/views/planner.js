@@ -5,9 +5,10 @@
   var mode = 'week';          // 'day' | 'week' | 'month'
   var cursor = null;          // ISO date the planner is looking at
 
+  // l: an existing lesson, or nothing / a prefilled object (no id) for a new one.
   function editLesson(l, date) {
-    var isNew = !l;
-    l = l || { date: date, subject: 'Chumash', plan: '', notes: '', done: false };
+    var isNew = !l || !l.id;
+    if (isNew) l = Object.assign({ date: date || Store.todayISO(), subject: 'Chumash', plan: '', notes: '', done: false }, l || {});
     var subj = UI.input({ value: l.subject, list: 'plan-subj' });
     var dl = h('datalist#plan-subj', SUBJECTS.map(function (s) { return h('option', { value: s }); }));
     var d = UI.input({ type: 'date', value: l.date });
@@ -58,6 +59,9 @@
     App.render();
     window.scrollTo(0, 0);
   }
+
+  // Other pages can open the Add to plan form prefilled, e.g. { date, subject, plan }.
+  window.Planner = { add: function (prefill) { editLesson(prefill || null); } };
 
   Views.register('planner', {
     title: 'Planner', icon: 'calendar',

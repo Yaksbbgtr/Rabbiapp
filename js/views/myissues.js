@@ -2,6 +2,37 @@
 (function () {
   'use strict';
   var h = UI.h;
+
+  // Finds a meeting date (and time, if given) in a message, e.g. "11:00 am 14 november", "Nov 14 at 3pm",
+  // "11/14", "tomorrow", "Thursday". Dates without a year are the next one on or after the message's date.
+  var MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  var MONTH_RE = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?';
+  var DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function findMeeting(text, baseISO) {
+    var t = (text || '').toLowerCase(), m, date = null;
+    var base = new Date(+baseISO.slice(0, 4), +baseISO.slice(5, 7) - 1, +baseISO.slice(8, 10));
+    var onOrAfter = function (mon, day, year) {
+      if (mon < 0 || mon > 11 || day < 1 || day > 31) return null;
+      var d = new Date(year || base.getFullYear(), mon, day);
+      if (d.getMonth() !== mon) return null;
+      if (!year && d < base) d.setFullYear(d.getFullYear() + 1);
+      return iso(d);
+    };
+    var mi = function (s) { return MONTHS.indexOf(s.slice(0, 3)); };
+    if ((m = t.match(new RegExp('\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?' + MONTH_RE + '(?:\\s*,?\\s*(\\d{4}))?\\b')))) date = onOrAfter(mi(m[2]), +m[1], m[3] && +m[3]);
+    else if ((m = t.match(new RegExp('\\b' + MONTH_RE + '\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:\\s*,?\\s*(\\d{4}))?')))) date = onOrAfter(mi(m[1]), +m[2], m[3] && +m[3]);
+    else if ((m = t.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))) date = onOrAfter(+m[1] - 1, +m[2], m[3] && (m[3].length === 2 ? 2000 + +m[3] : +m[3]));
+    else if (/\btomorrow\b/.test(t)) { var tm = new Date(base); tm.setDate(tm.getDate() + 1); date = iso(tm); }
+    else if (/\btoday\b|\btonight\b/.test(t)) date = baseISO;
+    else if ((m = t.match(new RegExp('\\b(' + DAYS.join('|') + ')\\b')))) {
+      var wd = new Date(base); wd.setDate(wd.getDate() + (DAYS.indexOf(m[1]) - base.getDay() + 7) % 7); date = iso(wd);
+    }
+    if (!date) return null;
+    var tt = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/) || t.match(/\b(\d{1,2}):(\d{2})\b/);
+    var time = tt ? +tt[1] + ':' + (tt[2] || '00') + (tt[3] ? ' ' + tt[3].replace(/\./g, '') : '') : '';
+    return { date: date, time: time };
+  }
   var filter = 'open';
 
   function statusPill(i) {
@@ -84,9 +115,14 @@
         h('h2', 'Responses'),
         notes.length ? h('div.thread', notes.map(function (n) {
           var office = Issues.isOffice(i, n);
+          var when = findMeeting(n.text, n.date);
           return h('div.msg' + (office ? '.from-office' : '.from-me'),
             h('div.small.muted', (office ? n.by || 'Office' : 'You') + ' · ' + UI.fmtDate(n.date)),
-            h('div', { dir: 'auto' }, n.text));
+            h('div', { dir: 'auto' }, n.text),
+            when ? h('button.btn.small.msg-plan', { type: 'button', onclick: function () {
+              Planner.add({ date: when.date, subject: 'Meeting',
+                plan: (when.time ? when.time + ' – ' : '') + 'Meeting' + (office ? ' with ' + (n.by || 'Office') : '') + ' re: ' + i.title + '\n"' + n.text + '"' });
+            } }, UI.icon('calendar', 14), 'Add to planner') : null);
         })) : h('p.muted', 'The office hasn\'t responded yet. Their reply will show up here.'),
         input,
         h('div.row.gap', { style: 'margin-top:8px' }, h('button.btn.primary', { type: 'button', onclick: send }, UI.icon('send', 16), 'Send reply')),
