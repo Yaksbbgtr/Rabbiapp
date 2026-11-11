@@ -72,7 +72,16 @@
         out));
 
       // Timer
-      var tDisplay = h('div.timer-display', fmt(timer.left));
+      var tDisplay = h('div.timer-display', { role: 'timer', 'aria-live': 'off', title: 'Tap to start or stop' }, fmt(timer.left));
+      var startBtn = h('button.btn.primary', { type: 'button' }, 'Start');
+      var fsStart = h('button.btn.primary.big', { type: 'button' }, 'Start');
+      var box = h('div.timer-box');
+      function isFull() { return document.fullscreenElement === box || box.classList.contains('timer-fs'); }
+      function labels() {
+        var l = timer.running ? 'Stop' : timer.left <= 0 ? 'Start again' : timer.left < timer.total ? 'Resume' : 'Start';
+        startBtn.textContent = l; fsStart.textContent = l;
+        box.classList.toggle('running', timer.running);
+      }
       function tick() {
         if (!timer.running) return;
         timer.left--;
@@ -80,25 +89,62 @@
         if (timer.left <= 0) {
           timer.running = false; clearInterval(timer.handle);
           tDisplay.classList.add('done');
-          beep();
+          beep(); labels();
         }
       }
-      function setTime(sec) { timer.total = timer.left = sec; timer.running = false; clearInterval(timer.handle); tDisplay.textContent = fmt(sec); tDisplay.classList.remove('done'); }
+      function setTime(sec) { timer.total = timer.left = sec; timer.running = false; clearInterval(timer.handle); tDisplay.textContent = fmt(sec); tDisplay.classList.remove('done'); labels(); }
+      function toggle() {
+        if (timer.running) { timer.running = false; clearInterval(timer.handle); labels(); return; }
+        if (timer.left <= 0) setTime(timer.total);
+        timer.running = true; clearInterval(timer.handle);
+        timer.handle = setInterval(function () {
+          if (!document.body.contains(tDisplay)) { clearInterval(timer.handle); timer.running = false; return; }
+          tick();
+        }, 1000);
+        labels();
+      }
+      function enterFull() {
+        // Real full screen where the browser allows it; otherwise (iPhone) fill the window instead.
+        var fallback = function () { if (document.fullscreenElement !== box) box.classList.add('timer-fs'); };
+        if (box.requestFullscreen) {
+          try { Promise.resolve(box.requestFullscreen()).catch(fallback); } catch (e) { fallback(); }
+          setTimeout(fallback, 400);
+        } else fallback();
+        labels();
+      }
+      function exitFull() {
+        if (document.fullscreenElement === box && document.exitFullscreen) document.exitFullscreen();
+        box.classList.remove('timer-fs');
+      }
+      // Tap anywhere on the timer (not a button) to start/stop
+      box.addEventListener('click', function (e) { if (!e.target.closest('button')) toggle(); });
+      // Keyboard in full screen: space = start/stop, R = reset, Esc = leave
+      function onKey(e) {
+        if (!document.body.contains(box)) { document.removeEventListener('keydown', onKey); return; }
+        if (!isFull() || (e.target && e.target.closest && e.target.closest('input, textarea, select'))) return;
+        if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') { e.preventDefault(); toggle(); }
+        else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); setTime(timer.total); }
+        else if (e.key === 'Escape') exitFull();
+      }
+      document.addEventListener('keydown', onKey);
+      startBtn.addEventListener('click', toggle);
+      fsStart.addEventListener('click', toggle);
+      box.appendChild(tDisplay);
+      box.appendChild(h('div.timer-fs-controls',
+        fsStart,
+        h('button.btn.big', { type: 'button', onclick: function () { setTime(timer.total); } }, 'Reset'),
+        h('button.btn.big', { type: 'button', onclick: exitFull }, 'Exit full screen'),
+        h('div.small.timer-hint', 'Tap the screen or press space to start / stop · R resets · Esc leaves')));
+      labels();
       grid.appendChild(h('div.card',
         h('h2', 'Timer'),
-        tDisplay,
-        h('div.chips', [1, 2, 3, 5, 10, 15].map(function (m) { return h('button.chip', { onclick: function () { setTime(m * 60); } }, m + ' min'); })),
-        h('div.row.gap',
-          h('button.btn.primary', { onclick: function () {
-            if (timer.running) { timer.running = false; clearInterval(timer.handle); return; }
-            if (timer.left <= 0) setTime(timer.total);
-            timer.running = true; clearInterval(timer.handle); timer.handle = setInterval(function () {
-              if (!document.body.contains(tDisplay)) { clearInterval(timer.handle); timer.running = false; return; }
-              tick();
-            }, 1000);
-          } }, 'Start / Pause'),
-          h('button.btn', { onclick: function () { setTime(timer.total); } }, 'Reset'),
-          h('button.btn', { onclick: function () { if (tDisplay.requestFullscreen) tDisplay.requestFullscreen(); } }, 'Full screen'))));
+        box,
+        h('p.small.muted', 'Tap the numbers to start or stop.'),
+        h('div.chips', [1, 2, 3, 5, 10, 15].map(function (m) { return h('button.chip', { type: 'button', onclick: function () { setTime(m * 60); } }, m + ' min'); })),
+        h('div.row.gap.wrap',
+          startBtn,
+          h('button.btn', { type: 'button', onclick: function () { setTime(timer.total); } }, 'Reset'),
+          h('button.btn', { type: 'button', onclick: enterFull }, 'Full screen'))));
 
       // Jobs rotation
       var talmidim = Store.activeTalmidim();

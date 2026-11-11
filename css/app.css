@@ -480,8 +480,20 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .picker-display.final { color: var(--navy); background: var(--gold-soft); }
 .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
 .group { background: var(--bg); border-radius: 10px; padding: 10px; }
-.timer-display { font-size: 3.4rem; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; padding: 10px; color: var(--navy); background: var(--bg); border-radius: 12px; margin-bottom: 10px; }
-.timer-display:fullscreen { font-size: 28vw; display: flex; align-items: center; justify-content: center; }
+.timer-box { cursor: pointer; margin-bottom: 10px; -webkit-user-select: none; user-select: none; }
+.timer-display { font-size: 3.4rem; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; padding: 10px; color: var(--navy); background: var(--bg); border-radius: 12px; }
+.timer-fs-controls { display: none; }
+/* Full screen (real, or filling the window on phones) */
+.timer-box:fullscreen, .timer-box.timer-fs {
+  position: fixed; inset: 0; z-index: 70; margin: 0; width: 100%; height: 100%;
+  background: var(--bg); color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+  padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+.timer-box:fullscreen .timer-display, .timer-box.timer-fs .timer-display { font-size: min(28vw, 40vh); line-height: 1; background: transparent; padding: 0; flex: 1; display: flex; align-items: center; }
+.timer-box:fullscreen .timer-fs-controls, .timer-box.timer-fs .timer-fs-controls { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
+.timer-box.running .timer-display { color: var(--green); }
+.timer-hint { width: 100%; text-align: center; color: var(--muted); }
+@media (max-width: 600px) { .timer-hint { display: none; } .timer-box.timer-fs .timer-fs-controls .btn { flex: 1 1 40%; } }
 .timer-display.done { color: var(--red); animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .4; } }
 .tools .big-he { color: var(--navy); }
