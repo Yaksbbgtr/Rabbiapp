@@ -344,7 +344,16 @@
       payments.push({ date: pDate.value || Store.todayISO(), amount: +pAmt.value, note: pNote.value.trim() });
       pAmt.value = ''; pNote.value = ''; drawPay();
     }
-    UI.modal('Tuition – ' + label, h('div',
+    function saveFamily() {
+      // A payment typed but not yet "recorded" is saved too.
+      if (+pAmt.value > 0) payments.push({ date: pDate.value || Store.todayISO(), amount: +pAmt.value, note: pNote.value.trim() });
+      Store.update(function (s) {
+        s.tuition = s.tuition || { defaultAnnual: 0, families: {} }; s.tuition.families = s.tuition.families || {};
+        s.tuition.families[key] = { annual: annual.value === '' ? null : +annual.value, payments: payments, notes: notes.value.trim() };
+      });
+      UI.toast('Saved'); App.render();
+    }
+    var m = UI.modal('Tuition – ' + label, h('div',
       parents ? h('p.small.muted', parents) : null,
       UI.field('Annual tuition for this family', annual, 'Leave empty to use the office default'),
       h('h3', 'Payments'), payList,
@@ -353,21 +362,22 @@
       h('p.small.muted', 'Save records the payment above. Use "Add another" only if you are entering several at once.'),
       UI.field('Notes', notes)), [
       { label: 'Cancel' },
-      { label: 'Save', primary: true, onClick: function () {
-        // A payment typed but not yet "recorded" is saved too.
-        if (+pAmt.value > 0) payments.push({ date: pDate.value || Store.todayISO(), amount: +pAmt.value, note: pNote.value.trim() });
-        Store.update(function (s) {
-          s.tuition = s.tuition || { defaultAnnual: 0, families: {} }; s.tuition.families = s.tuition.families || {};
-          s.tuition.families[key] = { annual: annual.value === '' ? null : +annual.value, payments: payments, notes: notes.value.trim() };
-        });
-        UI.toast('Saved'); App.render();
-      } }
+      { label: 'Save', primary: true, onClick: saveFamily }
     ]);
+    // Enter in any box saves (Notes keeps Enter for new lines).
+    [annual, pAmt, pDate, pNote].forEach(function (inp) {
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); saveFamily(); m.close(); } });
+    });
   }
   function renderTuition(main, list) {
     var tu = tuitionStore();
     var def = UI.input({ type: 'number', inputmode: 'decimal', min: 0, value: tu.defaultAnnual || '', placeholder: '0', 'aria-label': 'Default annual tuition' });
-    def.addEventListener('change', function () { Store.update(function (s) { s.tuition.defaultAnnual = +def.value || 0; }); UI.toast('Default saved'); App.render(); });
+    var saveDefault = function () {
+      if ((+def.value || 0) === (+tuitionStore().defaultAnnual || 0)) return;
+      Store.update(function (s) { s.tuition.defaultAnnual = +def.value || 0; }); UI.toast('Default saved'); App.render();
+    };
+    def.addEventListener('change', saveDefault);
+    def.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); saveDefault(); } });
     var rows = [];
     list.forEach(function (c) {
       c.talmidim.forEach(function (t) {
