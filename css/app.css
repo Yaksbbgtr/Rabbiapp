@@ -612,3 +612,5 @@ select.level-select option { background: var(--card); color: var(--ink); }
   .day.shabbos { background: none; }
   input { border: 0; padding: 0; }
 }
+.day-open { cursor: pointer; }
+.day-open:hover { box-shadow: 0 2px 10px rgba(0,0,0,.06); }

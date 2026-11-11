@@ -152,9 +152,13 @@
         var lessons = lessonsOn(iso);
         var dayHols = hols.filter(function (x) { return x.rd === rd; });
         var isShabbos = HebCal.weekday(rd) === 6;
-        week.appendChild(h('div.card.day' + (rd === todayRD ? '.today' : '') + (isShabbos ? '.shabbos' : ''),
+        var openDay = function () { cursor = iso; mode = 'day'; App.render(); window.scrollTo(0, 0); };
+        week.appendChild(h('div.card.day.day-open' + (rd === todayRD ? '.today' : '') + (isShabbos ? '.shabbos' : ''), {
+            title: 'Open this day',
+            // Clicking anywhere on the day opens it, except on its checkboxes, lessons and Add button.
+            onclick: function (e) { if (!e.target.closest('button, input, a, label')) openDay(); } },
           h('div.day-head',
-            h('button.link', { type: 'button', title: 'Open this day', onclick: function () { cursor = iso; mode = 'day'; App.render(); window.scrollTo(0, 0); } },
+            h('button.link', { type: 'button', title: 'Open this day', onclick: openDay },
               h('strong', UI.fmtDate(iso, { weekday: 'long', month: undefined, day: undefined })), ' ',
               h('span.muted.small', UI.fmtDate(iso, { weekday: undefined }))),
             h('span.he.muted', HebCal.formatHebrew(hd, { noYear: true }))),
