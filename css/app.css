@@ -339,6 +339,8 @@ dl.kv dd { margin: 0; }
 .scan-row.off { opacity: .5; }
 .scan-fields { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .scan-fields input { min-height: 36px; padding: 6px 9px; }
+.pos-text { color: var(--green); font-weight: 600; }
+.scan-preview-lg { max-height: 340px; }
 .scan-raw { white-space: pre-wrap; max-height: 160px; overflow: auto; background: var(--bg); padding: 8px; border-radius: 8px; }
 .scan-add { position: sticky; bottom: -10px; background: var(--card); padding: 10px 0 4px; text-align: right; }
 .scan-fields input { min-width: 0; }

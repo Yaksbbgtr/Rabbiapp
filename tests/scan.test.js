@@ -50,3 +50,37 @@ check('headers in Hebrew are skipped', () => {
 
 if (failures) { console.error(failures + ' test(s) failed'); process.exit(1); }
 console.log('All scan tests passed');
+
+// ---- graded bechina ----
+const { parseBechinaScan } = require('../js/scan.js');
+const roster = [
+  { id: 'a', first: 'Yaakov', last: 'Friedman', hebName: 'יעקב בן שמואל' }, { id: 'b', first: 'Moshe', last: 'Katz', hebName: 'משה בן יוסף' },
+  { id: 'c', first: 'Moshe', last: 'Goldberg', hebName: 'משה בן חיים' }, { id: 'd', first: 'Dovid', last: 'Rosen', hebName: 'דוד בן אליעזר' }];
+let f2 = 0;
+function check2(name, fn) { try { fn(); } catch (e) { f2++; console.error('FAIL', name, '-', e.message); } }
+check2('name and fraction', () => {
+  const r = parseBechinaScan('Chumash Bechina\nName: Yaakov Friedman\n\n1. ...\n\n85/100', roster, 100);
+  assert.strictEqual(r.talmid.id, 'a'); assert.strictEqual(r.score, 85);
+});
+check2('percent and last name only', () => {
+  const r = parseBechinaScan('Rosen   Parshas Lech Lecha\nGrade: 90%', roster, 20);
+  assert.strictEqual(r.talmid.id, 'd'); assert.strictEqual(r.score, 18);
+});
+check2('ambiguous first name asks', () => {
+  const r = parseBechinaScan('Moshe\nScore 17', roster, 20);
+  assert.strictEqual(r.talmid, null); assert.deepStrictEqual(r.options.map(t => t.id).sort(), ['b', 'c']); assert.strictEqual(r.score, 17);
+});
+check2('typo in last name', () => {
+  const r = parseBechinaScan('Yaakov Freidman  72 / 100', roster, 100);
+  assert.strictEqual(r.talmid.id, 'a'); assert.strictEqual(r.score, 72);
+});
+check2('Hebrew name and lone circled number', () => {
+  const r = parseBechinaScan('בחינה בחומש\nיעקב\n\n(8)\n', roster, 10);
+  assert.strictEqual(r.talmid.id, 'a'); assert.strictEqual(r.score, 8);
+});
+check2('question numbers are not marks', () => {
+  const r = parseBechinaScan('Dovid Rosen\n1.\n2.\n3.\n', roster, 100);
+  assert.strictEqual(r.talmid.id, 'd'); assert.strictEqual(r.score, null);
+});
+if (f2) { console.error(f2 + ' bechina test(s) failed'); process.exit(1); }
+console.log('All bechina scan tests passed');

@@ -60,7 +60,9 @@
           h('div.row.between.wrap',
             h('div', h('button.link', { onclick: function () { openTest = null; App.render(); } }, '← All bechinos'),
               h('h2', x.title), h('p.muted', x.subject + ' · ' + UI.fmtDate(x.date) + ' · out of ' + x.max)),
-            h('div.row.gap', h('button.btn', { onclick: function () { editTest(x); } }, UI.icon('edit'), 'Edit'),
+            h('div.row.gap.wrap',
+              h('button.btn.primary', { onclick: function () { window.ClassListScanner.openBechina(x); } }, UI.icon('camera'), 'Scan papers'),
+              h('button.btn', { onclick: function () { editTest(x); } }, UI.icon('edit'), 'Edit'),
               h('button.btn', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print'))),
           s ? h('div.stats', stat(Math.round(s.avg * 10) / 10, 'average'), stat(s.hi, 'highest'), stat(s.lo, 'lowest'), stat(s.n + '/' + talmidim.length, 'graded')) : null));
         var table = h('table.grid-table.scores', h('thead', h('tr', h('th', 'Talmid'), h('th', 'Score'), h('th', '%'))),
