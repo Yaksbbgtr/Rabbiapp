@@ -35,6 +35,7 @@
     var name = UI.input({ placeholder: 'e.g. Rabbi Cohen', autocomplete: 'name' });
     var cls = UI.input({ placeholder: 'e.g. Kitah Daled' });
     var school = UI.input({ placeholder: 'Yeshiva name', value: 'Yeshiva K\'tana of Waterbury' });
+    var phone = UI.input({ type: 'tel', placeholder: 'So the office can reach you', autocomplete: 'tel' });
     var pin = UI.input({ type: 'password', inputmode: 'numeric', autocomplete: 'off', placeholder: 'Leave empty for no PIN' });
     var adminBox = h('input', { type: 'checkbox' });
     var classField = UI.field('Class', cls);
@@ -43,13 +44,14 @@
       UI.field('Your name (as it appears on letters)', name),
       classField,
       UI.field('Yeshiva', school),
+      UI.field('Your cell', phone),
       h('label.check-row', adminBox, ' Administrator – sees the grades and attendance of every class on this device, no class of their own'),
       UI.field('PIN (optional)', pin, 'A PIN keeps other people using this device out of your class.')), [
       { label: 'Cancel' },
       { label: 'Create profile', primary: true, onClick: function () {
         if (!name.value.trim()) { UI.toast('Please enter your name'); name.focus(); return false; }
         try {
-          var id = Store.createProfile({ name: name.value, className: cls.value, school: school.value.trim(), pin: pin.value.trim(), admin: adminBox.checked });
+          var id = Store.createProfile({ name: name.value, className: cls.value, school: school.value.trim(), pin: pin.value.trim(), admin: adminBox.checked, phone: phone.value });
           Store.login(id, pin.value.trim());
         } catch (e) { alert(e.message); return false; }
         UI.toast('Profile created');

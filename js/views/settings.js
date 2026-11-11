@@ -10,6 +10,9 @@
       var s = st.settings;
       main.appendChild(h('div.page-head', h('h1', 'Settings')));
       if (Store.isAdmin()) {
+        main.appendChild(h('div.card', h('h2', 'Office'),
+          UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
+          UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' })))));
         main.appendChild(Profiles.settingsCard());
         var aseg = h('div.seg');
         UI.themeButtons(aseg, function () { App.render(); });
@@ -30,6 +33,7 @@
         h('h2', 'Class'),
         h('div.form-grid',
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
+          UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' })), 'Shown to the office on issues you report'),
           UI.field('Class name', bind('className', UI.input({ value: s.className }))),
           UI.field('Yeshiva', bind('school', UI.input({ value: s.school }))),
           UI.field('Remind me to be in touch with a family after', bind('contactReminderDays',

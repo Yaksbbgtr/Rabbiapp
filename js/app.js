@@ -36,7 +36,9 @@
     var p = HebCal.parshaOfWeek(rd);
     document.getElementById('brand-class').textContent = s.className ? ' · ' + s.className : '';
     document.getElementById('header-date').innerHTML = '';
+    var today = new Date();
     document.getElementById('header-date').appendChild(h('span',
+      h('span.en-date', today.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })), ' · ',
       h('span.he', HebCal.formatHebrew(hd)), ' · ',
       p.holiday ? p.en : (p.en ? 'Parshas ' + p.en : '')));
   }

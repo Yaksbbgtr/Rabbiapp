@@ -174,7 +174,8 @@
         h('div.row.gap.wrap',
           h('button.btn.primary', { type: 'button', onclick: function () { window.contactParent(t, 'call'); } }, UI.icon('phone'), 'Call'),
           h('button.btn', { type: 'button', onclick: function () { window.contactParent(t, 'text'); } }, 'Text'),
-          h('button.btn', { type: 'button', onclick: function () { window.logContact && window.logContact(t.id); } }, 'Log parent call'))));
+          h('button.btn', { type: 'button', onclick: function () { window.logContact && window.logContact(t.id); } }, 'Log parent call'),
+          h('button.btn', { type: 'button', onclick: function () { Issues.report(t.id); } }, UI.icon('send'), 'Report to office'))));
 
       // Stats
       var a = attendanceSummary(t.id);

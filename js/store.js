@@ -25,6 +25,7 @@
         officeEmail: '',
         coloringPages: true,
         contactReminderDays: 30,
+        rebbiPhone: '',
         hebrewFirst: false,
         attendanceDays: [0, 1, 2, 3, 4, 5], // Sunday-Friday
         setupDone: false
@@ -47,7 +48,8 @@
         { id: uid(), name: 'Sefarim monitor', holder: null }
       ],
       comments: {},            // report card comments { talmidId: text }
-      notes: []                // quick notes { id, date, text, talmidId? }
+      notes: [],               // quick notes { id, date, text, talmidId? }
+      issues: []               // reports to the office: { id, date, by, byPhone, className, talmidId, talmidName, title, details, priority, status, assignedTo, due, notes: [{date, by, text}], updatedAt }
     };
   }
 
@@ -203,6 +205,7 @@
         data.settings.rebbiName = p.name; data.settings.className = p.className;
         data.settings.school = opts.school || ''; data.settings.setupDone = true;
       }
+      if (opts.phone) data.settings.rebbiPhone = String(opts.phone).trim();
       try { localStorage.setItem(dataKey(id), JSON.stringify(data)); }
       catch (e) { throw new Error('This device is out of storage space for another profile.'); }
       index.list.push(p); writeIndex();
@@ -224,6 +227,12 @@
     isAdmin: function () { var p = profile(index.current); return !!(p && p.role === 'admin'); },
     // Read another profile's class without logging in to it (admin view).
     peek: function (id) { return load(id); },
+    // Change another profile's saved data in place (admin updating a rebbi's issue).
+    updateProfile: function (id, fn) {
+      if (id === index.current) { fn(state); save(); return; }
+      var d = load(id); fn(d);
+      try { localStorage.setItem(dataKey(id), JSON.stringify(d)); } catch (e) { alert('Could not save – this device is out of storage space.'); }
+    },
     // Replace a profile's whole class with data from a backup file.
     replaceProfileData: function (id, data) {
       var p = profile(id); if (!p) return;
