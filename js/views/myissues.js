@@ -119,7 +119,7 @@
           return h('div.msg' + (office ? '.from-office' : '.from-me'),
             h('div.small.muted', (office ? n.by || 'Office' : 'You') + ' · ' + UI.fmtDate(n.date)),
             h('div', { dir: 'auto' }, n.text),
-            when && HebCal.weekday(HebCal.isoToRD(when.date)) === 6 ? h('div.shabbos-warn.msg-flag', '⚠ ' + UI.fmtDate(when.date) + ' is Shabbos') : null,
+            when && HebCal.noMelacha(HebCal.isoToRD(when.date)) ? h('div.shabbos-warn.msg-flag', '⚠ ' + UI.fmtDate(when.date) + ' is ' + HebCal.noMelacha(HebCal.isoToRD(when.date))) : null,
             when ? h('button.btn.small.msg-plan', { type: 'button', onclick: function () {
               Planner.add({ date: when.date, subject: 'Meeting',
                 plan: (when.time ? when.time + ' – ' : '') + 'Meeting' + (office ? ' with ' + (n.by || 'Office') : '') + ' re: ' + i.title + '\n"' + n.text + '"' });

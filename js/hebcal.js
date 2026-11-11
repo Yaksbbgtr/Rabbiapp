@@ -389,6 +389,14 @@
     return out;
   }
 
+  // Days melacha is forbidden (Shabbos or Yom Tov, chutz la'aretz): returns the day's name, or '' if it's a weekday.
+  // Chol Hamoed and minor days don't count.
+  function noMelacha(rd) {
+    var yt = holidaysBetween(rd, rd).filter(function (x) { return x.yomTov; })[0];
+    if (yt) return yt.en;
+    return weekday(rd) === 6 ? 'Shabbos' : '';
+  }
+
   // Sefiras HaOmer: day counted on the NIGHT that begins the civil date's evening.
   function omerDay(rd) {
     var h = fromRD(rd);
@@ -433,7 +441,7 @@
     rdToISO: rdToISO, weekday: weekday, gematriya: gematriya, MONTH_HE: MONTH_HE,
     PARSHIYOS: PARSHIYOS, parshaForShabbos: parshaForShabbos, parshaOfWeek: parshaOfWeek,
     parshaCycle: parshaCycle, upcomingShabbos: upcomingShabbos, holidaysForYear: holidaysForYear,
-    holidaysBetween: holidaysBetween, omerDay: omerDay, formatHebrew: formatHebrew,
+    holidaysBetween: holidaysBetween, noMelacha: noMelacha, omerDay: omerDay, formatHebrew: formatHebrew,
     formatEnglish: formatEnglish, nextHebrewAnniversary: nextHebrewAnniversary
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

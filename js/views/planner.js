@@ -12,12 +12,13 @@
     var subj = UI.input({ value: l.subject, list: 'plan-subj' });
     var dl = h('datalist#plan-subj', SUBJECTS.map(function (s) { return h('option', { value: s }); }));
     var d = UI.input({ type: 'date', value: l.date });
-    // Nothing can be planned on Shabbos: flag the date and block saving.
-    var shabbosWarn = h('div.shabbos-warn', { role: 'alert' }, '⚠ This date is Shabbos. Pick another day.');
+    // Nothing can be planned on Shabbos or Yom Tov: flag the date and block saving.
+    var shabbosWarn = h('div.shabbos-warn', { role: 'alert' });
     var isShabbosDate = function () {
-      var sh = !!d.value && HebCal.weekday(HebCal.isoToRD(d.value)) === 6;
-      shabbosWarn.hidden = !sh; d.classList.toggle('invalid', sh);
-      return sh;
+      var day = d.value ? HebCal.noMelacha(HebCal.isoToRD(d.value)) : '';
+      shabbosWarn.textContent = '⚠ This date is ' + day + '. Pick another day.';
+      shabbosWarn.hidden = !day; d.classList.toggle('invalid', !!day);
+      return !!day;
     };
     d.addEventListener('input', isShabbosDate); d.addEventListener('change', isShabbosDate);
     isShabbosDate();
@@ -31,7 +32,7 @@
       } },
       { label: 'Cancel' },
       { label: 'Save', primary: true, onClick: function () {
-        if (isShabbosDate()) { UI.toast('Can\'t plan on Shabbos'); d.focus(); return false; }
+        if (isShabbosDate()) { UI.toast('Can\'t plan on Shabbos or Yom Tov'); d.focus(); return false; }
         Store.update(function (s) {
           l.subject = subj.value.trim() || 'Other'; l.date = d.value; l.plan = plan.value.trim(); l.notes = notes.value.trim();
           if (isNew) { l.id = Store.uid(); s.lessons.push(l); }
