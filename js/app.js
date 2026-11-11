@@ -150,7 +150,37 @@
     document.addEventListener('touchcancel', end);
   })();
 
-  window.App = { render: render, go: function (path) { location.hash = '#/' + path; } };
+  // Replaced with the commit and build time by the GitHub Pages workflow; 'dev' when run locally.
+  var APP_VERSION = 'dev';
+  var APP_BUILT = '';
+
+  // Throw away every saved copy of the app and load the newest files from the site.
+  function forceUpdate() {
+    var urls = ['index.html', 'sw.js'].concat(
+      [].slice.call(document.querySelectorAll('script[src]')).map(function (x) { return x.getAttribute('src'); }),
+      [].slice.call(document.querySelectorAll('link[rel=stylesheet][href]')).map(function (x) { return x.getAttribute('href'); }).filter(function (u) { return !/^https?:/.test(u); }));
+    var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
+    var caches_ = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
+    return Promise.all([sw, caches_]).then(function () {
+      return Promise.all(urls.map(function (u) { return fetch(u, { cache: 'reload' }).catch(function () {}); }));
+    }).then(function () { location.reload(); });
+  }
+
+  // If the site has a newer version than the one running, update right away (at most once a minute).
+  function checkForUpdate() {
+    if (APP_VERSION === 'dev' || location.protocol.indexOf('http') !== 0) return;
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) {
+      if (!v || !v.version || v.version === APP_VERSION) return;
+      var last = 0;
+      try { last = +sessionStorage.getItem('rabbiapp.updateTry') || 0; sessionStorage.setItem('rabbiapp.updateTry', String(Date.now())); } catch (e) { /* ignore */ }
+      if (Date.now() - last < 60000) return;
+      UI.toast('Updating to the newest version…');
+      forceUpdate();
+    }).catch(function () { /* offline */ });
+  }
+
+  window.App = { render: render, go: function (path) { location.hash = '#/' + path; },
+    version: APP_VERSION, built: APP_BUILT, forceUpdate: forceUpdate, checkForUpdate: checkForUpdate };
 
   window.addEventListener('hashchange', render);
   window.addEventListener('DOMContentLoaded', function () {
@@ -169,5 +199,8 @@
         document.addEventListener('visibilitychange', function () { if (!document.hidden) reg.update(); });
       }).catch(function () {});
     }
+    // Phones often keep the app open for days: check for a newer version on start and whenever it comes back.
+    checkForUpdate();
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) checkForUpdate(); });
   });
 })();

@@ -3,6 +3,15 @@
   var h = UI.h;
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Shabbos'];
 
+  // Which version this device is running, to compare phone and computer, and a button to load the newest.
+  function versionCard() {
+    return h('div.card',
+      h('h2', 'App version'),
+      h('p', 'Version ', h('strong', App.version), App.built ? ' · published ' + App.built : ''),
+      h('p.small.muted', 'Every device should show the same version. The app updates itself when it opens; if a device shows an older one, tap the button.'),
+      h('button.btn', { type: 'button', onclick: function () { UI.toast('Getting the newest version…'); App.forceUpdate(); } }, 'Get the newest version'));
+  }
+
   Views.register('settings', {
     title: 'Settings', icon: 'gear', admin: true,
     render: function (main) {
@@ -17,6 +26,7 @@
         var aseg = h('div.seg');
         UI.themeButtons(aseg, function () { App.render(); });
         main.appendChild(h('div.card', h('h2', 'Appearance'), aseg));
+        main.appendChild(versionCard());
         return;
       }
 
@@ -106,6 +116,7 @@
             UI.confirm('Erase this profile\'s whole class (talmidim, attendance, grades, plans and logs)? This cannot be undone.', function () { Store.reset(); App.go('talmidim'); }, 'Erase everything');
           } }, 'Erase this class'))));
 
+      main.appendChild(versionCard());
       main.appendChild(h('div.card',
         h('h2', 'About'),
         h('p.small.muted', 'Rebbi App works offline. Install it to your home screen from your browser\'s menu ("Add to Home Screen" / "Install app"). Yomim tovim and the parsha schedule follow chutz la\'aretz.')));

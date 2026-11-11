@@ -38,6 +38,11 @@ jobs:
           # New cache name each deploy so installed apps pick up updates
           sed -i "s/var CACHE = 'rebbi-app-v1';/var CACHE = 'rebbi-app-${GITHUB_SHA::8}';/" _site/sw.js
           grep -q "rebbi-app-${GITHUB_SHA::8}" _site/sw.js
+          # Stamp the version into the app and publish it, so open apps can tell they're out of date
+          BUILT="$(TZ=America/New_York date '+%b %-d, %-I:%M %p')"
+          sed -i "s/var APP_VERSION = 'dev';/var APP_VERSION = '${GITHUB_SHA::8}';/; s/var APP_BUILT = '';/var APP_BUILT = '${BUILT}';/" _site/js/app.js
+          grep -q "APP_VERSION = '${GITHUB_SHA::8}'" _site/js/app.js
+          echo "{\"version\": \"${GITHUB_SHA::8}\", \"built\": \"${BUILT}\"}" > _site/version.json
 
       - uses: actions/configure-pages@v5
 
