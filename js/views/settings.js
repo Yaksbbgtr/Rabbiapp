@@ -4,11 +4,18 @@
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Shabbos'];
 
   Views.register('settings', {
-    title: 'Settings', icon: 'gear',
+    title: 'Settings', icon: 'gear', admin: true,
     render: function (main) {
       var st = Store.get();
       var s = st.settings;
       main.appendChild(h('div.page-head', h('h1', 'Settings')));
+      if (Store.isAdmin()) {
+        main.appendChild(Profiles.settingsCard());
+        var aseg = h('div.seg');
+        UI.themeButtons(aseg, function () { App.render(); });
+        main.appendChild(h('div.card', h('h2', 'Appearance'), aseg));
+        return;
+      }
 
       function bind(key, el, prop) {
         el.addEventListener('change', function () {

@@ -187,11 +187,16 @@
     logout: function () { index.current = null; writeIndex(); state = defaults(); },
     createProfile: function (opts) {
       var id = uid();
-      var p = { id: id, name: (opts.name || '').trim() || 'Rebbi', className: (opts.className || '').trim() };
+      var p = { id: id, name: (opts.name || '').trim() || (opts.admin ? 'Office' : 'Rebbi'), className: opts.admin ? '' : (opts.className || '').trim() };
       if (opts.pin) p.pin = pinHash(id, String(opts.pin));
       if (opts.sampleGrade) p.sampleGrade = opts.sampleGrade;
-      var data = defaults();
-      if (opts.sampleGrade) {
+      if (opts.admin) p.role = 'admin';
+      var data = opts.data ? prepare(opts.data) : defaults();
+      if (opts.data) {
+        p.name = data.settings.rebbiName || p.name; p.className = data.settings.className || '';
+      } else if (opts.admin) {
+        data.settings.rebbiName = p.name; data.settings.setupDone = true;
+      } else if (opts.sampleGrade) {
         window.DemoData.build(data, uid, todayISO, opts.sampleGrade);
         p.name = data.settings.rebbiName; p.className = data.settings.className;
       } else {
@@ -210,7 +215,22 @@
         if (index.list.some(function (p) { return p.sampleGrade === g.grade; })) return;
         Store.createProfile({ sampleGrade: g.grade }); added++;
       });
+      if (!index.list.some(function (p) { return p.role === 'admin' && p.sample; })) {
+        var aid = Store.createProfile({ admin: true, name: 'Office (sample admin)' });
+        profile(aid).sample = true; writeIndex(); added++;
+      }
       return added;
+    },
+    isAdmin: function () { var p = profile(index.current); return !!(p && p.role === 'admin'); },
+    // Read another profile's class without logging in to it (admin view).
+    peek: function (id) { return load(id); },
+    // Replace a profile's whole class with data from a backup file.
+    replaceProfileData: function (id, data) {
+      var p = profile(id); if (!p) return;
+      var d = prepare(data);
+      try { localStorage.setItem(dataKey(id), JSON.stringify(d)); } catch (e) { throw new Error('This device is out of storage space.'); }
+      p.name = d.settings.rebbiName || p.name; p.className = d.settings.className || p.className; writeIndex();
+      if (index.current === id) state = d;
     },
     setPin: function (id, pin) {
       var p = profile(id); if (!p) return;

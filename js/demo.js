@@ -19,7 +19,7 @@
   var STREETS = ['Maple Ave', 'Oak St', 'Cedar Lane', 'Elm Ct', 'Birch Rd', 'Willow Dr', 'Pine St', 'Chestnut Ave'];
   var NOTES = [
     'Wears glasses – seat him in the front row.', '', 'Loves being chazan – great motivator.',
-    'Extra kriah help with Morah Feldman, Tuesday & Thursday.', 'PEANUT ALLERGY – EpiPen in office.',
+    'Extra kriah help with Morah Feldman, Tuesday & Thursday.', '',
     'New this year. Making friends nicely.', '', 'Very bright – give him a "challenge kasha" to keep him busy.',
     'Has a twin brother in the parallel class.', '', 'Responds well to responsibility – make him a monitor.', '',
     'Needs movement breaks; send him on errands.', '', 'Father is a rebbi in the high school – very involved.',
@@ -134,6 +134,7 @@
         email: father[0].toLowerCase() + '.' + last.toLowerCase() + '@example.com',
         address: (100 + k * 17 + grade) + ' ' + STREETS[(k + grade) % STREETS.length],
         birthday: (thisYear - 5 - grade + (month > 8 ? -1 : 0)) + '-' + pad(month) + '-' + pad(day),
+        allergies: ['', '', '', '', 'Peanuts – EpiPen in office', '', '', 'Tree nuts', '', '', '', 'Dairy (lactose)', ''][(k + grade) % 13],
         notes: NOTES[(k + grade) % NOTES.length], archived: false
       });
     }

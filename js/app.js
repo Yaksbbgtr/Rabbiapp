@@ -18,8 +18,10 @@
   function renderNav(active) {
     var nav = document.getElementById('nav');
     nav.innerHTML = '';
+    var admin = Store.isAdmin();
     order.forEach(function (name) {
       var v = views[name];
+      if (admin ? !v.admin : v.adminOnly) return;
       nav.appendChild(h('a.nav-item' + (name === active || v.matches === active ? '.active' : ''), {
         href: '#/' + name, title: v.title, 'aria-current': name === active ? 'page' : null
       }, UI.icon(v.icon), h('span', v.short || v.title)));
@@ -45,12 +47,14 @@
     var profile = Store.currentProfile();
     // Nobody logged in: only the login screen is available.
     if (!profile) route = { name: 'login', params: [] };
-    else if (route.name === 'login') route = { name: 'dashboard', params: [] };
+    else if (route.name === 'login') route = { name: Store.isAdmin() ? 'admin' : 'dashboard', params: [] };
+    // An administrator only has the admin pages and settings.
+    if (profile && Store.isAdmin() && !(views[route.name] && views[route.name].admin)) route = { name: 'admin', params: [] };
     document.body.classList.toggle('logged-out', !profile);
     var pb = document.getElementById('profile-btn');
     pb.textContent = profile ? Profiles.initials(profile.name) : '';
     pb.setAttribute('aria-label', profile ? 'Profile: ' + profile.name : 'Profile');
-    var view = views[route.name] || views.dashboard;
+    var view = views[route.name] || views[Store.isAdmin() ? 'admin' : 'dashboard'];
     setMenu(false);
     document.getElementById('topbar-title').textContent = view.short || view.title;
     var main = document.getElementById('main');

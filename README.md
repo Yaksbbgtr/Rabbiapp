@@ -7,7 +7,7 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 | Screen | What it does |
 | --- | --- |
 | **Today** | Hebrew date, parshas hashavua, sefiras ha'omer, upcoming yomim tovim and fasts, talmidim's Hebrew birthdays, today's attendance, plan, parent follow-ups, quick notes |
-| **Talmidim** | Roster with Hebrew names, parents, phones, birthdays, private notes. Scan a printed class list with the phone camera (English and Hebrew names, phone numbers), or paste one in. Each talmid has a profile with everything in one place |
+| **Talmidim** | Roster with Hebrew names, parents' cells, birthdays, allergy alerts, private notes. Scan a printed class list with the phone camera (English and Hebrew names, phone numbers), or paste one in. Each talmid has a profile with everything in one place |
 | **Attendance** | Everyone starts as Here; tap Late / Absent / Excused for the exceptions and press Save attendance, monthly grid, CSV export, print |
 | **Limud** | One page per limud (perek / mishna / sugya) with the rebbi's source notes, each talmid's level (Not yet → Learning → Knows it → Fluent), a "chazara focus" list, and a Create project button (worksheet / test / coloring page – demo for now) |
 | **Bechinos** | Tests and quizzes, fast score entry (Enter jumps to the next talmid), scan graded papers with the camera to read the name and mark, class stats, gradebook |
@@ -15,7 +15,8 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 | **Parents** | Contact log with follow-up reminders, eight longer letter templates that ask one question and weave in the talmid's own limud levels, last bechina and absences, open in email or text, class directory, who hasn't been called in 30 days |
 | **Tools** | Fair random picker (everyone gets a turn), chavrusa / group maker, full-screen timer with presets or a typed time, class jobs rotation |
 | **Reports** | Class list that opens each talmid's report card; send them to the school office as separate PDFs through the phone's share sheet; printable report cards (by subject, mastery, attendance, rebbi's comment, signature lines) for any date range |
-| **Profiles** | Each rebbi logs in to his own class on the device, with an optional PIN. Sample profiles for grades 1–8 (Kitah Alef to Ches) can be added from the login screen |
+| **Profiles** | Each rebbi logs in to his own class on the device, with an optional PIN. Sample profiles for grades 1–8 (Kitah Alef to Ches) and a sample office administrator can be added from the login screen |
+| **Administrator** | An admin profile sees every class on the device (or imported from rebbeim's backup files): each talmid's attendance, bechina marks and allergies, plus a parents' phone directory, all exportable as spreadsheets (.csv) |
 | **Settings** | Backup / restore, new-school-year reset, light/dark mode, Hebrew-names mode, PIN |
 
 ## Morning attendance texts (demo)

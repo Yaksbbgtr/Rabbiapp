@@ -4,7 +4,7 @@
 
   function editTalmid(t) {
     var isNew = !t;
-    t = t || { first: '', last: '', hebName: '', father: '', mother: '', fatherPhone: '', motherPhone: '', email: '', birthday: '', address: '', notes: '', seat: '' };
+    t = t || { first: '', last: '', hebName: '', father: '', mother: '', fatherPhone: '', motherPhone: '', email: '', birthday: '', address: '', allergies: '', notes: '', seat: '' };
     var f = {
       first: UI.input({ value: t.first, placeholder: 'First name', required: true }),
       last: UI.input({ value: t.last, placeholder: 'Last name' }),
@@ -16,6 +16,7 @@
       motherPhone: UI.input({ type: 'tel', value: t.motherPhone || '', placeholder: 'Cell' }),
       email: UI.input({ type: 'email', value: t.email }),
       address: UI.input({ value: t.address }),
+      allergies: UI.input({ value: t.allergies || '', placeholder: 'e.g. peanuts, tree nuts – EpiPen in office' }),
       notes: h('textarea', { rows: 3, dir: 'auto', placeholder: 'Allergies, learning needs, what motivates him…' }, t.notes || '')
     };
     var body = h('div.form-grid',
@@ -24,6 +25,7 @@
       UI.field('Father', f.father), UI.field('Father\'s cell', f.fatherPhone),
       UI.field('Mother', f.mother), UI.field('Mother\'s cell', f.motherPhone),
       UI.field('Email', f.email), UI.field('Address', f.address),
+      h('div.span2', UI.field('Allergies / medical alerts', f.allergies, 'Shown in red on his page and card, and on the office\'s lists')),
       h('div.span2', UI.field('Notes (private)', f.notes)));
     UI.modal(isNew ? 'Add talmid' : 'Edit ' + Store.displayName(t), body, [
       { label: 'Cancel' },
@@ -89,7 +91,8 @@
             h('div.avatar', initials(t)),
             h('div.grow',
               h('div.name', (t.first || '') + ' ' + (t.last || '')),
-              t.hebName ? h('div.he.muted', t.hebName) : null)));
+              t.hebName ? h('div.he.muted', t.hebName) : null),
+            t.allergies && t.allergies.trim() ? h('span.pill.neg', { title: t.allergies }, '⚠ Allergy') : null));
         });
       }
       search.addEventListener('input', draw);
@@ -152,6 +155,9 @@
             }
           }, 'Archive'))));
 
+      if (t.allergies && t.allergies.trim()) {
+        main.appendChild(h('div.allergy-banner', { role: 'alert' }, h('strong', '⚠ Allergy / medical: '), h('span', { dir: 'auto' }, t.allergies)));
+      }
       var grid = h('div.grid');
       main.appendChild(grid);
 

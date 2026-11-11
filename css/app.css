@@ -326,6 +326,14 @@ dl.kv dd { margin: 0; }
 }
 .avatar.lg { width: 64px; height: 64px; font-size: 1.4rem; }
 
+.allergy-banner { background: var(--red-soft); color: var(--red); border: 1px solid var(--red); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 1.02rem; }
+.talmid-card .pill.neg { flex-shrink: 0; }
+.admin-class-head { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; padding: 0; cursor: pointer; }
+.admin-class-head .name { font-weight: 700; font-size: 1.05rem; }
+.admin-class-head .icon { color: var(--muted); }
+.admin-table td.low { color: var(--red); font-weight: 600; }
+.admin-table th { white-space: normal; max-width: 150px; }
+
 /* ---------- class list scanner ---------- */
 .tips { padding-left: 18px; margin: 0 0 12px; }
 .scan-buttons { display: flex; gap: 10px; flex-wrap: wrap; }

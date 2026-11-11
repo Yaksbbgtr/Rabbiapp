@@ -13,7 +13,8 @@
     function go(pin) {
       if (!Store.login(p.id, pin)) return false;
       UI.toast('Welcome, ' + p.name);
-      if (location.hash === '#/dashboard') App.render(); else App.go('dashboard');
+      var home = Store.isAdmin() ? 'admin' : 'dashboard';
+      if (location.hash === '#/' + home) App.render(); else App.go(home);
       return true;
     }
     if (!Store.hasPin(p.id)) { go(); return; }
@@ -35,20 +36,24 @@
     var cls = UI.input({ placeholder: 'e.g. Kitah Daled' });
     var school = UI.input({ placeholder: 'Yeshiva name', value: 'Yeshiva K\'tana of Waterbury' });
     var pin = UI.input({ type: 'password', inputmode: 'numeric', autocomplete: 'off', placeholder: 'Leave empty for no PIN' });
+    var adminBox = h('input', { type: 'checkbox' });
+    var classField = UI.field('Class', cls);
+    adminBox.addEventListener('change', function () { classField.style.display = adminBox.checked ? 'none' : ''; });
     UI.modal('New profile', h('div',
       UI.field('Your name (as it appears on letters)', name),
-      UI.field('Class', cls),
+      classField,
       UI.field('Yeshiva', school),
+      h('label.check-row', adminBox, ' Administrator – sees the grades and attendance of every class on this device, no class of their own'),
       UI.field('PIN (optional)', pin, 'A PIN keeps other people using this device out of your class.')), [
       { label: 'Cancel' },
       { label: 'Create profile', primary: true, onClick: function () {
         if (!name.value.trim()) { UI.toast('Please enter your name'); name.focus(); return false; }
         try {
-          var id = Store.createProfile({ name: name.value, className: cls.value, school: school.value.trim(), pin: pin.value.trim() });
+          var id = Store.createProfile({ name: name.value, className: cls.value, school: school.value.trim(), pin: pin.value.trim(), admin: adminBox.checked });
           Store.login(id, pin.value.trim());
         } catch (e) { alert(e.message); return false; }
         UI.toast('Profile created');
-        App.go('talmidim');
+        App.go(adminBox.checked ? 'admin' : 'talmidim');
       } }
     ]);
   }
@@ -67,8 +72,9 @@
         profiles.length ? h('div.profile-list', profiles.map(function (p) {
           return h('button.profile-row', { type: 'button', onclick: function () { enter(p); } },
             h('div.avatar', initials(p.name)),
-            h('div.grow', h('div.name', p.name), h('div.small.muted', p.className || 'No class name yet')),
-            p.sampleGrade ? h('span.pill.muted', 'Sample') : null,
+            h('div.grow', h('div.name', p.name), h('div.small.muted', p.role === 'admin' ? 'Administrator – all classes' : p.className || 'No class name yet')),
+            p.role === 'admin' ? h('span.pill', 'Admin') : null,
+            p.sampleGrade || p.sample ? h('span.pill.muted', 'Sample') : null,
             Store.hasPin(p.id) ? h('span.small.muted', { title: 'PIN needed' }, '🔒') : null,
             UI.icon('chev', 18));
         })) : null,
@@ -113,8 +119,8 @@
     var has = Store.hasPin(p.id);
     return h('div.card',
       h('h2', 'Profile'),
-      h('p', 'Logged in as ', h('strong', p.name), p.className ? ' · ' + p.className : '', '. Change the name and class above.'),
-      h('label.check-row', h('input', { type: 'checkbox', checked: Store.get().settings.coloringPages !== false, onchange: function (e) {
+      h('p', 'Logged in as ', h('strong', p.name), p.role === 'admin' ? ' (administrator)' : p.className ? ' · ' + p.className : '', p.role === 'admin' ? '.' : '. Change the name and class above.'),
+      p.role === 'admin' ? null : h('label.check-row', h('input', { type: 'checkbox', checked: Store.get().settings.coloringPages !== false, onchange: function (e) {
         Store.update(function (s) { s.settings.coloringPages = e.target.checked; });
         UI.toast(e.target.checked ? 'Coloring pages on' : 'Coloring pages off');
       } }), ' Offer coloring pages under "Create project" (for younger classes)'),
