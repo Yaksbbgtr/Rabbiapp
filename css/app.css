@@ -618,3 +618,7 @@ select.level-select option { background: var(--card); color: var(--ink); }
 }
 .day-open { cursor: pointer; }
 .day-open:hover { box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.shabbos-warn { background: var(--red-soft); color: var(--red); font-weight: 600; border-radius: 10px; padding: 8px 12px; margin: -2px 0 10px; }
+.shabbos-warn[hidden] { display: none; }
+.msg-flag { margin: 8px 0 0; padding: 4px 10px; font-size: .85rem; }
+input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft); }

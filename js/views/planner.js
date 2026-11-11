@@ -12,16 +12,26 @@
     var subj = UI.input({ value: l.subject, list: 'plan-subj' });
     var dl = h('datalist#plan-subj', SUBJECTS.map(function (s) { return h('option', { value: s }); }));
     var d = UI.input({ type: 'date', value: l.date });
+    // Nothing can be planned on Shabbos: flag the date and block saving.
+    var shabbosWarn = h('div.shabbos-warn', { role: 'alert' }, '⚠ This date is Shabbos. Pick another day.');
+    var isShabbosDate = function () {
+      var sh = !!d.value && HebCal.weekday(HebCal.isoToRD(d.value)) === 6;
+      shabbosWarn.hidden = !sh; d.classList.toggle('invalid', sh);
+      return sh;
+    };
+    d.addEventListener('input', isShabbosDate); d.addEventListener('change', isShabbosDate);
+    isShabbosDate();
     var plan = h('textarea', { rows: 4, dir: 'auto', placeholder: 'Pesukim / mishnayos to cover, questions to ask, activities…' }, l.plan);
     var notes = h('textarea', { rows: 3, dir: 'auto', placeholder: 'After the shiur: how did it go? Where did we stop?' }, l.notes || '');
     UI.modal(isNew ? 'Add to plan' : 'Edit plan', h('div', dl,
-      h('div.form-grid', UI.field('Subject', subj), UI.field('Date', d)),
+      h('div.form-grid', UI.field('Subject', subj), UI.field('Date', d)), shabbosWarn,
       UI.field('Plan', plan), UI.field('Notes / where we stopped', notes)), [
       isNew ? null : { label: 'Delete', danger: true, onClick: function () {
         Store.update(function (s) { s.lessons = s.lessons.filter(function (x) { return x.id !== l.id; }); }); App.render();
       } },
       { label: 'Cancel' },
       { label: 'Save', primary: true, onClick: function () {
+        if (isShabbosDate()) { UI.toast('Can\'t plan on Shabbos'); d.focus(); return false; }
         Store.update(function (s) {
           l.subject = subj.value.trim() || 'Other'; l.date = d.value; l.plan = plan.value.trim(); l.notes = notes.value.trim();
           if (isNew) { l.id = Store.uid(); s.lessons.push(l); }
