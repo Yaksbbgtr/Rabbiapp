@@ -19,12 +19,14 @@
     var nav = document.getElementById('nav');
     nav.innerHTML = '';
     var admin = Store.isAdmin();
-    order.forEach(function (name) {
+    var names = order.filter(function (name) { var v = views[name]; return admin ? v.admin : !v.adminOnly; });
+    if (admin) names.sort(function (a, b) { return (a === 'settings') - (b === 'settings'); }); // Settings last
+    names.forEach(function (name) {
       var v = views[name];
-      if (admin ? !v.admin : v.adminOnly) return;
+      var count = v.badge ? v.badge() : 0;
       nav.appendChild(h('a.nav-item' + (name === active || v.matches === active ? '.active' : ''), {
         href: '#/' + name, title: v.title, 'aria-current': name === active ? 'page' : null
-      }, UI.icon(v.icon), h('span', v.short || v.title)));
+      }, UI.icon(v.icon), h('span', v.short || v.title), count ? h('span.nav-badge', String(count)) : null));
     });
   }
 

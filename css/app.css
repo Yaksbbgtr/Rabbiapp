@@ -100,6 +100,7 @@ p { margin: .3rem 0 .8rem; }
 @media (hover: hover) { .nav-item:hover { background: rgba(255, 255, 255, .08); color: #fff; } }
 .nav-item.active { background: rgba(255, 255, 255, .16); color: #fff; font-weight: 600; }
 .nav-item.active .icon { color: var(--gold); }
+.nav-badge { margin-left: auto; background: var(--red); color: #fff; border-radius: 999px; padding: 0 8px; font-size: .75rem; font-weight: 700; }
 .theme-switch { margin: 14px 4px 4px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .12); }
 .theme-switch .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .65; margin: 0 8px 6px; }
 .theme-seg { display: flex; background: rgba(0, 0, 0, .22); border-radius: 10px; padding: 3px; gap: 2px; }

@@ -118,30 +118,28 @@
     r.readAsText(file);
   }
 
-  var TABS = [['classes', 'Classes'], ['attendance', 'Attendance'], ['phones', 'Phones'], ['tuition', 'Tuition'], ['issues', 'Issues']];
-  var tab = 'classes';
   var attDate = null;
   var issueFilter = 'open';
 
-  Views.register('admin', {
-    title: 'Office', short: 'Office', icon: 'users', admin: true, adminOnly: true,
-    render: function (main, params) {
-      if (params[0] && TABS.some(function (t) { return t[0] === params[0]; })) tab = params[0];
-      var list = classes();
-      var openIssues = Issues.all().filter(function (x) { return x.issue.status !== 'done'; }).length;
-      main.appendChild(h('div.page-head',
-        h('div', h('h1', 'Office'), h('p.muted', 'Every class on this device' + (list.length ? ': ' + list.length + ' classes' : '') + '.')),
-        h('div.seg', TABS.map(function (t) {
-          return h('button' + (tab === t[0] ? '.on' : ''), { type: 'button', onclick: function () { tab = t[0]; location.hash = '#/admin/' + t[0]; } },
-            t[1], t[0] === 'issues' && openIssues ? h('span.seg-count', String(openIssues)) : null);
-        }))));
-      if (tab === 'attendance') return renderAttendance(main, list);
-      if (tab === 'phones') return renderPhones(main, list);
-      if (tab === 'tuition') return renderTuition(main, list);
-      if (tab === 'issues') return renderIssues(main, list);
-      renderClasses(main, list);
-    }
-  });
+  // Each office section is its own page in the menu.
+  function openIssueCount() { return Issues.all().filter(function (x) { return x.issue.status !== 'done'; }).length; }
+  function section(name, title, short, icon, sub, draw, badge) {
+    Views.register(name, {
+      title: title, short: short, icon: icon, admin: true, adminOnly: true, badge: badge,
+      render: function (main, params) {
+        // old links like #/admin/phones
+        if (name === 'admin' && params[0]) { App.go(params[0] === 'classes' ? 'admin' : 'admin-' + params[0]); return; }
+        var list = classes();
+        main.appendChild(h('div.page-head', h('div', h('h1', title), h('p.muted', sub(list)))));
+        draw(main, list);
+      }
+    });
+  }
+  section('admin', 'Classes', 'Classes', 'users', function (l) { return 'Every class on this device' + (l.length ? ': ' + l.length + ' classes' : '') + '.'; }, function (m, l) { renderClasses(m, l); });
+  section('admin-attendance', 'Attendance', 'Attendance', 'check', function () { return 'One day across every class.'; }, function (m, l) { renderAttendance(m, l); });
+  section('admin-phones', 'Phones', 'Phones', 'phone', function () { return 'Parents\' phone directory for the whole school.'; }, function (m, l) { renderPhones(m, l); });
+  section('admin-tuition', 'Tuition', 'Tuition', 'dollar', function () { return 'Tuition, payments and outstanding balances. Office only.'; }, function (m, l) { renderTuition(m, l); });
+  section('admin-issues', 'Issues', 'Issues', 'flag', function () { return 'Reports from rebbeim and staff, as tasks.'; }, function (m, l) { renderIssues(m, l); }, openIssueCount);
 
   // ================= Classes =================
   function renderClasses(main, list) {
