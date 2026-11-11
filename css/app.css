@@ -521,6 +521,8 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .lesson { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: .9rem; }
 .lesson.done .link { text-decoration: line-through; opacity: .6; }
+.lesson-x { flex: none; background: none; border: 0; padding: 2px; border-radius: 6px; color: var(--muted); cursor: pointer; opacity: .55; line-height: 0; }
+.lesson-x:hover, .lesson-x:focus-visible { opacity: 1; color: var(--red); background: var(--red-soft); }
 .day .btn.ghost { align-self: flex-start; margin-top: 4px; }
 
 /* ---------- parents ---------- */

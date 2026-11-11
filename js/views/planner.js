@@ -40,7 +40,13 @@
       h('input', { type: 'checkbox', checked: l.done, 'aria-label': 'Done', onchange: function (e) { Store.update(function () { l.done = e.target.checked; }); App.render(); } }),
       h('button.link.grow', { type: 'button', onclick: function () { editLesson(l); } },
         h('strong', l.subject), ' ', h('span', { dir: 'auto' }, l.plan),
-        l.notes ? h('div.small.muted', { dir: 'auto' }, '↳ ' + l.notes) : null));
+        l.notes ? h('div.small.muted', { dir: 'auto' }, '↳ ' + l.notes) : null),
+      h('button.lesson-x', { type: 'button', title: 'Remove', 'aria-label': 'Remove ' + l.subject, onclick: function () {
+        UI.confirm('Remove "' + l.subject + (l.plan ? ': ' + l.plan.split('\n')[0] : '') + '" from the planner?', function () {
+          Store.update(function (s) { s.lessons = s.lessons.filter(function (x) { return x.id !== l.id; }); });
+          UI.toast('Removed'); App.render();
+        }, 'Remove');
+      } }, UI.icon('x', 16)));
   }
 
   function shabbosLabel(rd) {
