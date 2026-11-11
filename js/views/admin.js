@@ -349,10 +349,13 @@
       UI.field('Annual tuition for this family', annual, 'Leave empty to use the office default'),
       h('h3', 'Payments'), payList,
       h('div.form-grid', UI.field('Amount', pAmt), UI.field('Date', pDate)),
-      h('div.row.gap', pNote, h('button.btn.small', { type: 'button', onclick: addPay }, UI.icon('plus', 14), 'Record payment')),
+      h('div.row.gap', pNote, h('button.btn.small', { type: 'button', title: 'Add this payment and enter another', onclick: addPay }, UI.icon('plus', 14), 'Add another')),
+      h('p.small.muted', 'Save records the payment above. Use "Add another" only if you are entering several at once.'),
       UI.field('Notes', notes)), [
       { label: 'Cancel' },
       { label: 'Save', primary: true, onClick: function () {
+        // A payment typed but not yet "recorded" is saved too.
+        if (+pAmt.value > 0) payments.push({ date: pDate.value || Store.todayISO(), amount: +pAmt.value, note: pNote.value.trim() });
         Store.update(function (s) {
           s.tuition = s.tuition || { defaultAnnual: 0, families: {} }; s.tuition.families = s.tuition.families || {};
           s.tuition.families[key] = { annual: annual.value === '' ? null : +annual.value, payments: payments, notes: notes.value.trim() };
