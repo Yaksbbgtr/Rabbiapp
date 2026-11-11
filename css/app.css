@@ -359,6 +359,8 @@ dl.kv dd { margin: 0; }
 .issue-phones { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .issue-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 10px; }
 .issue .field { margin-bottom: 8px; }
+.issue-note-row { margin-bottom: 14px; }
+.issue-actions { padding-top: 12px; border-top: 1px solid var(--line); }
 .money { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .admin-table td.money { text-align: right; }
 .phone-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 0 12px; }

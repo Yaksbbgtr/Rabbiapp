@@ -67,6 +67,36 @@
     });
   }
 
+  // Office edits an issue: change any of its details and optionally send the rebbi an update.
+  function edit(item, onChange) {
+    var i = item.issue;
+    var me = Store.get().settings.rebbiName || 'Office';
+    var title = UI.input({ value: i.title || '' });
+    var details = h('textarea', { rows: 4, dir: 'auto' }, i.details || '');
+    var pri = UI.select(PRIORITIES, i.priority || 'normal');
+    var status = UI.select(STATUSES, i.status || 'open');
+    var assigned = UI.input({ value: i.assignedTo || '', placeholder: 'Assigned to…' });
+    var due = UI.input({ type: 'date', value: i.due || '' });
+    var msg = h('textarea', { rows: 2, dir: 'auto', placeholder: 'Optional – the rebbi will see this as an update.' });
+    UI.modal('Update issue', h('div',
+      UI.field('What is it?', title), UI.field('Details', details),
+      h('div.form-grid', UI.field('How urgent', pri), UI.field('Status', status)),
+      h('div.form-grid', UI.field('Assigned to', assigned), UI.field('Due', due)),
+      UI.field('Update for the rebbi', msg)), [
+      { label: 'Cancel' },
+      { label: 'Save', primary: true, onClick: function () {
+        if (!title.value.trim()) { UI.toast('Say what the issue is'); title.focus(); return false; }
+        change(item, function (x) {
+          x.title = title.value.trim(); x.details = details.value.trim(); x.priority = pri.value; x.status = status.value;
+          x.assignedTo = assigned.value.trim(); x.due = due.value;
+          if (msg.value.trim()) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: msg.value.trim(), office: true }); }
+        });
+        UI.toast('Issue updated');
+        onChange();
+      } }
+    ]);
+  }
+
   // Task card for the office.
   function taskCard(item, onChange) {
     var i = item.issue, t = item.talmid;
@@ -110,8 +140,9 @@
       h('div.issue-phones', tel('Rebbi', i.by, item.byPhone) || h('span.small.muted', 'No cell saved for ' + i.by + '.')),
       h('div.issue-controls', UI.field('Status', status), UI.field('Assigned to', assigned), UI.field('Due' + (overdue ? ' – overdue' : ''), due)),
       (i.notes || []).length ? h('ul.list.small', i.notes.map(function (n) { return h('li', h('span.muted', UI.fmtDate(n.date) + ' · ' + n.by + (isOffice(i, n) ? '' : ' (rebbi)') + ': '), h('span', { dir: 'auto' }, n.text)); })) : null,
-      h('div.row.gap', note, h('button.btn.small', { type: 'button', onclick: addNote }, 'Add note')),
-      h('div.row.gap.wrap',
+      h('div.row.gap.issue-note-row', note, h('button.btn.small', { type: 'button', onclick: addNote }, 'Add note')),
+      h('div.row.gap.wrap.issue-actions',
+        h('button.btn.small', { type: 'button', onclick: function () { edit(item, onChange); } }, UI.icon('edit', 16), 'Update issue'),
         i.status !== 'done' ? h('button.btn.small.primary', { type: 'button', onclick: function () { change(item, function (x) { x.status = 'done'; }); UI.toast('Marked done'); onChange(); } }, UI.icon('check', 16), 'Mark done') : null,
         h('button.btn.small.danger', { type: 'button', onclick: function () {
           UI.confirm('Delete this issue?', function () { Store.updateProfile(item.profileId, function (d) { d.issues = (d.issues || []).filter(function (x) { return x.id !== i.id; }); }); onChange(); });
