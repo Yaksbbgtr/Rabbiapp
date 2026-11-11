@@ -97,6 +97,96 @@
     ]);
   }
 
+  // Finds a meeting date (and time, if given) in a message, e.g. "11:00 am 14 november", "Nov 14 at 3pm",
+  // "11/14", "tomorrow", "Thursday". Dates without a year are the next one on or after the message's date.
+  var MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  var MONTH_RE = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?';
+  var DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function findMeeting(text, baseISO) {
+    var t = (text || '').toLowerCase(), m, date = null;
+    var base = new Date(+baseISO.slice(0, 4), +baseISO.slice(5, 7) - 1, +baseISO.slice(8, 10));
+    var onOrAfter = function (mon, day, year) {
+      if (mon < 0 || mon > 11 || day < 1 || day > 31) return null;
+      var d = new Date(year || base.getFullYear(), mon, day);
+      if (d.getMonth() !== mon) return null;
+      if (!year && d < base) d.setFullYear(d.getFullYear() + 1);
+      return iso(d);
+    };
+    var mi = function (s) { return MONTHS.indexOf(s.slice(0, 3)); };
+    if ((m = t.match(new RegExp('\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?' + MONTH_RE + '(?:\\s*,?\\s*(\\d{4}))?\\b')))) date = onOrAfter(mi(m[2]), +m[1], m[3] && +m[3]);
+    else if ((m = t.match(new RegExp('\\b' + MONTH_RE + '\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:\\s*,?\\s*(\\d{4}))?')))) date = onOrAfter(mi(m[1]), +m[2], m[3] && +m[3]);
+    else if ((m = t.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))) date = onOrAfter(+m[1] - 1, +m[2], m[3] && (m[3].length === 2 ? 2000 + +m[3] : +m[3]));
+    else if (/\btomorrow\b/.test(t)) { var tm = new Date(base); tm.setDate(tm.getDate() + 1); date = iso(tm); }
+    else if (/\btoday\b|\btonight\b/.test(t)) date = baseISO;
+    else if ((m = t.match(new RegExp('\\b(' + DAYS.join('|') + ')\\b')))) {
+      var wd = new Date(base); wd.setDate(wd.getDate() + (DAYS.indexOf(m[1]) - base.getDay() + 7) % 7); date = iso(wd);
+    }
+    if (!date) return null;
+    // Times like 3pm, 3:00 pm, 11:00, and the typo 3;00. The hour can't follow another digit or separator.
+    var tt = t.match(/(?:^|[^\d:;.])(\d{1,2})(?:[:;.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/) || t.match(/(?:^|[^\d:;.\/])(\d{1,2})[:;](\d{2})\b/);
+    var time = tt ? +tt[1] + ':' + (tt[2] || '00') + (tt[3] ? ' ' + tt[3].replace(/\./g, '') : '') : '';
+    return { date: date, time: time };
+  }
+
+  // "3:00 pm" -> "15:00" for a time box (no am/pm: 1–6 is taken as afternoon).
+  function to24(t) {
+    var m = (t || '').match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
+    if (!m) return '';
+    var hr = +m[1] % 12;
+    if (m[3] === 'pm' || (!m[3] && hr >= 1 && hr <= 6)) hr += 12;
+    return String(hr).padStart(2, '0') + ':' + m[2];
+  }
+  // "15:00" -> "3:00 pm"
+  function to12(v) {
+    if (!v) return '';
+    var hr = +v.slice(0, 2);
+    return (hr % 12 || 12) + ':' + v.slice(3, 5) + (hr < 12 ? ' am' : ' pm');
+  }
+
+  // Move a meeting found in a message to another day (and time), and send the change back as a reply.
+  // post(text) saves the reply on the right side; withWho names the other party for the planner entry.
+  function changeDay(when, issueTitle, withWho, post) {
+    var startRD = HebCal.isoToRD(when.date);
+    while (HebCal.noMelacha(startRD)) startRD++; // suggest the next day melacha is allowed
+    var d = UI.input({ type: 'date', value: HebCal.rdToISO(startRD) });
+    var tm = UI.input({ type: 'time', value: to24(when.time) });
+    var note = h('textarea', { rows: 2, dir: 'auto', placeholder: 'Optional – add a note with the change.' });
+    var plan = h('input', { type: 'checkbox', checked: true });
+    var warn = h('div.shabbos-warn', { role: 'alert' });
+    var saveBtn = null;
+    var check = function () {
+      var day = d.value ? HebCal.noMelacha(HebCal.isoToRD(d.value)) : '';
+      warn.textContent = '⚠ This date is ' + day + '. Pick another day.';
+      warn.hidden = !day; d.classList.toggle('invalid', !!day);
+      if (saveBtn) { saveBtn.disabled = !!day || !d.value; saveBtn.title = day ? 'Can\'t meet on ' + day : ''; }
+      return !day && !!d.value;
+    };
+    d.addEventListener('input', check); d.addEventListener('change', check);
+    var dlg = UI.modal('Change the day', h('div',
+      h('p.small.muted', 'Was: ' + UI.fmtDate(when.date) + (when.time ? ' at ' + when.time : '')),
+      h('div.form-grid', UI.field('New day', d), UI.field('Time (optional)', tm)), warn,
+      UI.field('Note', note),
+      h('label.row.gap', plan, 'Also add the new day to my planner')), [
+      { label: 'Cancel' },
+      { label: 'Send change', primary: true, onClick: function () {
+        if (!check()) return false;
+        var whenText = UI.fmtDate(d.value) + (tm.value ? ' at ' + to12(tm.value) : '');
+        post('Meeting changed to ' + whenText + '.' + (note.value.trim() ? '\n' + note.value.trim() : ''));
+        if (plan.checked) {
+          Store.update(function (s) {
+            s.lessons = s.lessons || [];
+            s.lessons.push({ id: Store.uid(), date: d.value, subject: 'Meeting', done: false, notes: '',
+              plan: (tm.value ? to12(tm.value) + ' – ' : '') + 'Meeting' + (withWho ? ' with ' + withWho : '') + ' re: ' + issueTitle });
+          });
+        }
+        UI.toast('Change sent' + (plan.checked ? ' and added to planner' : ''));
+      } }
+    ]);
+    saveBtn = dlg.el.querySelector('.modal-actions .btn.primary');
+    check();
+  }
+
   // Task card for the office.
   function taskCard(item, onChange) {
     var i = item.issue, t = item.talmid;
@@ -139,7 +229,17 @@
       i.details ? h('p.issue-details', { dir: 'auto' }, i.details) : null,
       h('div.issue-phones', tel('Rebbi', i.by, item.byPhone) || h('span.small.muted', 'No cell saved for ' + i.by + '.')),
       h('div.issue-controls', UI.field('Status', status), UI.field('Assigned to', assigned), UI.field('Due' + (overdue ? ' – overdue' : ''), due)),
-      (i.notes || []).length ? h('ul.list.small', i.notes.map(function (n) { return h('li', h('span.muted', UI.fmtDate(n.date) + ' · ' + n.by + (isOffice(i, n) ? '' : ' (rebbi)') + ': '), h('span', { dir: 'auto' }, n.text)); })) : null,
+      (i.notes || []).length ? h('ul.list.small', i.notes.map(function (n) {
+        var when = findMeeting(n.text, n.date), bad = when && HebCal.noMelacha(HebCal.isoToRD(when.date));
+        return h('li', h('span.muted', UI.fmtDate(n.date) + ' · ' + n.by + (isOffice(i, n) ? '' : ' (rebbi)') + ': '), h('span', { dir: 'auto' }, n.text),
+          bad ? h('span.pill.neg', '⚠ ' + UI.fmtDate(when.date) + ' is ' + bad) : null,
+          when ? h('button.link.small', { type: 'button', onclick: function () {
+            changeDay(when, i.title, isOffice(i, n) ? '' : i.by, function (text) {
+              change(item, function (x) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: text, office: true }); });
+              onChange();
+            });
+          } }, 'Change day') : null);
+      })) : null,
       h('div.row.gap.issue-note-row', note, h('button.btn.small', { type: 'button', onclick: addNote }, 'Add note')),
       h('div.row.gap.wrap.issue-actions',
         h('button.btn.small', { type: 'button', onclick: function () { edit(item, onChange); } }, UI.icon('edit', 16), 'Update issue'),
@@ -165,5 +265,5 @@
     return (Store.get().issues || []).slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
 
-  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount, officeUnread: officeUnread, officeUnreadCount: officeUnreadCount, markOfficeSeen: markOfficeSeen };
+  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount, officeUnread: officeUnread, officeUnreadCount: officeUnreadCount, markOfficeSeen: markOfficeSeen, findMeeting: findMeeting, changeDay: changeDay };
 })();
