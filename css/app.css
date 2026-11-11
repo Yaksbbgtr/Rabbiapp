@@ -206,6 +206,7 @@ body.logged-out main { max-width: 560px; margin: 0 auto; padding-top: 0; }
 .btn.tiny { padding: 2px 6px; min-height: 0; font-size: .72rem; border-radius: 6px; }
 .btn.big { font-size: 1.1rem; padding: 12px 22px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+.modal-actions .btn.primary:disabled { opacity: 1; background: #c4c8cf; border-color: #c4c8cf; color: #f4f5f7; box-shadow: none; }
 .card > .btn { margin-top: 8px; }
 .icon-btn {
   border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 1.3rem; line-height: 1;

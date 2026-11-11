@@ -18,13 +18,15 @@
       var day = d.value ? HebCal.noMelacha(HebCal.isoToRD(d.value)) : '';
       shabbosWarn.textContent = '⚠ This date is ' + day + '. Pick another day.';
       shabbosWarn.hidden = !day; d.classList.toggle('invalid', !!day);
+      if (saveBtn) { saveBtn.disabled = !!day; saveBtn.title = day ? 'Can\'t plan on ' + day : ''; }
       return !!day;
     };
+    var saveBtn = null;
     d.addEventListener('input', isShabbosDate); d.addEventListener('change', isShabbosDate);
     isShabbosDate();
     var plan = h('textarea', { rows: 4, dir: 'auto', placeholder: 'Pesukim / mishnayos to cover, questions to ask, activities…' }, l.plan);
     var notes = h('textarea', { rows: 3, dir: 'auto', placeholder: 'After the shiur: how did it go? Where did we stop?' }, l.notes || '');
-    UI.modal(isNew ? 'Add to plan' : 'Edit plan', h('div', dl,
+    var dlg = UI.modal(isNew ? 'Add to plan' : 'Edit plan', h('div', dl,
       h('div.form-grid', UI.field('Subject', subj), UI.field('Date', d)), shabbosWarn,
       UI.field('Plan', plan), UI.field('Notes / where we stopped', notes)), [
       isNew ? null : { label: 'Delete', danger: true, onClick: function () {
@@ -40,6 +42,8 @@
         App.render();
       } }
     ].filter(Boolean));
+    saveBtn = dlg.el.querySelector('.modal-actions .btn.primary');
+    isShabbosDate(); // grey out Save if it opened on Shabbos / Yom Tov
   }
 
   function lessonsOn(iso) {

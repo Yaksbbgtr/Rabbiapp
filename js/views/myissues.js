@@ -29,7 +29,8 @@
       var wd = new Date(base); wd.setDate(wd.getDate() + (DAYS.indexOf(m[1]) - base.getDay() + 7) % 7); date = iso(wd);
     }
     if (!date) return null;
-    var tt = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/) || t.match(/\b(\d{1,2}):(\d{2})\b/);
+    // Times like 3pm, 3:00 pm, 11:00, and the typo 3;00. The hour can't follow another digit or separator.
+    var tt = t.match(/(?:^|[^\d:;.])(\d{1,2})(?:[:;.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/) || t.match(/(?:^|[^\d:;.\/])(\d{1,2})[:;](\d{2})\b/);
     var time = tt ? +tt[1] + ':' + (tt[2] || '00') + (tt[3] ? ' ' + tt[3].replace(/\./g, '') : '') : '';
     return { date: date, time: time };
   }
