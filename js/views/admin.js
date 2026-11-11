@@ -306,7 +306,7 @@
 
   // ================= Tuition =================
   // Kept in the office's own profile data: tuition.families[profileId:talmidId] = { annual, payments: [{date, amount, note}], notes }
-  var tuitionOnlyOwing = false;
+  var tuitionFilter = 'all'; // 'all' | 'owing' | 'paid'
   function tuitionStore() {
     var st = Store.get();
     st.tuition = st.tuition || { defaultAnnual: 0, families: {} };
@@ -392,7 +392,10 @@
       h('div.stats', stat(money(totals.annual), 'billed'), stat(money(totals.paid), 'paid'), stat(money(totals.balance), 'outstanding'), stat(owing.length, 'families owing')),
       h('div.row.gap.wrap',
         h('label.row.gap.small.muted', 'Default annual tuition $', def),
-        h('label.chip.check', h('input', { type: 'checkbox', checked: tuitionOnlyOwing, onchange: function (e) { tuitionOnlyOwing = e.target.checked; App.render(); } }), 'Outstanding only'),
+        h('div.seg', { role: 'group', 'aria-label': 'Show' }, [['all', 'All'], ['owing', 'Outstanding'], ['paid', 'Paid']].map(function (f) {
+          return h('button' + (tuitionFilter === f[0] ? '.on' : ''), { type: 'button', 'aria-pressed': tuitionFilter === f[0] ? 'true' : 'false',
+            onclick: function () { tuitionFilter = f[0]; App.render(); } }, f[1]);
+        })),
         h('button.btn.primary.small', { type: 'button', onclick: function () {
           var sheet = [['Class', 'Last name', 'First name', 'Father', 'Father\'s cell', 'Mother', 'Mother\'s cell', 'Annual tuition', 'Paid', 'Balance', 'Last payment', 'Notes']];
           rows.forEach(function (r) {
@@ -402,8 +405,8 @@
           UI.download('Tuition balances.csv', csv(sheet), 'text/csv'); UI.toast('Spreadsheet downloaded');
         } }, UI.icon('file', 16), 'Export (spreadsheet)'))));
     main.appendChild(h('p.small.muted', 'Tuition is kept in the office profile only; rebbeim never see it. Tap a family to set its tuition and record payments.'));
-    var shown = tuitionOnlyOwing ? owing : rows;
-    if (!shown.length) { main.appendChild(UI.empty(rows.length ? 'No outstanding balances.' : 'No classes on this device yet.')); return; }
+    var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0; }) : rows;
+    if (!shown.length) { main.appendChild(UI.empty(!rows.length ? 'No classes on this device yet.' : tuitionFilter === 'paid' ? 'No families are paid in full yet.' : 'No outstanding balances.')); return; }
     main.appendChild(h('div.card.scroll-x', h('table.grid-table.admin-table',
       h('thead', h('tr', h('th', 'Class'), h('th', 'Talmid'), h('th.money', 'Annual'), h('th.money', 'Paid'), h('th.money', 'Balance'))),
       h('tbody', shown.map(function (r) {
