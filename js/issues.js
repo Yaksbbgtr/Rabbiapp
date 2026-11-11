@@ -80,7 +80,7 @@
     var note = UI.input({ placeholder: 'Add a note…', 'aria-label': 'Add a note' });
     var addNote = function () {
       if (!note.value.trim()) return;
-      change(item, function (x) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: note.value.trim() }); });
+      change(item, function (x) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: note.value.trim(), office: true }); });
       note.value = ''; onChange();
     };
     note.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addNote(); } });
@@ -91,19 +91,25 @@
         h('a.btn.small', { href: 'tel:' + n }, UI.icon('phone', 14), number), h('a.btn.small', { href: 'sms:' + n }, 'Text'));
     };
     var overdue = i.due && i.status !== 'done' && i.due < Store.todayISO();
+    var student = t ? h('div.issue-student',
+      h('div.row.between.gap.wrap',
+        h('div', h('div.issue-student-name', (t.first || '') + ' ' + (t.last || '')),
+          h('div.small.muted', [t.hebName ? h('span.he', t.hebName) : null, t.hebName ? ' · ' : '', item.profile.className || '', ' · ', item.profile.name].filter(Boolean))),
+        h('span.small.muted', 'Talmid')),
+      t.allergies && t.allergies.trim() ? h('div.allergy-banner.small', h('strong', '⚠ Allergy: '), t.allergies) : null,
+      h('div.issue-phones',
+        tel('Father', t.father, t.fatherPhone), tel('Mother', t.mother, t.motherPhone),
+        !t.fatherPhone && !t.motherPhone ? h('span.small.muted', 'No parent number saved.') : null)) : null;
     return h('div.card.issue.pri-' + (i.priority || 'normal') + (i.status === 'done' ? '.done' : ''),
+      student,
       h('div.row.between.gap.wrap',
         h('div.grow', h('div.issue-title', { dir: 'auto' }, i.title),
-          h('div.small.muted', 'From ' + i.by + (item.profile.className ? ' (' + item.profile.className + ')' : '') + ' · ' + UI.fmtDate(i.date) +
-            (i.talmidName ? ' · about ' + i.talmidName : ''))),
+          h('div.small.muted', 'From ' + i.by + (item.profile.className ? ' (' + item.profile.className + ')' : '') + ' · ' + UI.fmtDate(i.date))),
         h('span.pill' + (i.priority === 'urgent' ? '.neg' : i.priority === 'high' ? '.gold' : ''), priorityLabel(i.priority))),
       i.details ? h('p.issue-details', { dir: 'auto' }, i.details) : null,
-      h('div.issue-phones',
-        tel('Rebbi', i.by, item.byPhone) || h('span.small.muted', 'No cell saved for ' + i.by + '.'),
-        t ? [tel('Father', t.father, t.fatherPhone), tel('Mother', t.mother, t.motherPhone),
-          !t.fatherPhone && !t.motherPhone ? h('span.small.muted', 'No parent number saved for ' + i.talmidName + '.') : null] : null),
+      h('div.issue-phones', tel('Rebbi', i.by, item.byPhone) || h('span.small.muted', 'No cell saved for ' + i.by + '.')),
       h('div.issue-controls', UI.field('Status', status), UI.field('Assigned to', assigned), UI.field('Due' + (overdue ? ' – overdue' : ''), due)),
-      (i.notes || []).length ? h('ul.list.small', i.notes.map(function (n) { return h('li', h('span.muted', UI.fmtDate(n.date) + ' · ' + n.by + ': '), h('span', { dir: 'auto' }, n.text)); })) : null,
+      (i.notes || []).length ? h('ul.list.small', i.notes.map(function (n) { return h('li', h('span.muted', UI.fmtDate(n.date) + ' · ' + n.by + (isOffice(i, n) ? '' : ' (rebbi)') + ': '), h('span', { dir: 'auto' }, n.text)); })) : null,
       h('div.row.gap', note, h('button.btn.small', { type: 'button', onclick: addNote }, 'Add note')),
       h('div.row.gap.wrap',
         i.status !== 'done' ? h('button.btn.small.primary', { type: 'button', onclick: function () { change(item, function (x) { x.status = 'done'; }); UI.toast('Marked done'); onChange(); } }, UI.icon('check', 16), 'Mark done') : null,
@@ -112,10 +118,16 @@
         } }, 'Delete')));
   }
 
+  // A note written by the office (as opposed to the rebbi's own reply).
+  function isOffice(i, n) { return n.office !== undefined ? !!n.office : n.by !== i.by; }
+  // Office responses the rebbi hasn't opened yet.
+  function unread(i) { var office = (i.notes || []).filter(function (n) { return isOffice(i, n); }).length; return Math.max(0, office - (i.seenOffice || 0)); }
+  function unreadCount() { return (Store.get().issues || []).reduce(function (n, i) { return n + (unread(i) ? 1 : 0); }, 0); }
+
   // What a rebbi sees of his own reports.
   function mine() {
     return (Store.get().issues || []).slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
 
-  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES };
+  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount };
 })();

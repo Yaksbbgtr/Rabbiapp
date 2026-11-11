@@ -90,10 +90,13 @@
       grid.appendChild(h('div.card',
         h('h2', 'Office'),
         mine.length ? h('ul.list', mine.map(function (i) {
-          return h('li.row.between.gap', h('span', h('span', { dir: 'auto' }, i.title), i.talmidName ? h('span.small.muted', ' · ' + i.talmidName) : null),
-            h('span.pill' + (i.status === 'done' ? '.pos' : i.status === 'progress' ? '.gold' : ''), Issues.statusLabel(i.status)));
+          return h('li', h('a.row.between.gap.plain-link', { href: '#/issue/' + i.id },
+            h('span', h('span', { dir: 'auto' }, i.title), i.talmidName ? h('span.small.muted', ' · ' + i.talmidName) : null,
+              Issues.unread(i) ? h('span.pill.neg.small', ' New reply') : null),
+            h('span.pill' + (i.status === 'done' ? '.pos' : i.status === 'progress' ? '.gold' : ''), Issues.statusLabel(i.status))));
         })) : h('p.muted', 'Something broken, a concern about a talmid, anything the office should handle? Send it from here.'),
-        h('button.btn', { type: 'button', onclick: function () { Issues.report(''); } }, UI.icon('send'), 'Report to the office')));
+        h('div.row.gap.wrap', h('button.btn', { type: 'button', onclick: function () { Issues.report(''); } }, UI.icon('send'), 'Report to the office'),
+          mine.length ? h('a.btn', { href: '#/issues' }, 'All my issues') : null)));
 
       // Quick note
       var noteInput = h('textarea', { rows: 2, placeholder: 'Jot something down…', dir: 'auto' });

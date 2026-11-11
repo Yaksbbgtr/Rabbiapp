@@ -335,10 +335,24 @@ dl.kv dd { margin: 0; }
 .talmid-card .pill.neg { flex-shrink: 0; }
 .seg-count { display: inline-block; margin-left: 6px; background: var(--red); color: #fff; border-radius: 999px; padding: 0 7px; font-size: .72rem; font-weight: 700; }
 .issue { border-left: 5px solid var(--line); }
+.issue-row { border-left: 5px solid var(--line); }
+.issue-row.pri-high { border-left-color: var(--gold); }
+.issue-row.pri-urgent { border-left-color: var(--red); }
+.issue-row.unread { box-shadow: 0 0 0 2px var(--red-soft); }
+.issue-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.reply-new { color: var(--red); font-weight: 600; }
+.thread { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; }
+.msg.from-office { align-self: flex-start; background: var(--blue-soft); }
+.msg.from-me { align-self: flex-end; background: var(--green-soft); }
 .issue.pri-high { border-left-color: var(--gold); }
 .issue.pri-urgent { border-left-color: var(--red); }
 .issue.done { opacity: .65; }
 .issue-title { font-weight: 700; font-size: 1.05rem; }
+.issue-student { background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.issue-student-name { font-weight: 800; font-size: 1.15rem; }
+.issue-student .issue-phones { margin: 8px 0 0; }
+.issue-student .allergy-banner { margin: 8px 0 0; padding: 6px 10px; }
 .issue-details { white-space: pre-wrap; margin: 8px 0; }
 .issue-phones { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .issue-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 10px; }

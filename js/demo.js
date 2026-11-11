@@ -254,6 +254,31 @@
       { id: uid(), date: today, text: 'Ask the office for extra copies of the parsha sheet.' }
     );
 
+    // ---------- issues sent to the office (sample: Kitah Beis) ----------
+    state.settings.rebbiPhone = '(555) 020-' + String(1000 + grade * 111).slice(0, 4);
+    if (grade === 2) {
+      var d = function (n) { return H.rdToISO(todayRD - n); };
+      var boy = function (i) { return t[i % t.length]; };
+      var issue = function (o) {
+        state.issues.push(Object.assign({ id: uid(), by: G.rebbi, byPhone: state.settings.rebbiPhone, className: G.className, talmidId: '', talmidName: '',
+          details: '', priority: 'normal', status: 'open', assignedTo: '', due: '', notes: [], seenOffice: 0 }, o));
+      };
+      issue({ date: d(9), title: 'Broken window latch in the classroom', details: 'The window by the back row won\'t close all the way. It gets cold in the afternoon.',
+        status: 'done', assignedTo: 'Maintenance (Mr. Gold)', updatedAt: d(5), seenOffice: 2,
+        notes: [{ date: d(8), by: 'Office', text: 'Thank you – Mr. Gold will come Wednesday after dismissal.', office: true },
+          { date: d(5), by: 'Office', text: 'Fixed. Please let us know if it happens again.', office: true }] });
+      issue({ date: d(4), talmidId: boy(3).id, talmidName: boy(3).first + ' ' + boy(3).last, title: 'Needs extra kriah help',
+        details: 'He is falling behind in kriah – still mixing up the nekudos. Can we arrange a tutor or resource room time?',
+        priority: 'high', status: 'progress', assignedTo: 'Mrs. Kaplan (resource room)', due: d(-3), updatedAt: d(1), seenOffice: 0,
+        notes: [{ date: d(3), by: 'Office', text: 'Mrs. Kaplan can take him Tuesday and Thursday during Chumash, 20 minutes. Starting next week.', office: true },
+          { date: d(2), by: G.rebbi, text: 'Thank you! Tuesday is better during Kriah instead – is that possible?', office: false },
+          { date: d(1), by: 'Office', text: 'Done – Tuesday during Kriah and Thursday during Chumash. We also called his mother to let her know.', office: true }] });
+      issue({ date: d(2), talmidId: boy(8).id, talmidName: boy(8).first + ' ' + boy(8).last, title: 'Parent asked about bus pickup time',
+        details: 'His father asked if the bus can pick him up 10 minutes earlier on Fridays.', updatedAt: d(1), seenOffice: 0,
+        notes: [{ date: d(1), by: 'Office', text: 'We spoke to the bus company. Fridays at 12:50 starting this week.', office: true }] });
+      issue({ date: d(0), title: 'Need more Chumash sheets copied', details: '20 copies of the Bereishis perek 2 sheet for Sunday, please.', status: 'open', updatedAt: d(0) });
+    }
+
     // Jobs this week
     state.jobs.forEach(function (j, i) { j.holder = t[(i * 3) % t.length].id; });
   }
