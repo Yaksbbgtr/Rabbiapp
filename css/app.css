@@ -523,6 +523,8 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .lesson.done .link { text-decoration: line-through; opacity: .6; }
 .lesson-x { flex: none; background: none; border: 0; padding: 2px; border-radius: 6px; color: var(--muted); cursor: pointer; opacity: .55; line-height: 0; }
 .lesson-x:hover, .lesson-x:focus-visible { opacity: 1; color: var(--red); background: var(--red-soft); }
+.lesson-edit:hover, .lesson-edit:focus-visible { color: var(--navy-2); background: var(--blue-soft); }
+.lesson .link.grow { text-align: start; }
 .day .btn.ghost { align-self: flex-start; margin-top: 4px; }
 
 /* ---------- parents ---------- */
