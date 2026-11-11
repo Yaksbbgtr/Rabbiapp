@@ -345,6 +345,8 @@ dl.kv dd { margin: 0; }
 .issue .field { margin-bottom: 8px; }
 .money { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .admin-table td.money { text-align: right; }
+.phone-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 0 12px; }
+@media (max-width: 520px) { .phone-filters { grid-template-columns: minmax(0, 1fr); } }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td, tr.clickable:hover th { background: var(--bg); }
 .admin-class-head { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; padding: 0; cursor: pointer; }

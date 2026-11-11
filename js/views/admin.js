@@ -267,21 +267,30 @@
 
   // ================= Phones (parents' directory) =================
   var phoneQuery = '';
+  var phoneClass = ''; // profile id, '' = all classes
   function renderPhones(main, list) {
-    var search = UI.input({ type: 'search', value: phoneQuery, placeholder: 'Search a name, class or number…', 'aria-label': 'Search' });
-    var total = list.reduce(function (n, c) { return n + c.talmidim.length; }, 0);
+    if (phoneClass && !list.some(function (c) { return c.profile.id === phoneClass; })) phoneClass = '';
+    var picked = phoneClass ? list.filter(function (c) { return c.profile.id === phoneClass; }) : list;
+    var search = UI.input({ type: 'search', value: phoneQuery, placeholder: 'Search a name or number…', 'aria-label': 'Search' });
+    var classSel = UI.select([['', 'All classes']].concat(list.map(function (c) { return [c.profile.id, (c.profile.className || '(no class name)') + ' – ' + c.profile.name]; })), phoneClass, { 'aria-label': 'Class' });
+    classSel.addEventListener('change', function () { phoneClass = classSel.value; App.render(); });
+    var total = picked.reduce(function (n, c) { return n + c.talmidim.length; }, 0);
+    var one = phoneClass ? picked[0] : null;
     main.appendChild(h('div.card.row.between.wrap',
-      h('div', h('strong', 'Parents\' phone directory'), h('div.small.muted', total + ' families across ' + list.length + ' classes')),
+      h('div', h('strong', one ? (one.profile.className || 'Class') + ' – phone list' : 'Parents\' phone directory'),
+        h('div.small.muted', total + ' families' + (one ? ' · ' + one.profile.name : ' across ' + list.length + ' classes'))),
       h('div.row.gap.wrap',
-        h('button.btn.primary.small', { type: 'button', onclick: function () { UI.download('Parents phone directory.csv', csv(phoneSheet(list)), 'text/csv'); UI.toast('Spreadsheet downloaded'); } }, UI.icon('file', 16), 'Export (spreadsheet)'),
+        h('button.btn.primary.small', { type: 'button', onclick: function () {
+          UI.download((one ? fileSafe(one.profile.className || one.profile.name) + ' phone list' : 'Parents phone directory') + '.csv', csv(phoneSheet(picked)), 'text/csv'); UI.toast('Spreadsheet downloaded');
+        } }, UI.icon('file', 16), 'Export (spreadsheet)'),
         h('button.btn.small', { type: 'button', onclick: function () { window.print(); } }, UI.icon('print', 16), 'Print'))));
-    main.appendChild(search);
+    main.appendChild(h('div.phone-filters', UI.field('Class', classSel), UI.field('Search', search)));
     var table = h('div.card.scroll-x');
     function draw() {
       var q = search.value.trim().toLowerCase();
       table.innerHTML = '';
       var rows = [];
-      list.forEach(function (c) {
+      picked.forEach(function (c) {
         c.talmidim.forEach(function (t) {
           var hay = [c.profile.className, t.first, t.last, t.father, t.mother, t.fatherPhone, t.motherPhone, t.email].join(' ').toLowerCase();
           if (q && hay.indexOf(q) < 0) return;
