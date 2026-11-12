@@ -140,7 +140,13 @@
 
   // ---------- signing in and out ----------
   // Resolves with the signed-in user once we know whether it's an office account (or null if it didn't happen).
+  var signingIn = null;
   function signIn() {
+    if (signingIn) return signingIn; // a second tap while the Google window is open would break it
+    signingIn = signInOnce().then(function (u) { signingIn = null; return u; }, function (e) { signingIn = null; throw e; });
+    return signingIn;
+  }
+  function signInOnce() {
     ls(ON_KEY, '1');
     setStatus('loading');
     return loadSdk().then(function () {
