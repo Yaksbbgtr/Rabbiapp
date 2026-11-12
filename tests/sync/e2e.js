@@ -40,6 +40,10 @@ async function until(page, fn, arg, ms = 15000) {
   await A2.evaluate(id => { Store.login(id); Store.update(s => s.lessons.push({ id: 'L1', date: '2026-11-15', subject: 'Meeting', plan: 'from dev2', done: false, notes: '' })); }, id);
   ok(await until(A1, id => Store.peek(id).lessons.some(l => l.id === 'L1'), id), 'planner item from device 2 shows on device 1');
 
+  // A profile made while signed in uploads by itself
+  const id2 = await A1.evaluate(() => Store.createProfile({ name: 'Rabbi New', className: 'Kitah Vov' }));
+  ok(await until(A2, id2 => Store.hasData(id2) && Store.profiles().some(p => p.id === id2 && p.cloud && p.className === 'Kitah Vov'), id2), 'new profile made on device 1 appears on device 2 without pressing Upload');
+
   // Offline edits on both sides, different keys
   await A1.evaluate(() => firebase.firestore().disableNetwork());
   await A1.evaluate(id => Store.updateProfile(id, d => { d.settings.school = 'Offline School'; }), id);

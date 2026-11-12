@@ -28,6 +28,7 @@
   var S = { status: 'off', user: null, admin: false, error: '', ready: false };
   var auth = null, db = null, unsub = null, sdkPromise = null;
   var timers = {};
+  var deviceOnly = {}; // profiles that were on this device before signing in: uploaded only when asked
   var pendingRender = false;
 
   function ls(k, v) {
@@ -170,6 +171,8 @@
     S.user = u; S.admin = false; S.ready = false;
     if (!u) { setStatus(wanted() ? 'signedout' : 'off'); return; }
     ls(ON_KEY, '1');
+    deviceOnly = {};
+    Store.profiles().forEach(function (p) { if (!p.cloud) deviceOnly[p.id] = true; });
     setStatus('loading');
     db.collection('admins').doc(u.email).get()
       .then(function (d) { S.admin = d.exists; }, function () { S.admin = false; })
@@ -189,6 +192,7 @@
         // Classes this device thinks are in the cloud but aren't (deleted elsewhere) go back to device-only.
         var ids = {}; snap.docs.forEach(function (d) { ids[d.id] = true; });
         Store.profiles().forEach(function (p) { if (p.cloud && !ids[p.id]) { Store.setProfileFields(p.id, { cloud: undefined }); ls(BASE_KEY + p.id, null); } });
+        Object.keys(deviceOnly).forEach(function (pid) { if (deviceOnly[pid] === false) { delete deviceOnly[pid]; upload(pid); } });
       }
       setStatus(snap.metadata.hasPendingWrites ? 'syncing' : snap.metadata.fromCache ? (navigator.onLine === false ? 'offline' : 'loading') : 'synced');
       if (changed) renderSoon();
@@ -265,6 +269,12 @@
   }
   Store.onWrite(function (id) {
     if (!id || !S.user) return;
+    // A profile made while signed in goes to the cloud by itself.
+    var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
+    if (p && !p.cloud && !deviceOnly[id]) {
+      if (S.ready) upload(id).then(function () { App.render(); }); else deviceOnly[id] = false;
+      return;
+    }
     clearTimeout(timers[id]);
     timers[id] = setTimeout(function () { pushLocal(id); }, 600);
   });
@@ -308,7 +318,7 @@
     var localOnly = Store.profiles().filter(function (p) { return !p.cloud; });
     if (localOnly.length) {
       box.appendChild(h('h3', 'Only on this device'));
-      box.appendChild(h('p.small.muted', 'Upload a profile to see it on your other devices. If the same class was made separately on two devices, upload it from just one of them.'));
+      box.appendChild(h('p.small.muted', 'These were on this device before you signed in. Upload a profile to see it on your other devices. (New profiles you make while signed in upload by themselves.) If the same class was made separately on two devices, upload it from just one of them.'));
       box.appendChild(h('div.sync-list', localOnly.map(function (p) {
         return h('div.row.between.gap.sync-row',
           h('div', h('div', p.name), h('div.small.muted', p.role === 'admin' ? 'Office' : p.className || '')),

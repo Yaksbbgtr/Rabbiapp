@@ -6,7 +6,8 @@ Needs Node, Java (`brew install openjdk`), the Firebase CLI and Google Chrome.
 ```
 cd tests/sync
 npm install --no-save puppeteer-core@23.11.1
-firebase emulators:start --only auth,firestore --project rabbi--app &   # uses ./firebase.json and ../../firestore.rules
+cp ../../firestore.rules .                                               # the emulator needs the rules beside its firebase.json
+firebase emulators:start --only auth,firestore --project rabbi--app &
 node serve.js &                                                        # serves the app on 127.0.0.1:8765
 node e2e.js
 ```

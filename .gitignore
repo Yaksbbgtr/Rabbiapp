@@ -4,3 +4,4 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 tests/sync/node_modules/
+tests/sync/firestore.rules
