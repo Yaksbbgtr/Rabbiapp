@@ -298,14 +298,16 @@
           var hay = [c.profile.className, t.first, t.last, t.father, t.mother, t.fatherPhone, t.motherPhone, t.email].join(' ').toLowerCase();
           if (q && hay.indexOf(q) < 0) return;
           var tel = function (n) { return n ? h('a', { href: 'tel:' + n.replace(/[^\d+]/g, '') }, n) : ''; };
-          rows.push(h('tr', h('td', c.profile.className), h('th', (t.first || '') + ' ' + (t.last || '')),
-            h('td', t.father || '', t.fatherPhone ? [h('br'), tel(t.fatherPhone)] : null),
-            h('td', t.mother || '', t.motherPhone ? [h('br'), tel(t.motherPhone)] : null),
-            h('td', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
-            h('td.low', t.allergies || '')));
+          // data-label names each cell when the table turns into cards on a phone; empty cells are hidden there.
+          var cell = function (cls, label, filled, content) { return h('td' + cls + (filled ? '' : '.blank'), { 'data-label': label }, h('span.val', content)); };
+          rows.push(h('tr', h('td.cls', { 'data-label': 'Class' }, c.profile.className), h('th', (t.first || '') + ' ' + (t.last || '')),
+            cell('', 'Father', t.father || t.fatherPhone, [t.father || '', t.fatherPhone ? [h('br'), tel(t.fatherPhone)] : null]),
+            cell('', 'Mother', t.mother || t.motherPhone, [t.mother || '', t.motherPhone ? [h('br'), tel(t.motherPhone)] : null]),
+            cell('', 'Email', t.email, t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
+            cell('.low', 'Allergies', t.allergies, t.allergies || '')));
         });
       });
-      table.appendChild(rows.length ? h('table.grid-table.admin-table',
+      table.appendChild(rows.length ? h('table.grid-table.admin-table.stack-table',
         h('thead', h('tr', h('th', 'Class'), h('th', 'Talmid'), h('th', 'Father'), h('th', 'Mother'), h('th', 'Email'), h('th', 'Allergies'))),
         h('tbody', rows)) : h('p.muted', 'No families match.'));
     }
@@ -419,14 +421,14 @@
     var unset = function (r) { return !r.n.annual && !r.n.paid; };
     var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0 && !unset(r); }) : rows;
     if (!shown.length) { main.appendChild(UI.empty(!rows.length ? 'No classes on this device yet.' : tuitionFilter === 'paid' ? 'No families are paid in full yet.' : 'No outstanding balances.')); return; }
-    main.appendChild(h('div.card.scroll-x', h('table.grid-table.admin-table',
+    main.appendChild(h('div.card.scroll-x', h('table.grid-table.admin-table.stack-table',
       h('thead', h('tr', h('th', 'Class'), h('th', 'Talmid'), h('th.money', 'Annual'), h('th.money', 'Paid'), h('th.money', 'Balance'))),
       h('tbody', shown.map(function (r) {
         var parents = [r.t.father ? r.t.father + (r.t.fatherPhone ? ' ' + r.t.fatherPhone : '') : '', r.t.mother ? r.t.mother + (r.t.motherPhone ? ' ' + r.t.motherPhone : '') : ''].filter(Boolean).join(' · ');
         return h('tr', { class: 'clickable', onclick: function () { editFamily(r.key, (r.t.first || '') + ' ' + (r.t.last || '') + (r.c.profile.className ? ' (' + r.c.profile.className + ')' : ''), parents); } },
-          h('td', r.c.profile.className), h('th', (r.t.first || '') + ' ' + (r.t.last || ''), r.rec.notes ? h('div.small.muted', r.rec.notes) : null),
-          h('td.money', money(r.n.annual), r.n.usesDefault ? h('span.small.muted', ' *') : null), h('td.money', money(r.n.paid)),
-          h('td.money' + (r.n.balance > 0 ? '.low' : ''), r.n.balance > 0 ? money(r.n.balance) : unset(r) ? h('span.muted', 'Not set') : 'Paid ✓'));
+          h('td.cls', { 'data-label': 'Class' }, r.c.profile.className), h('th', (r.t.first || '') + ' ' + (r.t.last || ''), r.rec.notes ? h('div.small.muted', r.rec.notes) : null),
+          h('td.money', { 'data-label': 'Annual' }, h('span.val', money(r.n.annual), r.n.usesDefault ? h('span.small.muted', ' *') : null)), h('td.money', { 'data-label': 'Paid' }, h('span.val', money(r.n.paid))),
+          h('td.money' + (r.n.balance > 0 ? '.low' : ''), { 'data-label': 'Balance' }, h('span.val', r.n.balance > 0 ? money(r.n.balance) : unset(r) ? h('span.muted', 'Not set') : 'Paid ✓')));
       })))));
     main.appendChild(h('p.small.muted', '* uses the office default.'));
   }

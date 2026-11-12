@@ -118,8 +118,26 @@
               Store.update(function (s) { s.notes = s.notes.filter(function (x) { return x.id !== n.id; }); }); App.render();
             } }, '×'));
         })) : null));
+      packCards(grid);
     }
   });
+
+  // Cards have different heights, so a plain grid leaves gaps under the short ones. Give each card as many
+  // small rows as it is tall, so the next card tucks in right underneath (order stays left-to-right).
+  var ROW = 4, GAP = 16;
+  function packCards(grid) {
+    function layout() {
+      if (!grid.isConnected) { if (obs) obs.disconnect(); return; }
+      var cols = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length;
+      grid.classList.toggle('packed', cols > 1);
+      [].forEach.call(grid.children, function (c) {
+        c.style.gridRowEnd = cols > 1 ? 'span ' + Math.ceil((c.getBoundingClientRect().height + GAP) / ROW) : '';
+      });
+    }
+    var obs = window.ResizeObserver ? new ResizeObserver(function () { requestAnimationFrame(layout); }) : null;
+    if (obs) [].forEach.call(grid.children, function (c) { obs.observe(c); });
+    requestAnimationFrame(layout);
+  }
 
   function stat(n, label) { return h('div.stat', h('div.stat-n', String(n)), h('div.stat-l', label)); }
 

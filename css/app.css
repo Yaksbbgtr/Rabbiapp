@@ -183,6 +183,8 @@ body.logged-out main { max-width: 560px; margin: 0 auto; padding-top: 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
 .grid > .card { margin-bottom: 0; }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.grid.dash.packed { grid-auto-rows: 4px; row-gap: 0; }
+.grid.dash.packed > .card { margin-bottom: 16px; }
 @media (max-width: 420px) { .grid, .grid.two { grid-template-columns: 1fr; } }
 .row { display: flex; align-items: center; }
 .row.gap { gap: 8px; }
@@ -643,3 +645,18 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .sync-login { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 12px 0; }
 .profile-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 45%; }
 .profile-tags:empty { display: none; }
+/* Office Phones / Tuition on a phone: each row becomes a card instead of a wide table. */
+@media screen and (max-width: 600px) {
+  .card.scroll-x:has(> .stack-table) { background: transparent; border: 0; box-shadow: none; padding: 0; overflow: visible; }
+  .stack-table, .stack-table tbody { display: block; width: 100%; }
+  .stack-table thead { display: none; }
+  .stack-table tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 10px; }
+  .stack-table tr.clickable { cursor: pointer; }
+  .stack-table th, .stack-table td { border: 0; padding: 0; }
+  .stack-table tbody th { order: 0; flex: 1 1 auto; font-size: 1.05rem; font-weight: 700; white-space: normal; max-width: none; }
+  .stack-table td.cls { order: 1; color: var(--muted); font-size: .85rem; }
+  .stack-table td:not(.cls) { order: 2; flex: 1 1 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; text-align: right; }
+  .stack-table td:not(.cls)::before { content: attr(data-label); color: var(--muted); font-size: .85rem; font-weight: 400; text-align: left; flex: none; }
+  .stack-table td.blank { display: none; }
+}
