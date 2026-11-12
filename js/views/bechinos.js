@@ -57,7 +57,7 @@
         var s = stats(x);
         var scores = st.scores[x.id] = st.scores[x.id] || {};
         main.appendChild(h('div.card',
-          h('div.row.between.wrap',
+          h('div.row.between.wrap.gap', { style: 'margin-bottom:12px' },
             h('div', h('button.link', { onclick: function () { openTest = null; App.render(); } }, '← All bechinos'),
               h('h2', x.title), h('p.muted', x.subject + ' · ' + UI.fmtDate(x.date) + ' · out of ' + x.max)),
             h('div.row.gap.wrap',

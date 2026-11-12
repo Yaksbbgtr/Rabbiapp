@@ -124,7 +124,7 @@
         h('ul.small.muted.tips', files.slice(0, 4).map(function (f) { return h('li', f.name); }),
           files.length > 4 ? h('li', '…and ' + (files.length - 4) + ' more') : null),
         canShare ? h('div',
-          h('p', 'Tap Send, then choose ', h('strong', 'Mail'), '. The PDFs will already be attached.' +
+          h('p', 'Tap Send, then choose ', h('strong', 'Mail'), '. The ' + (files.length === 1 ? 'PDF' : 'PDFs') + ' will already be attached.' +
             (office ? ' The office address is copied for you: press and hold the "To" line and tap Paste.' : '')),
           office ? h('p.small', 'To: ', h('strong', office)) : null,
           h('button.btn.primary.big', { type: 'button', onclick: function () {
@@ -145,7 +145,7 @@
             }, files.length * 350 + 600);
           } }, UI.icon('send'), 'Save PDFs & open email')),
         h('div.row.gap.wrap', { style: 'margin-top:10px' },
-          canShare ? h('button.btn.small', { type: 'button', onclick: download }, 'Save the PDFs instead') : null),
+          canShare ? h('button.btn.small', { type: 'button', onclick: download }, files.length === 1 ? 'Save the PDF instead' : 'Save the PDFs instead') : null),
         note));
     }
 

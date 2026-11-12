@@ -146,8 +146,9 @@ body.logged-out main { max-width: 560px; margin: 0 auto; padding-top: 0; }
     position: fixed; top: 0; bottom: 0; left: 0; width: 270px; max-width: 82vw; height: 100%;
     z-index: 40; transform: translateX(-100%); transition: transform .22s ease;
     padding: calc(16px + env(safe-area-inset-top)) 10px calc(16px + env(safe-area-inset-bottom));
-    box-shadow: 4px 0 24px rgba(0, 0, 0, .3);
   }
+  /* Shadow only while the menu shows, so the closed menu doesn't darken the page's left edge. */
+  body.nav-open .sidebar, .sidebar.dragging { box-shadow: 4px 0 24px rgba(0, 0, 0, .3); }
   body.nav-open .sidebar { transform: none; }
   .nav-backdrop { position: fixed; inset: 0; background: rgba(10, 15, 25, .5); z-index: 30; touch-action: none; }
   .sidebar { touch-action: pan-y; }
@@ -296,6 +297,8 @@ dl.kv dd { margin: 0; }
   transition: all .2s; pointer-events: none; z-index: 60; font-size: .92rem;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* While a popup is open, show messages at the top so they don't cover its buttons. */
+body:has(.modal-overlay) #toast { bottom: auto; top: calc(16px + env(safe-area-inset-top)); }
 
 /* ---------- welcome ---------- */
 .welcome { max-width: 620px; margin: 4vh auto; }
@@ -375,6 +378,9 @@ tr.clickable:hover td, tr.clickable:hover th { background: var(--bg); }
 .admin-class-head .icon { color: var(--muted); }
 .admin-table td.low { color: var(--red); font-weight: 600; }
 .admin-table th { white-space: normal; max-width: 150px; }
+/* Phone numbers never break across lines; the class name stays on one line too. */
+.admin-table a[href^="tel:"], .admin-table td.money { white-space: nowrap; }
+.admin-table td:first-child { white-space: nowrap; }
 
 /* ---------- class list scanner ---------- */
 .tips { padding-left: 18px; margin: 0 0 12px; }
@@ -635,3 +641,5 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .sync-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .sync-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .sync-login { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 12px 0; }
+.profile-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 45%; }
+.profile-tags:empty { display: none; }

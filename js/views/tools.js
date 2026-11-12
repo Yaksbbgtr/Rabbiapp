@@ -27,8 +27,11 @@
       var display = h('div.picker-display', '?');
       var remaining = h('div.small.muted');
       function updateRemaining() {
-        var left = presentToday().filter(function (t) { return pickedIds.indexOf(t.id) < 0; }).length;
-        remaining.textContent = left + ' left before everyone has had a turn';
+        var pool = presentToday();
+        var left = pool.filter(function (t) { return pickedIds.indexOf(t.id) < 0; }).length;
+        remaining.textContent = !pool.length ? 'Add talmidim first (or nobody is here today).'
+          : !left ? 'Everyone has had a turn – the next pick starts a new round.'
+          : left + ' left before everyone has had a turn';
       }
       updateRemaining();
       grid.appendChild(h('div.card',

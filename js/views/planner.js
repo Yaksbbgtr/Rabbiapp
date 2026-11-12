@@ -158,7 +158,7 @@
           Store.update(function (s) {
             prev.forEach(function (l) { s.lessons.push({ id: Store.uid(), date: iso, subject: l.subject, plan: l.plan, notes: '', done: false }); });
           });
-          UI.toast('Copied ' + prev.length + ' items'); App.render();
+          UI.toast('Copied ' + prev.length + (prev.length === 1 ? ' item' : ' items')); App.render();
         } }, UI.icon('copy'), 'Copy previous day'),
         h('button.btn', { type: 'button', onclick: function () { window.print(); } }, UI.icon('print'), 'Print')));
     }

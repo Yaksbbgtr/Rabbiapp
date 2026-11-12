@@ -102,9 +102,11 @@
           return h('button.profile-row', { type: 'button', onclick: function () { enter(p); } },
             h('div.avatar', initials(p.name)),
             h('div.grow', h('div.name', p.name), h('div.small.muted', p.role === 'admin' ? 'Administrator – all classes' : p.className || 'No class name yet')),
-            p.role === 'admin' ? h('span.pill', 'Admin') : null,
-            p.sampleGrade || p.sample ? h('span.pill.muted', 'Sample') : null,
-            p.cloud ? h('span.pill.pos', 'Synced') : null,
+            // Tags wrap under each other on narrow phones instead of squeezing the name.
+            h('div.profile-tags',
+              p.role === 'admin' ? h('span.pill', 'Admin') : null,
+              p.sampleGrade || p.sample ? h('span.pill.muted', 'Sample') : null,
+              p.cloud ? h('span.pill.pos', 'Synced') : null),
             Store.hasPin(p.id) ? h('span.small.muted', { title: 'PIN needed' }, '🔒') : null,
             UI.icon('chev', 18));
         })) : null,
@@ -137,7 +139,7 @@
     var n = Store.activeTalmidim().length;
     UI.modal('Profile', h('div',
       h('div.row.gap', h('div.avatar.lg', initials(p.name)),
-        h('div', h('div.big', h('strong', p.name)), h('div.muted', (p.className || 'No class name yet') + ' · ' + n + ' talmidim'),
+        h('div', h('div.big', h('strong', p.name)), h('div.muted', (p.className || 'No class name yet') + ' · ' + n + (n === 1 ? ' talmid' : ' talmidim')),
           p.sampleGrade ? h('span.pill.muted', 'Sample profile') : null)),
       h('div.profile-actions',
         h('button.btn', { type: 'button', onclick: function () { document.querySelector('.modal-overlay').remove(); logout(true); } }, UI.icon('users'), 'Switch profile'),

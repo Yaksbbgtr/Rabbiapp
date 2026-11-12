@@ -420,7 +420,7 @@
           });
         });
         m.close();
-        UI.toast(chosen.length + ' talmidim added');
+        UI.toast(chosen.length + (chosen.length === 1 ? ' talmid added' : ' talmidim added'));
         App.go('talmidim');
         App.render();
       });

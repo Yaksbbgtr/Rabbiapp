@@ -415,7 +415,9 @@
           UI.download('Tuition balances.csv', csv(sheet), 'text/csv'); UI.toast('Spreadsheet downloaded');
         } }, UI.icon('file', 16), 'Export (spreadsheet)'))));
     main.appendChild(h('p.small.muted', 'Tuition is kept in the office profile only; rebbeim never see it. Tap a family to set its tuition and record payments.'));
-    var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0; }) : rows;
+    // A family with no tuition set (and no payments) isn't "paid" – it just hasn't been set up yet.
+    var unset = function (r) { return !r.n.annual && !r.n.paid; };
+    var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0 && !unset(r); }) : rows;
     if (!shown.length) { main.appendChild(UI.empty(!rows.length ? 'No classes on this device yet.' : tuitionFilter === 'paid' ? 'No families are paid in full yet.' : 'No outstanding balances.')); return; }
     main.appendChild(h('div.card.scroll-x', h('table.grid-table.admin-table',
       h('thead', h('tr', h('th', 'Class'), h('th', 'Talmid'), h('th.money', 'Annual'), h('th.money', 'Paid'), h('th.money', 'Balance'))),
@@ -424,7 +426,7 @@
         return h('tr', { class: 'clickable', onclick: function () { editFamily(r.key, (r.t.first || '') + ' ' + (r.t.last || '') + (r.c.profile.className ? ' (' + r.c.profile.className + ')' : ''), parents); } },
           h('td', r.c.profile.className), h('th', (r.t.first || '') + ' ' + (r.t.last || ''), r.rec.notes ? h('div.small.muted', r.rec.notes) : null),
           h('td.money', money(r.n.annual), r.n.usesDefault ? h('span.small.muted', ' *') : null), h('td.money', money(r.n.paid)),
-          h('td.money' + (r.n.balance > 0 ? '.low' : ''), r.n.balance > 0 ? money(r.n.balance) : 'Paid ✓'));
+          h('td.money' + (r.n.balance > 0 ? '.low' : ''), r.n.balance > 0 ? money(r.n.balance) : unset(r) ? h('span.muted', 'Not set') : 'Paid ✓'));
       })))));
     main.appendChild(h('p.small.muted', '* uses the office default.'));
   }

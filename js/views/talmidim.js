@@ -62,7 +62,7 @@
               });
             });
           });
-          UI.toast(lines.length + ' talmidim added');
+          UI.toast(lines.length + (lines.length === 1 ? ' talmid added' : ' talmidim added'));
           App.render();
         }
       }

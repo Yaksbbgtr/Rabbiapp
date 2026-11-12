@@ -107,12 +107,13 @@
       var w = width();
       x = Math.max(0, Math.min(w, x));
       sidebar.style.transition = 'none';
+      sidebar.classList.add('dragging');
       sidebar.style.transform = 'translateX(' + (x - w) + 'px)';
       backdrop.style.display = 'block';
       backdrop.style.opacity = String(x / w);
     }
     function release() {
-      sidebar.style.transition = ''; sidebar.style.transform = '';
+      sidebar.style.transition = ''; sidebar.style.transform = ''; sidebar.classList.remove('dragging');
       backdrop.style.display = ''; backdrop.style.opacity = '';
     }
     document.addEventListener('touchstart', function (e) {
