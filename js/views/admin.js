@@ -120,6 +120,7 @@
 
   var attDate = null;
   var issueFilter = 'open';
+  var issueTo = ''; // '' = everyone, or 'office' / 'principal' / 'maintenance'
 
   // Each office section is its own page in the menu.
   function openIssueCount() { return Issues.officeUnreadCount(); }
@@ -421,32 +422,70 @@
     var unset = function (r) { return !r.n.annual && !r.n.paid; };
     var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0 && !unset(r); }) : rows;
     if (!shown.length) { main.appendChild(UI.empty(!rows.length ? 'No classes on this device yet.' : tuitionFilter === 'paid' ? 'No families are paid in full yet.' : 'No outstanding balances.')); return; }
+    // Brothers (same parents' phone, or same last name and father) are shown together as "<Last> Family".
+    var famOf = function (t) {
+      var ph = (t.fatherPhone || t.motherPhone || '').replace(/\D/g, '');
+      return ph ? 'p' + ph : 'n' + (t.last || '').toLowerCase() + '|' + (t.father || '').toLowerCase();
+    };
+    var groups = [], byFam = {};
+    rows.forEach(function (r) {
+      var f = famOf(r.t);
+      if (!byFam[f]) { byFam[f] = []; groups.push(byFam[f]); }
+      byFam[f].push(r);
+    });
+    var isShown = {}; shown.forEach(function (r) { isShown[r.key] = true; });
+    var balanceCell = function (n, none) { return n.balance > 0 ? money(n.balance) : none ? h('span.muted', 'Not set') : 'Paid ✓'; };
+    var childRow = function (r, sib) {
+      var parents = [r.t.father ? r.t.father + (r.t.fatherPhone ? ' ' + r.t.fatherPhone : '') : '', r.t.mother ? r.t.mother + (r.t.motherPhone ? ' ' + r.t.motherPhone : '') : ''].filter(Boolean).join(' · ');
+      return h('tr', { class: 'clickable' + (sib ? ' sib' : ''), onclick: function () { editFamily(r.key, (r.t.first || '') + ' ' + (r.t.last || '') + (r.c.profile.className ? ' (' + r.c.profile.className + ')' : ''), parents); } },
+        h('td.cls', { 'data-label': 'Class' }, r.c.profile.className), h('th', (r.t.first || '') + ' ' + (r.t.last || ''), r.rec.notes ? h('div.small.muted', r.rec.notes) : null),
+        h('td.money', { 'data-label': 'Annual' }, h('span.val', money(r.n.annual), r.n.usesDefault ? h('span.small.muted', ' *') : null)), h('td.money', { 'data-label': 'Paid' }, h('span.val', money(r.n.paid))),
+        h('td.money' + (r.n.balance > 0 ? '.low' : ''), { 'data-label': 'Balance' }, h('span.val', balanceCell(r.n, unset(r)))));
+    };
+    var body = [];
+    groups.forEach(function (g) {
+      var vis = g.filter(function (r) { return isShown[r.key]; });
+      if (!vis.length) return;
+      if (g.length < 2) { body.push(childRow(vis[0], false)); return; }
+      var tot = g.reduce(function (a, r) { a.annual += r.n.annual; a.paid += r.n.paid; a.balance += r.n.balance; return a; }, { annual: 0, paid: 0, balance: 0 });
+      var allUnset = g.every(unset);
+      body.push(h('tr.family-row',
+        h('th', { colspan: 2 }, (g[0].t.last || '') + ' Family', h('span.small.muted', ' · ' + g.length + ' boys: ' + g.map(function (r) { return r.c.profile.className; }).join(', '))),
+        h('td.money', { 'data-label': 'Family annual' }, h('span.val', money(tot.annual))), h('td.money', { 'data-label': 'Family paid' }, h('span.val', money(tot.paid))),
+        h('td.money' + (tot.balance > 0 ? '.low' : ''), { 'data-label': 'Family balance' }, h('span.val', balanceCell(tot, allUnset)))));
+      vis.forEach(function (r) { body.push(childRow(r, true)); });
+    });
     main.appendChild(h('div.card.scroll-x', h('table.grid-table.admin-table.stack-table',
       h('thead', h('tr', h('th', 'Class'), h('th', 'Talmid'), h('th.money', 'Annual'), h('th.money', 'Paid'), h('th.money', 'Balance'))),
-      h('tbody', shown.map(function (r) {
-        var parents = [r.t.father ? r.t.father + (r.t.fatherPhone ? ' ' + r.t.fatherPhone : '') : '', r.t.mother ? r.t.mother + (r.t.motherPhone ? ' ' + r.t.motherPhone : '') : ''].filter(Boolean).join(' · ');
-        return h('tr', { class: 'clickable', onclick: function () { editFamily(r.key, (r.t.first || '') + ' ' + (r.t.last || '') + (r.c.profile.className ? ' (' + r.c.profile.className + ')' : ''), parents); } },
-          h('td.cls', { 'data-label': 'Class' }, r.c.profile.className), h('th', (r.t.first || '') + ' ' + (r.t.last || ''), r.rec.notes ? h('div.small.muted', r.rec.notes) : null),
-          h('td.money', { 'data-label': 'Annual' }, h('span.val', money(r.n.annual), r.n.usesDefault ? h('span.small.muted', ' *') : null)), h('td.money', { 'data-label': 'Paid' }, h('span.val', money(r.n.paid))),
-          h('td.money' + (r.n.balance > 0 ? '.low' : ''), { 'data-label': 'Balance' }, h('span.val', r.n.balance > 0 ? money(r.n.balance) : unset(r) ? h('span.muted', 'Not set') : 'Paid ✓')));
-      })))));
+      h('tbody', body))));
     main.appendChild(h('p.small.muted', '* uses the office default.'));
   }
 
   // ================= Issues =================
   function renderIssues(main, list) {
-    var items = Issues.all();
+    var staff = Store.staffRole();
+    var items = Issues.all().filter(function (x) { return Issues.visibleTo(x.issue, staff); });
     // Opening the Issues page reads them: clear the indicator, but tag what was new.
     var seenNow = items.filter(function (x) { return Issues.officeUnread(x.issue); });
     seenNow.forEach(function (x) { freshIds[x.issue.id] = true; Issues.markOfficeSeen(x); });
     if (seenNow.length) setTimeout(App.render, 0);
-    var shown = items.filter(function (x) { return issueFilter === 'all' || (issueFilter === 'done' ? x.issue.status === 'done' : x.issue.status !== 'done'); });
+    var to = staff === 'maintenance' ? '' : issueTo;
+    var shown = items.filter(function (x) {
+      return (issueFilter === 'all' || (issueFilter === 'done' ? x.issue.status === 'done' : x.issue.status !== 'done'))
+        && (!to || (x.issue.to || 'office') === to);
+    });
     main.appendChild(h('div.card.row.between.wrap',
-      h('div.seg', [['open', 'Open'], ['done', 'Done'], ['all', 'All']].map(function (f) {
-        return h('button' + (issueFilter === f[0] ? '.on' : ''), { type: 'button', onclick: function () { issueFilter = f[0]; App.render(); } }, f[1]);
-      })),
+      h('div.row.gap.wrap',
+        h('div.seg', [['open', 'Open'], ['done', 'Done'], ['all', 'All']].map(function (f) {
+          return h('button' + (issueFilter === f[0] ? '.on' : ''), { type: 'button', onclick: function () { issueFilter = f[0]; App.render(); } }, f[1]);
+        })),
+        staff === 'maintenance' ? null : h('div.seg', { role: 'group', 'aria-label': 'Sent to' }, [['', 'Everyone']].concat(Issues.TO).map(function (f) {
+          return h('button' + (issueTo === f[0] ? '.on' : ''), { type: 'button', onclick: function () { issueTo = f[0]; App.render(); } }, f[1]);
+        }))),
       h('button.btn.primary', { type: 'button', onclick: function () { Issues.report('', function () { App.render(); }); } }, UI.icon('plus'), 'New issue')));
-    main.appendChild(h('p.small.muted', 'Issues reported by rebbeim and staff on this device, as tasks. Rebbeim on other devices: their reports arrive in their backup files. Each task shows the rebbi\'s cell and, when it\'s about a talmid, the parents\' cells.'));
+    main.appendChild(h('p.small.muted', staff === 'maintenance'
+      ? 'Issues sent to maintenance by rebbeim and the office. Reply in the conversation and mark them done when fixed.'
+      : 'Issues reported by rebbeim and staff, as tasks. Each shows who it was sent to (main office, principal or maintenance), the rebbi\'s cell and, when it\'s about a talmid, the parents\' cells.'));
     if (!shown.length) { main.appendChild(UI.empty(items.length ? 'Nothing here.' : 'No issues yet. Rebbeim report them from a talmid\'s page or the Today page; the office can add one with New issue.')); return; }
     shown.forEach(function (item) {
       var card = Issues.taskCard(item, function () { App.render(); });

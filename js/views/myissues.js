@@ -64,6 +64,7 @@
       main.appendChild(h('div.card',
         h('dl.kv',
           h('dt', 'Status'), h('dd', Issues.statusLabel(i.status)),
+          h('dt', 'Sent to'), h('dd', Issues.toLabel(i.to)),
           h('dt', 'Urgency'), h('dd', Issues.priorityLabel(i.priority)),
           i.assignedTo ? [h('dt', 'Handled by'), h('dd', i.assignedTo)] : null,
           i.due ? [h('dt', 'Expected by'), h('dd', UI.fmtDate(i.due))] : null),

@@ -20,6 +20,8 @@
       main.appendChild(h('div.page-head', h('h1', 'Settings')));
       if (Store.isAdmin()) {
         main.appendChild(h('div.card', h('h2', 'Office'),
+          UI.field('This profile is for', bind('staffRole', UI.select([['office', 'Main office – every class'], ['principal', 'Principal – every class'], ['maintenance', 'Maintenance – issues sent to maintenance']], Store.staffRole())),
+            'Rebbeim choose who a report goes to: the main office, the principal or maintenance.'),
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
           UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' })))));
         main.appendChild(Profiles.settingsCard());

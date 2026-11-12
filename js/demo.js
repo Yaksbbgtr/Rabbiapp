@@ -16,6 +16,28 @@
     'Rosen', 'Schwartz', 'Stern', 'Weber', 'Weiss', 'Feldman', 'Greenberg', 'Kaplan', 'Perlman', 'Rubin', 'Shapiro', 'Wolf'];
   var MOTHERS = ['Rivka', 'Sarah', 'Leah', 'Chana', 'Miriam', 'Esther', 'Devorah', 'Rochel', 'Bracha', 'Shira', 'Tzipora', 'Malka',
     'Gittel', 'Basya', 'Perel', 'Yehudis'];
+  // Families with boys in more than one class (made-up names and numbers). members: grade -> [which boy in that class, his name].
+  var SIBLINGS = [
+    { last: 'Brenner', father: ['Shmuel', 'שמואל'], mother: 'Chana', phone: '(555) 0170-4410', mphone: '(555) 0171-4411', street: '12 Maple Ave',
+      members: { 1: [2, ['Yosef', 'יוסף']], 3: [5, ['Moshe', 'משה']], 6: [8, ['Eliyahu', 'אליהו']] } },
+    { last: 'Mandel', father: ['Dovid', 'דוד'], mother: 'Leah', phone: '(555) 0172-4420', mphone: '(555) 0173-4421', street: '48 Oak St',
+      members: { 2: [4, ['Chaim', 'חיים']], 5: [1, ['Yehuda', 'יהודה']] } },
+    { last: 'Tauber', father: ['Meir', 'מאיר'], mother: 'Esther', phone: '(555) 0174-4430', mphone: '', street: '7 Cedar Lane',
+      members: { 4: [6, ['Naftali', 'נפתלי']], 7: [3, ['Shlomo', 'שלמה']], 8: [10, ['Pinchas', 'פינחס']] } }
+  ];
+  // Make a sample boy part of one of the sibling families above (same parents, phones, email and address).
+  function applySibling(t, grade, k) {
+    var fam = SIBLINGS.filter(function (s) { return s.members[grade] && s.members[grade][0] === k; })[0];
+    if (!fam) return t;
+    var me = fam.members[grade][1];
+    t.first = me[0]; t.last = fam.last;
+    t.hebName = me[1] + ' בן ' + fam.father[1];
+    t.father = fam.father[0] + ' ' + fam.last; t.mother = fam.mother + ' ' + fam.last;
+    t.fatherPhone = fam.phone; t.motherPhone = fam.mphone;
+    t.email = fam.father[0].toLowerCase() + '.' + fam.last.toLowerCase() + '@example.com';
+    t.address = fam.street;
+    return t;
+  }
   var STREETS = ['Maple Ave', 'Oak St', 'Cedar Lane', 'Elm Ct', 'Birch Rd', 'Willow Dr', 'Pine St', 'Chestnut Ave'];
   var NOTES = [
     'Wears glasses – seat him in the front row.', '', 'Loves being chazan – great motivator.',
@@ -126,7 +148,7 @@
       var father = FIRST[(k * 11 + grade * 5 + 7) % FIRST.length];
       var mother = MOTHERS[(k * 3 + grade) % MOTHERS.length];
       var month = (k * 7 + grade) % 12 + 1, day = (k * 11 + grade * 2) % 27 + 1;
-      state.talmidim.push({
+      state.talmidim.push(applySibling({
         id: uid(), first: f[0], last: last, hebName: f[1] + ' בן ' + father[1],
         father: father[0] + ' ' + last, mother: mother + ' ' + last,
         fatherPhone: '(555) 01' + pad(10 + k) + '-' + (2000 + grade * 100 + k * 37),
@@ -136,7 +158,7 @@
         birthday: (thisYear - 5 - grade + (month > 8 ? -1 : 0)) + '-' + pad(month) + '-' + pad(day),
         allergies: ['', '', '', '', 'Peanuts – EpiPen in office', '', '', 'Tree nuts', '', '', '', 'Dairy (lactose)', ''][(k + grade) % 13],
         notes: NOTES[(k + grade) % NOTES.length], archived: false
-      });
+      }, grade, k));
     }
     var t = state.talmidim;
     var star = t[7 % t.length];
@@ -264,10 +286,10 @@
           details: '', priority: 'normal', status: 'open', assignedTo: '', due: '', notes: [], seenOffice: 0 }, o));
       };
       issue({ date: d(9), title: 'Broken window latch in the classroom', details: 'The window by the back row won\'t close all the way. It gets cold in the afternoon.',
-        status: 'done', assignedTo: 'Maintenance (Mr. Gold)', updatedAt: d(5), seenOffice: 2, officeSeen: 1,
+        status: 'done', to: 'maintenance', assignedTo: 'Maintenance (Mr. Gold)', updatedAt: d(5), seenOffice: 2, officeSeen: 1,
         notes: [{ date: d(8), by: 'Office', text: 'Thank you – Mr. Gold will come Wednesday after dismissal.', office: true },
           { date: d(5), by: 'Office', text: 'Fixed. Please let us know if it happens again.', office: true }] });
-      issue({ date: d(4), talmidId: boy(3).id, talmidName: boy(3).first + ' ' + boy(3).last, title: 'Needs extra kriah help',
+      issue({ date: d(4), talmidId: boy(3).id, talmidName: boy(3).first + ' ' + boy(3).last, title: 'Needs extra kriah help', to: 'principal',
         details: 'He is falling behind in kriah – still mixing up the nekudos. Can we arrange a tutor or resource room time?',
         priority: 'high', status: 'progress', assignedTo: 'Mrs. Kaplan (resource room)', due: d(-3), updatedAt: d(1), seenOffice: 0, officeSeen: 2,
         notes: [{ date: d(3), by: 'Office', text: 'Mrs. Kaplan can take him Tuesday and Thursday during Chumash, 20 minutes. Starting next week.', office: true },
@@ -276,6 +298,7 @@
       issue({ date: d(2), talmidId: boy(8).id, talmidName: boy(8).first + ' ' + boy(8).last, title: 'Parent asked about bus pickup time',
         details: 'His father asked if the bus can pick him up 10 minutes earlier on Fridays.', updatedAt: d(1), seenOffice: 0, officeSeen: 1,
         notes: [{ date: d(1), by: 'Office', text: 'We spoke to the bus company. Fridays at 12:50 starting this week.', office: true }] });
+      issue({ date: d(1), title: 'Classroom light flickering', details: 'The light over the front board flickers all morning. Hard on the boys\' eyes.', to: 'maintenance', priority: 'high', status: 'open', updatedAt: d(1) });
       issue({ date: d(0), title: 'Need more Chumash sheets copied', details: '20 copies of the Bereishis perek 2 sheet for Sunday, please.', status: 'open', updatedAt: d(0) });
     }
 
@@ -285,6 +308,7 @@
 
   window.DemoData = {
     build: build,
+    applySibling: applySibling,
     grades: Object.keys(GRADES).map(function (g) { return { grade: +g, className: GRADES[g].className, rebbi: GRADES[g].rebbi }; })
   };
 })();

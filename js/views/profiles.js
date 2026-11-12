@@ -64,25 +64,25 @@
     var school = UI.input({ placeholder: 'Yeshiva name', value: 'Yeshiva K\'tana of Waterbury' });
     var phone = UI.input({ type: 'tel', placeholder: 'So the office can reach you', autocomplete: 'tel' });
     var pin = UI.input({ type: 'password', inputmode: 'numeric', autocomplete: 'off', placeholder: 'Leave empty for no PIN' });
-    var adminBox = h('input', { type: 'checkbox' });
+    var kind = UI.select([['rebbi', 'Rebbi – my own class'], ['office', 'Main office – every class'], ['principal', 'Principal – every class'], ['maintenance', 'Maintenance – issues sent to maintenance']], 'rebbi');
     var classField = UI.field('Class', cls);
-    adminBox.addEventListener('change', function () { classField.style.display = adminBox.checked ? 'none' : ''; });
+    kind.addEventListener('change', function () { classField.style.display = kind.value === 'rebbi' ? '' : 'none'; });
     UI.modal('New profile', h('div',
       UI.field('Your name (as it appears on letters)', name),
       classField,
       UI.field('Yeshiva', school),
       UI.field('Your cell', phone),
-      h('label.check-row', adminBox, ' Administrator – sees the grades and attendance of every class on this device, no class of their own'),
+      UI.field('This profile is for', kind),
       UI.field('PIN (optional)', pin, 'A PIN keeps other people using this device out of your class.')), [
       { label: 'Cancel' },
       { label: 'Create profile', primary: true, onClick: function () {
         if (!name.value.trim()) { UI.toast('Please enter your name'); name.focus(); return false; }
         try {
-          var id = Store.createProfile({ name: name.value, className: cls.value, school: school.value.trim(), pin: pin.value.trim(), admin: adminBox.checked, phone: phone.value });
+          var id = Store.createProfile({ name: name.value, className: cls.value, school: school.value.trim(), pin: pin.value.trim(), admin: kind.value !== 'rebbi', staff: kind.value !== 'rebbi' ? kind.value : '', phone: phone.value });
           Store.login(id, pin.value.trim());
         } catch (e) { alert(e.message); return false; }
         UI.toast('Profile created');
-        App.go(adminBox.checked ? 'admin' : 'talmidim');
+        App.go(kind.value === 'maintenance' ? 'admin-issues' : kind.value !== 'rebbi' ? 'admin' : 'talmidim');
       } }
     ]);
   }
@@ -91,7 +91,9 @@
     title: 'Log in', hidden: true,
     render: function (main) {
       var profiles = Store.profiles();
-      var allSamples = window.DemoData.grades.every(function (g) { return profiles.some(function (p) { return p.sampleGrade === g.grade; }); });
+      var allSamples = window.DemoData.grades.every(function (g) { return profiles.some(function (p) { return p.sampleGrade === g.grade; }); })
+        && profiles.some(function (p) { return p.role === 'admin' && p.sample && p.staff !== 'maintenance'; })
+        && profiles.some(function (p) { return p.role === 'admin' && p.sample && p.staff === 'maintenance'; });
       main.appendChild(h('div.login',
         h('div.login-hero',
           h('img', { src: 'icons/logo-white.png', alt: 'Yeshiva K\'tana of Waterbury', width: 906, height: 454 }),
@@ -101,7 +103,7 @@
         profiles.length ? h('div.profile-list', profiles.map(function (p) {
           return h('button.profile-row', { type: 'button', onclick: function () { enter(p); } },
             h('div.avatar', initials(p.name)),
-            h('div.grow', h('div.name', p.name), h('div.small.muted', p.role === 'admin' ? 'Administrator – all classes' : p.className || 'No class name yet')),
+            h('div.grow', h('div.name', p.name), h('div.small.muted', p.role === 'admin' ? { office: 'Main office – all classes', principal: 'Principal – all classes', maintenance: 'Maintenance – issues' }[Store.staffRole(p.id)] : p.className || 'No class name yet')),
             // Tags wrap under each other on narrow phones instead of squeezing the name.
             h('div.profile-tags',
               p.role === 'admin' ? h('span.pill', 'Admin') : null,
@@ -116,7 +118,7 @@
             try { var n = Store.createSampleProfiles(); UI.toast(n + ' sample profiles added'); }
             catch (e) { alert(e.message); }
             App.render();
-          } }, 'Add sample profiles for grades 1–8')),
+          } }, allSamples ? '' : profiles.some(function (p) { return p.sampleGrade; }) ? 'Add the missing sample profiles' : 'Add sample profiles for grades 1–8')),
         Sync.loginCard(),
         h('p.small.muted', Sync.isOn() ? 'Profiles marked Synced are the same on all your signed-in devices.' : 'Profiles are saved on this device only. Each one has its own class, and a backup can be downloaded from its Settings page.')));
     }

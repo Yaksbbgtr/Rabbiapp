@@ -197,11 +197,13 @@
       if (opts.pin) p.pin = pinHash(id, String(opts.pin));
       if (opts.sampleGrade) p.sampleGrade = opts.sampleGrade;
       if (opts.admin) p.role = 'admin';
+      if (opts.admin && opts.staff) p.staff = opts.staff;
       var data = opts.data ? prepare(opts.data) : defaults();
       if (opts.data) {
         p.name = data.settings.rebbiName || p.name; p.className = data.settings.className || '';
       } else if (opts.admin) {
         data.settings.rebbiName = p.name; data.settings.setupDone = true;
+        data.settings.staffRole = opts.staff || 'office';
       } else if (opts.sampleGrade) {
         window.DemoData.build(data, uid, todayISO, opts.sampleGrade);
         p.name = data.settings.rebbiName; p.className = data.settings.className;
@@ -223,13 +225,24 @@
         if (index.list.some(function (p) { return p.sampleGrade === g.grade; })) return;
         Store.createProfile({ sampleGrade: g.grade }); added++;
       });
-      if (!index.list.some(function (p) { return p.role === 'admin' && p.sample; })) {
-        var aid = Store.createProfile({ admin: true, name: 'Office (sample admin)' });
+      if (!index.list.some(function (p) { return p.role === 'admin' && p.sample && p.staff !== 'maintenance'; })) {
+        var aid = Store.createProfile({ admin: true, staff: 'office', name: 'Office (sample admin)' });
         profile(aid).sample = true; writeIndex(); added++;
+      }
+      if (!index.list.some(function (p) { return p.role === 'admin' && p.sample && p.staff === 'maintenance'; })) {
+        var mid = Store.createProfile({ admin: true, staff: 'maintenance', name: 'Maintenance (Mr. Gold)' });
+        profile(mid).sample = true; writeIndex(); added++;
       }
       return added;
     },
     isAdmin: function () { var p = profile(index.current); return !!(p && p.role === 'admin'); },
+    // Which office a staff profile is: 'office' (main office), 'principal' or 'maintenance'. '' for a rebbi.
+    staffRole: function (id) {
+      var p = profile(id || index.current);
+      if (!p || p.role !== 'admin') return '';
+      var s = (id && id !== index.current ? load(id) : state).settings || {};
+      return s.staffRole || (/principal/i.test(s.rebbiName || p.name || '') ? 'principal' : 'office');
+    },
     // Read another profile's class without logging in to it (admin view).
     peek: function (id) { return load(id); },
     // Change another profile's saved data in place (admin updating a rebbi's issue).
@@ -255,7 +268,7 @@
     ensureProfile: function (meta) {
       var p = profile(meta.id);
       if (!p) { p = { id: meta.id }; index.list.push(p); }
-      ['name', 'className', 'role', 'cloud', 'ownerEmail'].forEach(function (k) { if (meta[k] !== undefined && meta[k] !== '') p[k] = meta[k]; });
+      ['name', 'className', 'role', 'cloud', 'ownerEmail', 'sampleGrade', 'sample', 'staff'].forEach(function (k) { if (meta[k] !== undefined && meta[k] !== '') p[k] = meta[k]; });
       if (p.role !== 'admin') delete p.role;
       p.name = p.name || 'Rebbi';
       writeIndex();

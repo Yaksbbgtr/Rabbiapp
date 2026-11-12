@@ -237,7 +237,10 @@
     var remote = { data: r.data || {}, issues: r.issues || {} };
     var had = Store.hasData(id);
     var before = Store.profiles().filter(function (p) { return p.id === id; })[0];
-    Store.ensureProfile({ id: id, name: r.name, className: r.className, role: r.role, cloud: true, ownerEmail: r.ownerEmail });
+    // Sample classes keep their "Sample" tag on every device (older uploads are recognised by class and rebbi).
+    var g = r.sampleGrade || ((window.DemoData && DemoData.grades.filter(function (x) { return x.className === r.className && x.rebbi === r.name; })[0]) || {}).grade;
+    Store.ensureProfile({ id: id, name: r.name, className: r.className, role: r.role, cloud: true, ownerEmail: r.ownerEmail,
+      sampleGrade: g || undefined, sample: r.sample || undefined, staff: r.staff || undefined });
     var local = had ? split(Store.peek(id)) : { data: {}, issues: {} };
     var base = getBase(id) || { data: {}, issues: {} };
     var merged = { data: {}, issues: {} }, push = [];
@@ -313,6 +316,7 @@
     setStatus('syncing');
     return db.collection('classes').doc(id).set({
       owner: S.user.uid, ownerEmail: S.user.email, name: p.name || '', className: p.className || '', role: p.role === 'admin' ? 'admin' : 'rebbi',
+      sampleGrade: p.sampleGrade || 0, sample: !!p.sample, staff: p.staff || '',
       data: local.data, issues: local.issues, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: S.user.uid
     }).catch(function (e) {
       Store.setProfileFields(id, { cloud: undefined }); ls(BASE_KEY + id, null);

@@ -8,6 +8,11 @@
   var h = UI.h;
   var PRIORITIES = [['normal', 'Normal'], ['high', 'High – soon'], ['urgent', 'Urgent – today']];
   var STATUSES = [['open', 'Open'], ['progress', 'In progress'], ['done', 'Done']];
+  // Who an issue goes to. Older issues without one went to the main office.
+  var TO = [['office', 'Main office'], ['principal', 'Principal'], ['maintenance', 'Maintenance']];
+  function toLabel(t) { return (TO.filter(function (x) { return x[0] === (t || 'office'); })[0] || TO[0])[1]; }
+  // Maintenance only sees what was sent to maintenance; the main office and the principal see everything.
+  function visibleTo(issue, staff) { return (staff || Store.staffRole()) !== 'maintenance' || issue.to === 'maintenance'; }
 
   function statusLabel(s) { return (STATUSES.filter(function (x) { return x[0] === s; })[0] || STATUSES[0])[1]; }
   function priorityLabel(s) { return (PRIORITIES.filter(function (x) { return x[0] === s; })[0] || PRIORITIES[0])[1]; }
@@ -19,12 +24,14 @@
     var title = UI.input({ placeholder: 'e.g. Broken chair, boy needs a tutor, parent complaint…' });
     var details = h('textarea', { rows: 4, dir: 'auto', placeholder: 'What happened, what you need, and anything the office should know.' });
     var pri = UI.select(PRIORITIES, 'normal');
+    var to = UI.select(TO, 'office', { 'aria-label': 'Send to' });
     var phone = UI.input({ type: 'tel', value: st.settings.rebbiPhone || '', placeholder: 'Your cell, so the office can call you back' });
-    UI.modal('Report to the office', h('div',
+    var dlg = UI.modal('Report to the office', h('div',
+      UI.field('Send to', to),
       UI.field('What is it?', title), UI.field('About which talmid? (optional)', who), UI.field('Details', details),
       h('div.form-grid', UI.field('How urgent', pri), UI.field('Your cell', phone))), [
       { label: 'Cancel' },
-      { label: 'Send to office', primary: true, onClick: function () {
+      { label: 'Send to main office', primary: true, onClick: function () {
         if (!title.value.trim()) { UI.toast('Say what the issue is'); title.focus(); return false; }
         var t = Store.talmid(who.value);
         Store.update(function (s) {
@@ -33,14 +40,17 @@
           s.issues.push({
             id: Store.uid(), date: Store.todayISO(), by: s.settings.rebbiName || 'Rebbi', byPhone: phone.value.trim(),
             className: s.settings.className || '', talmidId: t ? t.id : '', talmidName: t ? Store.displayName(t) : '',
-            title: title.value.trim(), details: details.value.trim(), priority: pri.value, status: 'open', assignedTo: '', due: '',
+            title: title.value.trim(), details: details.value.trim(), priority: pri.value, status: 'open', assignedTo: '', due: '', to: to.value,
             notes: [], updatedAt: Store.todayISO()
           });
         });
-        UI.toast('Sent to the office');
+        UI.toast('Sent to ' + toLabel(to.value).replace('Main office', 'the office').replace('Principal', 'the principal').replace('Maintenance', 'maintenance'));
         if (done) done(); else App.render();
       } }
     ]);
+    // The blue button says where it's going.
+    var sendBtn = dlg.el.querySelector('.modal-actions .btn.primary');
+    to.addEventListener('change', function () { sendBtn.textContent = 'Send to ' + toLabel(to.value).replace('Main office', 'main office').replace('Principal', 'principal').replace('Maintenance', 'maintenance'); });
   }
 
   // All issues on this device, newest first, with the profile they belong to and the parents' numbers if about a talmid.
@@ -75,19 +85,21 @@
     var details = h('textarea', { rows: 4, dir: 'auto' }, i.details || '');
     var pri = UI.select(PRIORITIES, i.priority || 'normal');
     var status = UI.select(STATUSES, i.status || 'open');
+    var to = UI.select(TO, i.to || 'office');
     var assigned = UI.input({ value: i.assignedTo || '', placeholder: 'Assigned to…' });
     var due = UI.input({ type: 'date', value: i.due || '' });
     var msg = h('textarea', { rows: 2, dir: 'auto', placeholder: 'Optional – the rebbi will see this as an update.' });
     UI.modal('Update issue', h('div',
       UI.field('What is it?', title), UI.field('Details', details),
       h('div.form-grid', UI.field('How urgent', pri), UI.field('Status', status)),
-      h('div.form-grid', UI.field('Assigned to', assigned), UI.field('Due', due)),
+      h('div.form-grid', UI.field('Sent to', to), UI.field('Assigned to', assigned)),
+      UI.field('Due', due),
       UI.field('Update for the rebbi', msg)), [
       { label: 'Cancel' },
       { label: 'Save', primary: true, onClick: function () {
         if (!title.value.trim()) { UI.toast('Say what the issue is'); title.focus(); return false; }
         change(item, function (x) {
-          x.title = title.value.trim(); x.details = details.value.trim(); x.priority = pri.value; x.status = status.value;
+          x.title = title.value.trim(); x.details = details.value.trim(); x.priority = pri.value; x.status = status.value; x.to = to.value;
           x.assignedTo = assigned.value.trim(); x.due = due.value;
           if (msg.value.trim()) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: msg.value.trim(), office: true }); }
         });
@@ -229,7 +241,8 @@
       h('div.row.between.gap.wrap',
         h('div.grow', h('div.issue-title', { dir: 'auto' }, i.title),
           h('div.small.muted', 'From ' + i.by + (item.profile.className ? ' (' + item.profile.className + ')' : '') + ' · ' + UI.fmtDate(i.date))),
-        h('span.pill' + (i.priority === 'urgent' ? '.neg' : i.priority === 'high' ? '.gold' : ''), priorityLabel(i.priority))),
+        h('div.issue-pills', h('span.pill.to-pill', 'To: ' + toLabel(i.to)),
+          h('span.pill' + (i.priority === 'urgent' ? '.neg' : i.priority === 'high' ? '.gold' : ''), priorityLabel(i.priority)))),
       i.details ? h('p.issue-details', { dir: 'auto' }, i.details) : null,
       h('div.issue-phones', tel('Rebbi', i.by, item.byPhone) || h('span.small.muted', 'No cell saved for ' + i.by + '.')),
       h('div.issue-controls', UI.field('Status', status), UI.field('Assigned to', assigned), UI.field('Due' + (overdue ? ' – overdue' : ''), due)),
@@ -265,7 +278,7 @@
   // For the office: the report itself plus each rebbi reply count as messages; unseen ones light the indicator.
   function rebbiMessages(i) { return 1 + (i.notes || []).filter(function (n) { return !isOffice(i, n); }).length; }
   function officeUnread(i) { return rebbiMessages(i) > (i.officeSeen || 0); }
-  function officeUnreadCount() { return all().filter(function (x) { return officeUnread(x.issue); }).length; }
+  function officeUnreadCount() { return all().filter(function (x) { return visibleTo(x.issue) && officeUnread(x.issue); }).length; }
   function markOfficeSeen(item) { change(item, function (x) { x.officeSeen = rebbiMessages(x); }); }
   function unreadCount() { return (Store.get().issues || []).reduce(function (n, i) { return n + (unread(i) ? 1 : 0); }, 0); }
 
@@ -274,5 +287,5 @@
     return (Store.get().issues || []).slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
 
-  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount, officeUnread: officeUnread, officeUnreadCount: officeUnreadCount, markOfficeSeen: markOfficeSeen, findMeeting: findMeeting, changeDay: changeDay };
+  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount, officeUnread: officeUnread, officeUnreadCount: officeUnreadCount, markOfficeSeen: markOfficeSeen, TO: TO, toLabel: toLabel, visibleTo: visibleTo, findMeeting: findMeeting, changeDay: changeDay };
 })();

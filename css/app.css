@@ -356,6 +356,9 @@ body:has(.modal-overlay) #toast { bottom: auto; top: calc(16px + env(safe-area-i
 .issue.pri-urgent { border-left-color: var(--red); }
 .issue.done { opacity: .65; }
 .issue-title { font-weight: 700; font-size: 1.05rem; }
+.issue > .row.between > .grow { flex: 1 1 220px; }
+.issue-pills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.to-pill { background: var(--blue-soft); color: var(--navy-2); }
 .issue.fresh { box-shadow: 0 0 0 2px var(--red-soft); }
 .fresh-tag { margin-bottom: 8px; }
 .issue-student { background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
@@ -659,4 +662,11 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
   .stack-table td:not(.cls) { order: 2; flex: 1 1 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; text-align: right; }
   .stack-table td:not(.cls)::before { content: attr(data-label); color: var(--muted); font-size: .85rem; font-weight: 400; text-align: left; flex: none; }
   .stack-table td.blank { display: none; }
+  .stack-table tr.family-row { background: var(--blue-soft); border-color: var(--navy-2); margin-bottom: 6px; }
+  .stack-table tr.family-row th { flex-basis: 100%; }
+  .stack-table tr.sib { margin-left: 14px; border-left: 4px solid var(--navy-2); }
 }
+/* Sibling families in the office Tuition table */
+.admin-table tr.family-row th, .admin-table tr.family-row td { background: var(--blue-soft); font-weight: 700; }
+.admin-table tr.family-row th .small { font-weight: 400; }
+@media not screen and (max-width: 600px) { .admin-table tr.sib > :nth-child(2) { padding-left: 22px; } }
