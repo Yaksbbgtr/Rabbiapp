@@ -104,7 +104,7 @@
   var DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function findMeeting(text, baseISO) {
-    var t = (text || '').toLowerCase(), m, date = null;
+    var t = (text || '').toLowerCase(), m, date = null, weekdayOnly = false;
     var base = new Date(+baseISO.slice(0, 4), +baseISO.slice(5, 7) - 1, +baseISO.slice(8, 10));
     var onOrAfter = function (mon, day, year) {
       if (mon < 0 || mon > 11 || day < 1 || day > 31) return null;
@@ -121,11 +121,14 @@
     else if (/\btoday\b|\btonight\b/.test(t)) date = baseISO;
     else if ((m = t.match(new RegExp('\\b(' + DAYS.join('|') + ')\\b')))) {
       var wd = new Date(base); wd.setDate(wd.getDate() + (DAYS.indexOf(m[1]) - base.getDay() + 7) % 7); date = iso(wd);
+      weekdayOnly = true;
     }
     if (!date) return null;
     // Times like 3pm, 3:00 pm, 11:00, and the typo 3;00. The hour can't follow another digit or separator.
     var tt = t.match(/(?:^|[^\d:;.])(\d{1,2})(?:[:;.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/) || t.match(/(?:^|[^\d:;.\/])(\d{1,2})[:;](\d{2})\b/);
     var time = tt ? +tt[1] + ':' + (tt[2] || '00') + (tt[3] ? ' ' + tt[3].replace(/\./g, '') : '') : '';
+    // A bare weekday ("Tuesday is better during Kriah") is usually a schedule, not a meeting: only count it with a time.
+    if (weekdayOnly && !time) return null;
     return { date: date, time: time };
   }
 
@@ -197,13 +200,14 @@
     assigned.addEventListener('change', function () { change(item, function (x) { x.assignedTo = assigned.value.trim(); }); });
     var due = UI.input({ type: 'date', value: i.due || '', 'aria-label': 'Due' });
     due.addEventListener('change', function () { change(item, function (x) { x.due = due.value; }); onChange(); });
-    var note = UI.input({ placeholder: 'Add a note…', 'aria-label': 'Add a note' });
+    var note = h('textarea', { rows: 2, dir: 'auto', placeholder: 'Reply to ' + (i.by || 'the rebbi') + '…', 'aria-label': 'Reply' });
     var addNote = function () {
       if (!note.value.trim()) return;
       change(item, function (x) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: note.value.trim(), office: true }); });
       note.value = ''; onChange();
     };
-    note.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addNote(); } });
+    // Enter sends, Shift+Enter adds a line (same as the rebbi's side).
+    note.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote(); } });
     var tel = function (label, name, number) {
       if (!number) return null;
       var n = number.replace(/[^\d+]/g, '');
@@ -229,18 +233,23 @@
       i.details ? h('p.issue-details', { dir: 'auto' }, i.details) : null,
       h('div.issue-phones', tel('Rebbi', i.by, item.byPhone) || h('span.small.muted', 'No cell saved for ' + i.by + '.')),
       h('div.issue-controls', UI.field('Status', status), UI.field('Assigned to', assigned), UI.field('Due' + (overdue ? ' – overdue' : ''), due)),
-      (i.notes || []).length ? h('ul.list.small', i.notes.map(function (n) {
+      // Conversation with the rebbi, chat style: the office on the right, the rebbi on the left.
+      h('div.thread.issue-thread', (i.notes || []).length ? i.notes.map(function (n) {
+        var office = isOffice(i, n);
         var when = findMeeting(n.text, n.date), bad = when && HebCal.noMelacha(HebCal.isoToRD(when.date));
-        return h('li', h('span.muted', UI.fmtDate(n.date) + ' · ' + n.by + (isOffice(i, n) ? '' : ' (rebbi)') + ': '), h('span', { dir: 'auto' }, n.text),
-          bad ? h('span.pill.neg', '⚠ ' + UI.fmtDate(when.date) + ' is ' + bad) : null,
-          when ? h('button.link.small', { type: 'button', onclick: function () {
-            changeDay(when, i.title, isOffice(i, n) ? '' : i.by, function (text) {
+        return h('div.msg' + (office ? '.from-me' : '.from-office'),
+          h('div.small.muted', (office ? (n.by === me ? 'You' : n.by || 'Office') : (n.by || i.by) + ' (rebbi)') + ' · ' + UI.fmtDate(n.date)),
+          h('div', { dir: 'auto' }, n.text),
+          bad ? h('div.shabbos-warn.msg-flag', '⚠ ' + UI.fmtDate(when.date) + ' is ' + bad) : null,
+          when ? h('button.btn.small.msg-plan', { type: 'button', onclick: function () {
+            changeDay(when, i.title, office ? '' : i.by, function (text) {
               change(item, function (x) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: text, office: true }); });
               onChange();
             });
-          } }, 'Change day') : null);
-      })) : null,
-      h('div.row.gap.issue-note-row', note, h('button.btn.small', { type: 'button', onclick: addNote }, 'Add note')),
+          } }, UI.icon('edit', 14), 'Change day') : null);
+      }) : h('p.small.muted', 'No messages yet. Your reply goes to ' + (i.by || 'the rebbi') + '.')),
+      h('div.issue-note-row', note,
+        h('div.row.gap', { style: 'margin-top:8px' }, h('button.btn.small.primary', { type: 'button', onclick: addNote }, UI.icon('send', 16), 'Send reply'))),
       h('div.row.gap.wrap.issue-actions',
         h('button.btn.small', { type: 'button', onclick: function () { edit(item, onChange); } }, UI.icon('edit', 16), 'Update issue'),
         i.status !== 'done' ? h('button.btn.small.primary', { type: 'button', onclick: function () { change(item, function (x) { x.status = 'done'; }); UI.toast('Marked done'); onChange(); } }, UI.icon('check', 16), 'Mark done') : null,
