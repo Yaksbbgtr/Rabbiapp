@@ -1,0 +1,33 @@
+rules_version = '2';
+// Rebbi App sync.
+//   classes/{profileId}  one class (or the office's own data) per document, owned by the Google account that uploaded it.
+//                        A rebbi reads and writes only the classes he owns; the office reads and writes every class.
+//   admins/{email}       office accounts. Added by the project owner from the console or CLI, never from the app.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+    function owns(data) { return signedIn() && data.owner == request.auth.uid; }
+
+    match /admins/{email} {
+      allow get: if signedIn() && request.auth.token.email == email;
+      allow list, write: if false;
+    }
+
+    match /classes/{profileId} {
+      allow read: if isAdmin() || owns(resource.data);
+      // New classes belong to whoever uploads them (the office may upload for a rebbi and keep it).
+      allow create: if owns(request.resource.data);
+      // Only the office can hand a class to someone else.
+      allow update: if isAdmin() || (owns(resource.data) && owns(request.resource.data));
+      allow delete: if isAdmin() || owns(resource.data);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

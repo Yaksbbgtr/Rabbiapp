@@ -623,3 +623,14 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .shabbos-warn[hidden] { display: none; }
 .msg-flag { margin: 8px 0 0; padding: 4px 10px; font-size: .85rem; }
 input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft); }
+/* Sync */
+.sync-status { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.sync-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.sync-dot.synced { background: var(--green); }
+.sync-dot.syncing, .sync-dot.loading { background: var(--gold); }
+.sync-dot.offline { background: var(--amber); }
+.sync-dot.error { background: var(--red); }
+.sync-card h3 { margin: 14px 0 4px; font-size: 1rem; }
+.sync-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.sync-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.sync-login { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 12px 0; }

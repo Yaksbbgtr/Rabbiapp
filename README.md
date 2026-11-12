@@ -19,6 +19,12 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 | **Office (administrator)** | An admin profile sees every class on the device (or imported from rebbeim's backup files) in five tabs: Classes (attendance, bechina marks, allergies), Attendance (one day, every class, who's absent with parents' numbers), Phones (parents' directory with search), Tuition (annual tuition, payments and outstanding balances – office only), and Issues (reports from rebbeim and staff as tasks with status, assignee, due date, notes and the rebbi's and parents' numbers). Everything exports as spreadsheets (.csv) |
 | **Settings** | Backup / restore, new-school-year reset, light/dark mode, Hebrew-names mode, PIN |
 
+## Sync across devices (test version)
+
+Settings → **Sync across devices** → *Sign in with Google* keeps a rebbi's classes, issues and planner the same on all his devices, and lets the office see every class live. It uses the Firebase project `rabbi--app` (Firestore + Google sign-in); `js/sync.js` has the details and `firestore.rules` decides who can see what (a rebbi: his own classes; the office: everything). Office accounts are listed in the `admins` collection, added from the Firebase console. Without signing in, the app works from the device only, as before. Deploy rule changes with `firebase deploy --only firestore:rules`; the end-to-end test is in `tests/sync/`.
+
+**Test version: use sample classes only, not real talmidim's information,** until the school owns the Firebase project.
+
 ## Morning attendance texts (demo)
 
 The `server/` folder is a small add-on that texts every rebbi each morning, reads his reply ("Yanky, Moshe K"), and records the absences, ready to send to Parent Locker once that connection is available. See [server/README.md](server/README.md).

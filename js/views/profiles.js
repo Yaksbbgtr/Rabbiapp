@@ -77,6 +77,7 @@
             h('div.grow', h('div.name', p.name), h('div.small.muted', p.role === 'admin' ? 'Administrator – all classes' : p.className || 'No class name yet')),
             p.role === 'admin' ? h('span.pill', 'Admin') : null,
             p.sampleGrade || p.sample ? h('span.pill.muted', 'Sample') : null,
+            p.cloud ? h('span.pill.pos', 'Synced') : null,
             Store.hasPin(p.id) ? h('span.small.muted', { title: 'PIN needed' }, '🔒') : null,
             UI.icon('chev', 18));
         })) : null,
@@ -87,7 +88,8 @@
             catch (e) { alert(e.message); }
             App.render();
           } }, 'Add sample profiles for grades 1–8')),
-        h('p.small.muted', 'Profiles are saved on this device only. Each one has its own class, and a backup can be downloaded from its Settings page.')));
+        Sync.loginCard(),
+        h('p.small.muted', Sync.isOn() ? 'Profiles marked Synced are the same on all your signed-in devices.' : 'Profiles are saved on this device only. Each one has its own class, and a backup can be downloaded from its Settings page.')));
     }
   });
 

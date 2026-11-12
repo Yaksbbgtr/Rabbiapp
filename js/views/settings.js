@@ -26,6 +26,7 @@
         var aseg = h('div.seg');
         UI.themeButtons(aseg, function () { App.render(); });
         main.appendChild(h('div.card', h('h2', 'Appearance'), aseg));
+        main.appendChild(Sync.card());
         main.appendChild(versionCard());
         return;
       }
@@ -87,9 +88,12 @@
         r.readAsText(f);
       });
       var last = localStorage.getItem('rabbiapp.lastBackup');
+      main.appendChild(Sync.card());
       main.appendChild(h('div.card',
         h('h2', 'Backup & devices'),
-        h('p', 'This profile\'s data is saved only in this browser on this device. Download a backup regularly, and use it to move your class to another device or browser.'),
+        h('p', Store.currentProfile() && Store.currentProfile().cloud
+          ? 'This class syncs to your other devices. A downloaded backup is still a good extra copy.'
+          : 'This profile\'s data is saved only in this browser on this device. Download a backup regularly, and use it to move your class to another device or browser.'),
         h('p.small.muted', last ? 'Last backup: ' + new Date(+last).toLocaleString() : 'No backup downloaded yet.'),
         h('div.row.gap.wrap',
           h('button.btn.primary', { onclick: function () {

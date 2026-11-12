@@ -4,6 +4,8 @@
   var LEGACY_KEY = 'rabbiapp.v1';          // single-class data from before profiles existed
   var PROFILES_KEY = 'rabbiapp.profiles';  // { current: id|null, list: [{ id, name, className, pin, sampleGrade }] }
   var listeners = [];
+  var writeHooks = [];   // sync: told which profile's saved data just changed
+  function wrote(id) { writeHooks.forEach(function (fn) { try { fn(id); } catch (e) { console.error(e); } }); }
   function dataKey(id) { return 'rabbiapp.data.' + id; }
 
   function uid() {
@@ -131,6 +133,7 @@
       writeIndex();
     }
     listeners.forEach(function (fn) { fn(state); });
+    wrote(index.current);
   }
 
   var Store = {
@@ -140,6 +143,7 @@
     save: save,
     update: function (fn) { fn(state); save(); },
     onChange: function (fn) { listeners.push(fn); },
+    onWrite: function (fn) { writeHooks.push(fn); },
 
     talmid: function (id) { return state.talmidim.find(function (t) { return t.id === id; }); },
     activeTalmidim: function () {
@@ -209,6 +213,7 @@
       try { localStorage.setItem(dataKey(id), JSON.stringify(data)); }
       catch (e) { throw new Error('This device is out of storage space for another profile.'); }
       index.list.push(p); writeIndex();
+      wrote(id);
       return id;
     },
     // Adds a sample profile for every grade 1-8 that doesn't have one yet. Returns how many were added.
@@ -232,14 +237,34 @@
       if (id === index.current) { fn(state); save(); return; }
       var d = load(id); fn(d);
       try { localStorage.setItem(dataKey(id), JSON.stringify(d)); } catch (e) { alert('Could not save – this device is out of storage space.'); }
+      wrote(id);
     },
     // Replace a profile's whole class with data from a backup file.
-    replaceProfileData: function (id, data) {
+    // opts.silent: the change came from sync, so don't report it back as a local change.
+    replaceProfileData: function (id, data, opts) {
       var p = profile(id); if (!p) return;
       var d = prepare(data);
       try { localStorage.setItem(dataKey(id), JSON.stringify(d)); } catch (e) { throw new Error('This device is out of storage space.'); }
       p.name = d.settings.rebbiName || p.name; p.className = d.settings.className || p.className; writeIndex();
       if (index.current === id) state = d;
+      if (!(opts && opts.silent)) wrote(id);
+    },
+    // ----- sync helpers -----
+    hasData: function (id) { try { return localStorage.getItem(dataKey(id)) != null; } catch (e) { return false; } },
+    // Add a profile that came from the cloud, or update its details. Returns the profile.
+    ensureProfile: function (meta) {
+      var p = profile(meta.id);
+      if (!p) { p = { id: meta.id }; index.list.push(p); }
+      ['name', 'className', 'role', 'cloud', 'ownerEmail'].forEach(function (k) { if (meta[k] !== undefined && meta[k] !== '') p[k] = meta[k]; });
+      if (p.role !== 'admin') delete p.role;
+      p.name = p.name || 'Rebbi';
+      writeIndex();
+      return p;
+    },
+    setProfileFields: function (id, fields) {
+      var p = profile(id); if (!p) return;
+      Object.keys(fields).forEach(function (k) { if (fields[k] === undefined) delete p[k]; else p[k] = fields[k]; });
+      writeIndex();
     },
     setPin: function (id, pin) {
       var p = profile(id); if (!p) return;
