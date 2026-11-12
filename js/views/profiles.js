@@ -9,7 +9,34 @@
     return s.toUpperCase();
   }
 
+  // Opening a profile needs its Google account (or the office's). Skip opens it anyway, for demo testing.
+  function maskEmail(e) {
+    var at = (e || '').indexOf('@');
+    return at < 0 ? '' : e.slice(0, Math.min(2, at)) + '•••' + e.slice(at);
+  }
   function enter(p) {
+    if (window.Sync && !Sync.canOpen(p)) { askGoogle(p); return; }
+    unlock(p);
+  }
+  function askGoogle(p) {
+    var u = Sync.user();
+    var msg = h('p.overdue.small');
+    UI.modal('Sign in to open ' + p.name, h('div',
+      h('p', p.ownerEmail ? ['Sign in with the Google account for this class (', h('strong', maskEmail(p.ownerEmail)), ').'] : 'Sign in with your Google account to open this class.'),
+      u ? h('p.small.muted', 'You\'re signed in as ' + u.email + ', which doesn\'t have this class.') : null,
+      msg), [
+      { label: 'Skip – demo testing', onClick: function () { UI.toast('Demo mode – not signed in, changes stay on this device'); unlock(p); } },
+      { label: 'Sign in with Google', primary: true, onClick: function () {
+        Sync.signIn().then(function (user) {
+          if (!user) return;
+          if (Sync.canOpen(p)) unlock(p);
+          else alert(user.email + ' doesn\'t have ' + p.name + '\'s class. Sign in with the account that uploaded it, or tap Skip for demo testing.');
+        });
+      } }
+    ]);
+  }
+
+  function unlock(p) {
     function go(pin) {
       if (!Store.login(p.id, pin)) return false;
       UI.toast('Welcome, ' + p.name);
@@ -96,8 +123,11 @@
   // Old link from before profiles existed
   Views.register('welcome', { title: 'Welcome', hidden: true, render: function () { App.go(Store.currentProfile() ? 'dashboard' : 'login'); } });
 
-  function logout() {
+  // Log out also signs out of Google, so the next person must sign in (or tap Skip) to open a class.
+  // Switch profile keeps the Google sign-in.
+  function logout(keepGoogle) {
     Store.logout();
+    if (keepGoogle !== true && window.Sync) Sync.lock();
     if (location.hash === '#/login') App.render(); else App.go('login');
   }
 
@@ -110,7 +140,7 @@
         h('div', h('div.big', h('strong', p.name)), h('div.muted', (p.className || 'No class name yet') + ' · ' + n + ' talmidim'),
           p.sampleGrade ? h('span.pill.muted', 'Sample profile') : null)),
       h('div.profile-actions',
-        h('button.btn', { type: 'button', onclick: function () { document.querySelector('.modal-overlay').remove(); logout(); } }, UI.icon('users'), 'Switch profile'),
+        h('button.btn', { type: 'button', onclick: function () { document.querySelector('.modal-overlay').remove(); logout(true); } }, UI.icon('users'), 'Switch profile'),
         h('button.btn', { type: 'button', onclick: function () { document.querySelector('.modal-overlay').remove(); App.go('settings'); } }, UI.icon('gear'), 'Profile settings'),
         h('button.btn.danger', { type: 'button', onclick: function () { document.querySelector('.modal-overlay').remove(); logout(); UI.toast('Logged out'); } }, 'Log out'))),
       [{ label: 'Close' }]);
@@ -137,7 +167,7 @@
             { label: 'Save', primary: true, onClick: function () { Store.setPin(p.id, pin.value.trim()); UI.toast(pin.value.trim() ? 'PIN saved' : 'PIN removed'); App.render(); } }
           ]);
         } }, has ? 'Change or remove PIN' : 'Set a PIN'),
-        h('button.btn', { onclick: logout }, 'Log out'),
+        h('button.btn', { onclick: function () { logout(); } }, 'Log out'),
         h('button.btn.danger', { onclick: function () {
           UI.confirm('Delete the profile "' + p.name + '" and its whole class from this device? This cannot be undone.', function () {
             Store.deleteProfile(p.id); App.go('login');

@@ -139,18 +139,32 @@
   }
 
   // ---------- signing in and out ----------
+  // Resolves with the signed-in user once we know whether it's an office account (or null if it didn't happen).
   function signIn() {
     ls(ON_KEY, '1');
     setStatus('loading');
     return loadSdk().then(function () {
       var p = new firebase.auth.GoogleAuthProvider();
       p.setCustomParameters({ prompt: 'select_account' });
-      return auth.signInWithPopup(p).catch(function (e) {
-        if (/popup-blocked|operation-not-supported|web-storage-unsupported/.test(e.code || '')) return auth.signInWithRedirect(p);
-        if (/popup-closed|cancelled-popup/.test(e.code || '')) { setStatus('signedout'); return; }
+      return auth.signInWithPopup(p).then(function (res) {
+        return new Promise(function (ok) { (function wait() { if (S.user && S.user.uid === res.user.uid && S.adminP) S.adminP.then(function () { ok(S.user); }); else setTimeout(wait, 100); })(); });
+      }, function (e) {
+        if (/popup-blocked|operation-not-supported|web-storage-unsupported/.test(e.code || '')) return auth.signInWithRedirect(p).then(function () { return null; });
+        if (/popup-closed|cancelled-popup/.test(e.code || '')) { setStatus(S.user ? 'synced' : 'signedout'); return null; }
         throw e;
       });
-    }).catch(function (e) { setStatus('error', e.message); UI.toast('Sign-in didn\'t work: ' + e.message); });
+    }).catch(function (e) { setStatus('error', e.message); UI.toast('Sign-in didn\'t work: ' + e.message); return null; });
+  }
+  // Log out of Google but keep the classes on the device (Log out on the profile menu).
+  function lock() {
+    if (unsub) { unsub(); unsub = null; }
+    if (auth && S.user) auth.signOut();
+  }
+  // May the signed-in account open this profile? The office may open any; a rebbi his own and this device's own.
+  function canOpen(p) {
+    if (!S.user || !p) return false;
+    if (S.admin) return true;
+    return !p.cloud || !p.ownerEmail || p.ownerEmail === S.user.email;
   }
   // Signing out removes this account's classes from the device (they stay safe in the cloud).
   function signOut() {
@@ -168,15 +182,15 @@
 
   function onUser(u) {
     if (unsub) { unsub(); unsub = null; }
-    S.user = u; S.admin = false; S.ready = false;
+    S.user = u; S.admin = false; S.ready = false; S.adminP = null;
     if (!u) { setStatus(wanted() ? 'signedout' : 'off'); return; }
     ls(ON_KEY, '1');
     deviceOnly = {};
     Store.profiles().forEach(function (p) { if (!p.cloud) deviceOnly[p.id] = true; });
     setStatus('loading');
-    db.collection('admins').doc(u.email).get()
-      .then(function (d) { S.admin = d.exists; }, function () { S.admin = false; })
-      .then(listen);
+    S.adminP = db.collection('admins').doc(u.email).get()
+      .then(function (d) { S.admin = d.exists; }, function () { S.admin = false; });
+    S.adminP.then(listen);
   }
 
   function listen() {
@@ -191,7 +205,9 @@
         S.ready = true;
         // Classes this device thinks are in the cloud but aren't (deleted elsewhere) go back to device-only.
         var ids = {}; snap.docs.forEach(function (d) { ids[d.id] = true; });
-        Store.profiles().forEach(function (p) { if (p.cloud && !ids[p.id]) { Store.setProfileFields(p.id, { cloud: undefined }); ls(BASE_KEY + p.id, null); } });
+        Store.profiles().forEach(function (p) {
+          if (p.cloud && !ids[p.id] && (S.admin || p.ownerEmail === S.user.email)) { Store.setProfileFields(p.id, { cloud: undefined }); ls(BASE_KEY + p.id, null); }
+        });
         Object.keys(deviceOnly).forEach(function (pid) { if (deviceOnly[pid] === false) { delete deviceOnly[pid]; upload(pid); } });
       }
       setStatus(snap.metadata.hasPendingWrites ? 'syncing' : snap.metadata.fromCache ? (navigator.onLine === false ? 'offline' : 'loading') : 'synced');
@@ -255,6 +271,7 @@
   function pushLocal(id) {
     var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
     if (!p || !p.cloud || !S.user || !S.ready) return;
+    if (!S.admin && p.ownerEmail && p.ownerEmail !== S.user.email) return; // someone else's class opened with Skip
     var local = split(Store.peek(id));
     if (size(local) > MAX_BYTES) { setStatus('error', 'This class is too big to sync (over 900 KB).'); return; }
     var base = getBase(id) || { data: {}, issues: {} };
@@ -341,7 +358,7 @@
       S.status === 'error' ? statusLine() : null);
   }
 
-  window.Sync = { start: start, signIn: signIn, signOut: signOut, card: card, loginCard: loginCard, upload: upload,
+  window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
     status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; } };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

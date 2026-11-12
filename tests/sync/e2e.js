@@ -78,6 +78,16 @@ async function until(page, fn, arg, ms = 15000) {
   const denied3 = await A1.evaluate(id => firebase.firestore().collection('admins').doc('rebbi1@test.com').set({ x: 1 }).then(() => 'wrote', e => e.code), id);
   ok(denied3 === 'permission-denied', 'rebbi cannot make himself office (' + denied3 + ')');
 
+  // Log out (profile menu) signs out of Google but keeps the classes; opening one asks to sign in, Skip opens it
+  await A2.evaluate(() => Profiles.logout());
+  ok(await until(A2, () => !Sync.user() && Store.profiles().some(p => p.cloud)), 'log out signs out of Google and keeps synced classes on the device');
+  await A2.evaluate(id => { App.render(); [...document.querySelectorAll('.profile-row')].find(b => b.textContent.includes(Store.profiles().find(p => p.id === id).name)).click(); }, id);
+  ok(await until(A2, () => /Sign in to open/.test((document.querySelector('.modal h2') || {}).textContent || '')), 'tapping a synced profile asks to sign in with Google');
+  await A2.evaluate(() => [...document.querySelectorAll('.modal-actions .btn')].find(b => /Skip/.test(b.textContent)).click());
+  ok(await until(A2, id => Store.currentProfile() && Store.currentProfile().id === id, id), 'Skip – demo testing opens the profile');
+  await A2.evaluate(() => firebase.auth().signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify({ sub: 'r1', email: 'rebbi1@test.com', email_verified: true }))));
+  ok(await until(A2, id => Sync.status() === 'synced' && Sync.canOpen(Store.profiles().find(p => p.id === id)), id), 'signing back in reconnects and allows the profile');
+
   // Sign out clears the device
   await A1.evaluate(() => { window.confirm = () => true; });
   await A1.evaluate(() => Sync.signOut());
