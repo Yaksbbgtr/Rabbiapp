@@ -25,7 +25,7 @@
       UI.field('Father', f.father), UI.field('Father\'s cell', f.fatherPhone),
       UI.field('Mother', f.mother), UI.field('Mother\'s cell', f.motherPhone),
       UI.field('Email', f.email), UI.field('Address', f.address),
-      h('div.span2', UI.field('Allergies / medical alerts', f.allergies, 'Shown in the Family box on his page, on the Today page, and on the office\'s lists')),
+      h('div.span2', UI.field('Allergies / medical alerts', f.allergies, 'Shown in the Family box on his page and on the office\'s lists')),
       h('div.span2', UI.field('Notes (private)', f.notes)));
     UI.modal(isNew ? 'Add talmid' : 'Edit ' + Store.displayName(t), body, [
       { label: 'Cancel' },

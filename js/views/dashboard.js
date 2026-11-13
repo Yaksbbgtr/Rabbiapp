@@ -60,14 +60,6 @@
           : h('p.muted', talmidim.length ? 'Not taken yet today.' : 'Add talmidim to begin.'),
         h('a.btn.primary', { href: '#/attendance' }, taken ? 'Edit attendance' : 'Take attendance')));
 
-      // Allergy / medical alerts for the class
-      var allergic = talmidim.filter(function (t) { return t.allergies && t.allergies.trim(); });
-      if (allergic.length) grid.appendChild(h('div.card',
-        h('h2', 'Allergies'),
-        h('ul.list', allergic.map(function (t) {
-          return h('li', h('a.plain-link', { href: '#/talmid/' + t.id }, h('strong', Store.displayName(t))), ' – ', h('span', { dir: 'auto' }, t.allergies));
-        }))));
-
       // Today's plan
       var lessons = st.lessons.filter(function (l) { return l.date === today; });
       grid.appendChild(h('div.card',
