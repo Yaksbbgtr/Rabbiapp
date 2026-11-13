@@ -183,7 +183,7 @@
           UI.icon(k.key === 'coloring' ? 'image' : k.key === 'test' ? 'clipboard' : 'file', 26),
           h('div', h('div.name', k.label), h('div.small.muted', k.desc)));
       })));
-      if (st.settings.coloringPages === false) body.appendChild(h('p.small.muted', 'Coloring pages are turned off in Profile settings.'));
+      if (st.settings.coloringPages === false) body.appendChild(h('p.small.muted', 'Coloring pages are turned off in Settings → Additional settings.'));
     }
     function demo(k) {
       body.innerHTML = '';

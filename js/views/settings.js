@@ -52,9 +52,16 @@
           UI.field('Remind me to be in touch with a family after', bind('contactReminderDays',
             UI.select([[7, '1 week'], [14, '2 weeks'], [21, '3 weeks'], [30, '1 month'], [45, '6 weeks'], [60, '2 months'], [90, '3 months']], s.contactReminderDays || 30)),
             'Families you haven\'t called or texted in this long show up on the Parents page'),
-          UI.field('School office email', bind('officeEmail', UI.input({ type: 'email', value: s.officeEmail || '', placeholder: 'office@yeshiva.org' })), 'Where report cards are sent')),
+          UI.field('School office email', bind('officeEmail', UI.input({ type: 'email', value: s.officeEmail || '', placeholder: 'office@yeshiva.org' })), 'Where report cards are sent'))));
+
+      main.appendChild(h('div.card',
+        h('h2', 'Additional settings'),
         h('label.check-row', bind('hebrewFirst', h('input', { type: 'checkbox', checked: s.hebrewFirst }), 'checked'), ' Show Hebrew names throughout the app'),
-        h('div.field', h('span.field-label', 'School days (for monthly attendance)'),
+        h('label.check-row', h('input', { type: 'checkbox', checked: s.coloringPages !== false, onchange: function (e) {
+          Store.update(function (x) { x.settings.coloringPages = e.target.checked; });
+          UI.toast(e.target.checked ? 'Coloring pages on' : 'Coloring pages off');
+        } }), ' Offer coloring pages under "Create project" (for younger classes)'),
+        h('div.field', { style: 'margin-top:14px' }, h('span.field-label', 'School days (for monthly attendance)'),
           h('div.chips', DAYS.map(function (d, i) {
             var on = s.attendanceDays.indexOf(i) >= 0;
             return h('button.chip' + (on ? '.on' : ''), { onclick: function () {
