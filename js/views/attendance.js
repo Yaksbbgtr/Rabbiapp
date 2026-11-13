@@ -83,6 +83,7 @@
               // keep records of archived talmidim for this day
               Object.keys(s.attendance[selected] || {}).forEach(function (id) { if (!day[id]) day[id] = s.attendance[selected][id]; });
               s.attendance[selected] = day;
+              if (s.attendanceBy) delete s.attendanceBy[selected]; // taken by the rebbi himself now
             });
             delete drafts[draftKey];
             UI.toast('Attendance saved: ' + summary);
