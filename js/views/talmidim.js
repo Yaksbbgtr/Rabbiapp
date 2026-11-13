@@ -25,7 +25,7 @@
       UI.field('Father', f.father), UI.field('Father\'s cell', f.fatherPhone),
       UI.field('Mother', f.mother), UI.field('Mother\'s cell', f.motherPhone),
       UI.field('Email', f.email), UI.field('Address', f.address),
-      h('div.span2', UI.field('Allergies / medical alerts', f.allergies, 'Shown in red on his page and card, and on the office\'s lists')),
+      h('div.span2', UI.field('Allergies / medical alerts', f.allergies, 'Shown in red in the Family box on his page, on the Today page, and on the office\'s lists')),
       h('div.span2', UI.field('Notes (private)', f.notes)));
     UI.modal(isNew ? 'Add talmid' : 'Edit ' + Store.displayName(t), body, [
       { label: 'Cancel' },
@@ -155,9 +155,6 @@
             }
           }, 'Archive'))));
 
-      if (t.allergies && t.allergies.trim()) {
-        main.appendChild(h('div.allergy-banner', { role: 'alert' }, h('strong', '⚠ Allergy / medical: '), h('span', { dir: 'auto' }, t.allergies)));
-      }
       var grid = h('div.grid');
       main.appendChild(grid);
 
@@ -168,14 +165,15 @@
           kv('Father', [t.father || '', t.fatherPhone ? [t.father ? ' · ' : '', h('a', { href: 'tel:' + t.fatherPhone.replace(/[^\d+]/g, '') }, t.fatherPhone)] : null]),
           kv('Mother', [t.mother || '', t.motherPhone ? [t.mother ? ' · ' : '', h('a', { href: 'tel:' + t.motherPhone.replace(/[^\d+]/g, '') }, t.motherPhone)] : null]),
           kv('Email', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
-          kv('Address', t.address)),
+          kv('Address', t.address),
+          t.allergies && t.allergies.trim() ? [h('dt.allergy-dt', '⚠ Allergy'), h('dd.allergy-dd', { dir: 'auto' }, t.allergies)] : null),
         t.notes ? h('div.note-box', { dir: 'auto' }, t.notes) : null,
         window.lastContactBlock(t),
         h('div.row.gap.wrap',
           h('button.btn.primary', { type: 'button', onclick: function () { window.contactParent(t, 'call'); } }, UI.icon('phone'), 'Call'),
           h('button.btn', { type: 'button', onclick: function () { window.contactParent(t, 'text'); } }, 'Text'),
           h('button.btn', { type: 'button', onclick: function () { window.logContact && window.logContact(t.id); } }, 'Log parent call'),
-          h('button.btn', { type: 'button', onclick: function () { Issues.report(t.id); } }, UI.icon('send'), 'Report to office'))));
+          h('button.btn', { type: 'button', onclick: function () { Issues.report(t.id); } }, UI.icon('send'), 'Report an issue'))));
 
       // Stats
       var a = attendanceSummary(t.id);
