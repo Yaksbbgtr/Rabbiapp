@@ -669,4 +669,9 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 /* Sibling families in the office Tuition table */
 .admin-table tr.family-row th, .admin-table tr.family-row td { background: var(--blue-soft); font-weight: 700; }
 .admin-table tr.family-row th .small { font-weight: 400; }
+.admin-table tr.fam-toggle { cursor: pointer; }
+.admin-table tr.fam-toggle:hover th, .admin-table tr.fam-toggle:hover td { filter: brightness(.97); }
+.fam-chev { display: inline-flex; vertical-align: -2px; margin-right: 6px; transition: transform .15s; }
+.fam-toggle.open .fam-chev { transform: rotate(90deg); }
+.admin-table tr[hidden] { display: none !important; }
 @media not screen and (max-width: 600px) { .admin-table tr.sib > :nth-child(2) { padding-left: 22px; } }

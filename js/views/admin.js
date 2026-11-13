@@ -320,6 +320,8 @@
   // ================= Tuition =================
   // Kept in the office's own profile data: tuition.families[profileId:talmidId] = { annual, payments: [{date, amount, note}], notes }
   var tuitionFilter = 'all'; // 'all' | 'owing' | 'paid'
+  var tuitionBy = 'family';  // 'family' (a drop-down per family) | 'class' (one list, by class)
+  var openFam = {};          // families opened in the drop-down list
   function tuitionStore() {
     var st = Store.get();
     st.tuition = st.tuition || { defaultAnnual: 0, families: {} };
@@ -405,6 +407,10 @@
       h('div.stats', stat(money(totals.annual), 'billed'), stat(money(totals.paid), 'paid'), stat(money(totals.balance), 'outstanding'), stat(owing.length, 'families owing')),
       h('div.row.gap.wrap',
         h('label.row.gap.small.muted', 'Default annual tuition $', def),
+        h('div.seg', { role: 'group', 'aria-label': 'Sort by' }, [['family', 'By family'], ['class', 'By class']].map(function (f) {
+          return h('button' + (tuitionBy === f[0] ? '.on' : ''), { type: 'button', 'aria-pressed': tuitionBy === f[0] ? 'true' : 'false',
+            onclick: function () { tuitionBy = f[0]; App.render(); } }, f[1]);
+        })),
         h('div.seg', { role: 'group', 'aria-label': 'Show' }, [['all', 'All'], ['owing', 'Outstanding'], ['paid', 'Paid']].map(function (f) {
           return h('button' + (tuitionFilter === f[0] ? '.on' : ''), { type: 'button', 'aria-pressed': tuitionFilter === f[0] ? 'true' : 'false',
             onclick: function () { tuitionFilter = f[0]; App.render(); } }, f[1]);
@@ -417,7 +423,7 @@
           });
           UI.download('Tuition balances.csv', csv(sheet), 'text/csv'); UI.toast('Spreadsheet downloaded');
         } }, UI.icon('file', 16), 'Export (spreadsheet)'))));
-    main.appendChild(h('p.small.muted', 'Tuition is kept in the office profile only; rebbeim never see it. Tap a family to set its tuition and record payments.'));
+    main.appendChild(h('p.small.muted', 'Tuition is kept in the office profile only; rebbeim never see it. Tap a family to see its boys; tap a boy to set tuition and record payments.'));
     // A family with no tuition set (and no payments) isn't "paid" – it just hasn't been set up yet.
     var unset = function (r) { return !r.n.annual && !r.n.paid; };
     var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0 && !unset(r); }) : rows;
@@ -443,18 +449,30 @@
         h('td.money' + (r.n.balance > 0 ? '.low' : ''), { 'data-label': 'Balance' }, h('span.val', balanceCell(r.n, unset(r)))));
     };
     var body = [];
-    groups.forEach(function (g) {
-      var vis = g.filter(function (r) { return isShown[r.key]; });
-      if (!vis.length) return;
-      if (g.length < 2) { body.push(childRow(vis[0], false)); return; }
-      var tot = g.reduce(function (a, r) { a.annual += r.n.annual; a.paid += r.n.paid; a.balance += r.n.balance; return a; }, { annual: 0, paid: 0, balance: 0 });
-      var allUnset = g.every(unset);
-      body.push(h('tr.family-row',
-        h('th', { colspan: 2 }, (g[0].t.last || '') + ' Family', h('span.small.muted', ' · ' + g.length + ' boys: ' + g.map(function (r) { return r.c.profile.className; }).join(', '))),
-        h('td.money', { 'data-label': 'Family annual' }, h('span.val', money(tot.annual))), h('td.money', { 'data-label': 'Family paid' }, h('span.val', money(tot.paid))),
-        h('td.money' + (tot.balance > 0 ? '.low' : ''), { 'data-label': 'Family balance' }, h('span.val', balanceCell(tot, allUnset)))));
-      vis.forEach(function (r) { body.push(childRow(r, true)); });
-    });
+    if (tuitionBy === 'class') {
+      shown.forEach(function (r) { body.push(childRow(r, false)); });
+    } else {
+      var lastOf = function (g) { return (g[0].t.last || '') + ' ' + (g[0].t.father || ''); };
+      groups.slice().sort(function (a, b) { return lastOf(a).localeCompare(lastOf(b)); }).forEach(function (g) {
+        var vis = g.filter(function (r) { return isShown[r.key]; });
+        if (!vis.length) return;
+        var fk = famOf(g[0].t), open = !!openFam[fk];
+        var tot = g.reduce(function (a, r) { a.annual += r.n.annual; a.paid += r.n.paid; a.balance += r.n.balance; return a; }, { annual: 0, paid: 0, balance: 0 });
+        var kids = vis.map(function (r) { var tr = childRow(r, true); if (!open) tr.hidden = true; return tr; });
+        var head = h('tr.family-row.fam-toggle' + (open ? '.open' : ''), { tabindex: 0, role: 'button', 'aria-expanded': open ? 'true' : 'false',
+          onclick: function () {
+            open = openFam[fk] = !open;
+            head.classList.toggle('open', open); head.setAttribute('aria-expanded', open ? 'true' : 'false');
+            kids.forEach(function (tr) { tr.hidden = !open; });
+          },
+          onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); head.click(); } } },
+          h('th', { colspan: 2 }, h('span.fam-chev', UI.icon('chev', 16)), (g[0].t.last || '') + ' Family',
+            h('span.small.muted', (g[0].t.father ? ' · ' + g[0].t.father : '') + ' · ' + g.length + (g.length === 1 ? ' boy: ' : ' boys: ') + g.map(function (r) { return r.c.profile.className; }).join(', '))),
+          h('td.money', { 'data-label': 'Family annual' }, h('span.val', money(tot.annual))), h('td.money', { 'data-label': 'Family paid' }, h('span.val', money(tot.paid))),
+          h('td.money' + (tot.balance > 0 ? '.low' : ''), { 'data-label': 'Family balance' }, h('span.val', balanceCell(tot, g.every(unset)))));
+        body.push(head); kids.forEach(function (tr) { body.push(tr); });
+      });
+    }
     main.appendChild(h('div.card.scroll-x', h('table.grid-table.admin-table.stack-table',
       h('thead', h('tr', h('th', 'Class'), h('th', 'Talmid'), h('th.money', 'Annual'), h('th.money', 'Paid'), h('th.money', 'Balance'))),
       h('tbody', body))));
