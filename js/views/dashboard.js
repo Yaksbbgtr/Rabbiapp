@@ -95,7 +95,7 @@
               Issues.unread(i) ? h('span.pill.neg.small', ' New reply') : null),
             h('span.pill' + (i.status === 'done' ? '.pos' : i.status === 'progress' ? '.gold' : ''), Issues.statusLabel(i.status))));
         })) : h('p.muted', 'Something broken, a concern about a talmid, anything the office should handle? Send it from here.'),
-        h('div.row.gap.wrap', h('button.btn', { type: 'button', onclick: function () { Issues.report(''); } }, UI.icon('send'), 'Report to the office'),
+        h('div.row.gap.wrap', h('button.btn', { type: 'button', onclick: function () { Issues.report(''); } }, UI.icon('send'), 'Report an issue'),
           mine.length ? h('a.btn', { href: '#/issues' }, 'All my issues') : null)));
 
       // Quick note

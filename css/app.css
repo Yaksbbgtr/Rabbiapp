@@ -678,3 +678,14 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .fam-toggle.open .fam-chev { transform: rotate(90deg); }
 .admin-table tr[hidden] { display: none !important; }
 @media not screen and (max-width: 600px) { .admin-table tr.sib > :nth-child(2) { padding-left: 22px; } }
+
+/* Issue recipients */
+.to-picker { display: grid; gap: 8px; }
+.to-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.to-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; }
+.to-check input { width: 18px; height: 18px; margin: 0; }
+.to-rebbeim summary { cursor: pointer; color: var(--navy); font-weight: 600; padding: 4px 0; }
+.to-rebbeim .to-checks { flex-direction: column; margin-top: 6px; max-height: 220px; overflow: auto; }
+.section-title { font-size: 1rem; margin: 18px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.dash-issue { cursor: pointer; }
+.dash-issue:hover strong { text-decoration: underline; }

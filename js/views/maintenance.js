@@ -88,7 +88,7 @@
         h('p.muted', 'Maintenance – what needs doing.'))));
       var issues = Issues.all().filter(function (x) { return Issues.visibleTo(x.issue, 'maintenance'); });
       var open = issues.filter(function (x) { return x.issue.status !== 'done'; });
-      var fresh = issues.filter(function (x) { return Issues.officeUnread(x.issue); });
+      var fresh = issues.filter(function (x) { return Issues.officeUnread(x.issue, 'maintenance'); });
       var weekAgo = UI.addDays(today, -7);
       var openTodo = todos().filter(function (t) { return !t.done; });
       var doneWeek = todos().filter(function (t) { return t.done && t.doneOn >= weekAgo; }).length
@@ -114,8 +114,10 @@
 
       function issueLi(x) {
         var i = x.issue, due = i.due && i.due <= today;
-        return h('li',
-          h('div.row.between.gap', h('strong', { dir: 'auto' }, i.title), onList(i.id) ? h('span.pill', 'On list') : h('button.btn.small', { type: 'button', onclick: function () { add(i.title, x); UI.toast('Added to to-do list'); App.render(); } }, UI.icon('plus', 14), 'To-do')),
+        var isNew = Issues.officeUnread(i, 'maintenance');
+        // Tapping an issue opens it on the Issues page (which marks it read and clears the red number).
+        return h('li.dash-issue' + (isNew ? '.unread' : ''), { onclick: function (e) { if (e.target.closest('button')) return; Issues.markOfficeSeen(x, 'maintenance'); location.hash = '#/admin-issues'; } },
+          h('div.row.between.gap', h('strong', { dir: 'auto' }, isNew ? h('span.pill.neg', 'New') : null, isNew ? ' ' : null, i.title), onList(i.id) ? h('span.pill', 'On list') : h('button.btn.small', { type: 'button', onclick: function () { add(i.title, x); UI.toast('Added to to-do list'); App.render(); } }, UI.icon('plus', 14), 'To-do')),
           h('div.small' + (due ? '.overdue' : '.muted'), [i.by, i.className, Issues.priorityLabel(i.priority), i.due ? 'Due ' + UI.fmtDate(i.due) : 'Sent ' + UI.fmtDate(i.date)].filter(Boolean).join(' · ')));
       }
     }

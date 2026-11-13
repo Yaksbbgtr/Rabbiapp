@@ -423,7 +423,7 @@
           });
           UI.download('Tuition balances.csv', csv(sheet), 'text/csv'); UI.toast('Spreadsheet downloaded');
         } }, UI.icon('file', 16), 'Export (spreadsheet)'))));
-    main.appendChild(h('p.small.muted', 'Tuition is kept in the office profile only; rebbeim never see it. Tap a family to see its boys; tap a boy to set tuition and record payments.'));
+    main.appendChild(h('p.small.muted', 'Tuition is kept in the office profile only; rebbeim never see it. Tap a family or class to see its boys; tap a boy to set tuition and record payments.'));
     // A family with no tuition set (and no payments) isn't "paid" – it just hasn't been set up yet.
     var unset = function (r) { return !r.n.annual && !r.n.paid; };
     var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0 && !unset(r); }) : rows;
@@ -438,36 +438,41 @@
         h('td.money' + (r.n.balance > 0 ? '.low' : ''), { 'data-label': 'Balance' }, h('span.val', balanceCell(r.n, unset(r)))));
     };
     var body = [];
-    if (tuitionBy === 'class') {
-      shown.forEach(function (r) { body.push(childRow(r, false)); });
-    } else {
-      // One drop-down per last name, with every boy of that name inside it.
-      var byLast = {}, lastGroups = [];
-      rows.forEach(function (r) {
-        var k = (r.t.last || '').trim().toLowerCase() || '?';
-        if (!byLast[k]) { byLast[k] = []; lastGroups.push(byLast[k]); }
-        byLast[k].push(r);
-      });
-      lastGroups.sort(function (a, b) { return (a[0].t.last || '').localeCompare(b[0].t.last || ''); }).forEach(function (g) {
-        var vis = g.filter(function (r) { return isShown[r.key]; });
-        if (!vis.length) return;
-        var fk = (g[0].t.last || '').trim().toLowerCase(), open = !!openFam[fk];
-        var tot = g.reduce(function (a, r) { a.annual += r.n.annual; a.paid += r.n.paid; a.balance += r.n.balance; return a; }, { annual: 0, paid: 0, balance: 0 });
-        var kids = vis.map(function (r) { var tr = childRow(r, true); if (!open) tr.hidden = true; return tr; });
-        var head = h('tr.family-row.fam-toggle' + (open ? '.open' : ''), { tabindex: 0, role: 'button', 'aria-expanded': open ? 'true' : 'false',
-          onclick: function () {
-            open = openFam[fk] = !open;
-            head.classList.toggle('open', open); head.setAttribute('aria-expanded', open ? 'true' : 'false');
-            kids.forEach(function (tr) { tr.hidden = !open; });
-          },
-          onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); head.click(); } } },
-          h('th', { colspan: 2 }, h('span.fam-chev', UI.icon('chev', 16)), (g[0].t.last || '') + ' Family',
-            h('span.small.muted', ' · ' + g.length + (g.length === 1 ? ' boy: ' : ' boys: ') + g.map(function (r) { return r.c.profile.className; }).join(', '))),
-          h('td.money', { 'data-label': 'Family annual' }, h('span.val', money(tot.annual))), h('td.money', { 'data-label': 'Family paid' }, h('span.val', money(tot.paid))),
-          h('td.money' + (tot.balance > 0 ? '.low' : ''), { 'data-label': 'Family balance' }, h('span.val', balanceCell(tot, g.every(unset)))));
-        body.push(head); kids.forEach(function (tr) { body.push(tr); });
-      });
-    }
+    // One drop-down per family (last name) or per class, with its boys inside.
+    var byClass = tuitionBy === 'class';
+    var keyOf = function (r) { return byClass ? 'c:' + r.c.profile.id : 'f:' + ((r.t.last || '').trim().toLowerCase() || '?'); };
+    var byKey = {}, groups = [];
+    rows.forEach(function (r) {
+      var k = keyOf(r);
+      if (!byKey[k]) { byKey[k] = []; groups.push(byKey[k]); }
+      byKey[k].push(r);
+    });
+    if (byClass) groups.forEach(function (g) { g.sort(function (a, b) { return ((a.t.last || '') + (a.t.first || '')).localeCompare((b.t.last || '') + (b.t.first || '')); }); });
+    else groups.sort(function (a, b) { return (a[0].t.last || '').localeCompare(b[0].t.last || ''); });
+    groups.forEach(function (g) {
+      var vis = g.filter(function (r) { return isShown[r.key]; });
+      if (!vis.length) return;
+      var fk = keyOf(g[0]), open = !!openFam[fk];
+      var tot = g.reduce(function (a, r) { a.annual += r.n.annual; a.paid += r.n.paid; a.balance += r.n.balance; return a; }, { annual: 0, paid: 0, balance: 0 });
+      var kids = vis.map(function (r) { var tr = childRow(r, true); if (!open) tr.hidden = true; return tr; });
+      var boys = g.length + (g.length === 1 ? ' boy' : ' boys');
+      var cd = byClass ? Store.peek(g[0].c.profile.id).settings || {} : null;
+      var label = byClass
+        ? [(g[0].c.profile.className || g[0].c.profile.name), h('span.small.muted', ' · ' + [cd.rebbiName || g[0].c.profile.name, boys].filter(Boolean).join(' · '))]
+        : [(g[0].t.last || '') + ' Family', h('span.small.muted', ' · ' + boys + ': ' + g.map(function (r) { return r.c.profile.className; }).join(', '))];
+      var word = byClass ? 'Class' : 'Family';
+      var head = h('tr.family-row.fam-toggle' + (open ? '.open' : ''), { tabindex: 0, role: 'button', 'aria-expanded': open ? 'true' : 'false',
+        onclick: function () {
+          open = openFam[fk] = !open;
+          head.classList.toggle('open', open); head.setAttribute('aria-expanded', open ? 'true' : 'false');
+          kids.forEach(function (tr) { tr.hidden = !open; });
+        },
+        onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); head.click(); } } },
+        h('th', { colspan: 2 }, h('span.fam-chev', UI.icon('chev', 16)), label),
+        h('td.money', { 'data-label': word + ' annual' }, h('span.val', money(tot.annual))), h('td.money', { 'data-label': word + ' paid' }, h('span.val', money(tot.paid))),
+        h('td.money' + (tot.balance > 0 ? '.low' : ''), { 'data-label': word + ' balance' }, h('span.val', balanceCell(tot, g.every(unset)))));
+      body.push(head); kids.forEach(function (tr) { body.push(tr); });
+    });
     main.appendChild(h('div.card.scroll-x', h('table.grid-table.admin-table.stack-table',
       h('thead', h('tr', h('th', 'Class'), h('th', 'Talmid'), h('th.money', 'Annual'), h('th.money', 'Paid'), h('th.money', 'Balance'))),
       h('tbody', body))));
@@ -485,7 +490,7 @@
     var to = staff === 'maintenance' ? '' : issueTo;
     var shown = items.filter(function (x) {
       return (issueFilter === 'all' || (issueFilter === 'done' ? x.issue.status === 'done' : x.issue.status !== 'done'))
-        && (!to || (x.issue.to || 'office') === to);
+        && (!to || Issues.toList(x.issue).indexOf(to) >= 0);
     });
     main.appendChild(h('div.card.row.between.wrap',
       h('div.row.gap.wrap',

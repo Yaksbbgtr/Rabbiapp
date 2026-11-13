@@ -8,11 +8,52 @@
   var h = UI.h;
   var PRIORITIES = [['normal', 'Normal'], ['high', 'High – soon'], ['urgent', 'Urgent – today']];
   var STATUSES = [['open', 'Open'], ['progress', 'In progress'], ['done', 'Done']];
-  // Who an issue goes to. Older issues without one went to the main office.
+  // Who an issue goes to: any of these, and/or other rebbeim ('rebbi:<profileId>'). Older issues have one string; none = main office.
   var TO = [['office', 'Main office'], ['principal', 'Principal'], ['maintenance', 'Maintenance']];
-  function toLabel(t) { return (TO.filter(function (x) { return x[0] === (t || 'office'); })[0] || TO[0])[1]; }
-  // Maintenance only sees what was sent to maintenance; the main office and the principal see everything.
-  function visibleTo(issue, staff) { return (staff || Store.staffRole()) !== 'maintenance' || issue.to === 'maintenance'; }
+  function toList(issue) {
+    var t = issue && issue.to;
+    return Array.isArray(t) ? (t.length ? t : ['office']) : [t || 'office'];
+  }
+  function rebbiName(p) { var d = Store.peek(p.id); return (d.settings && d.settings.rebbiName) || p.name; }
+  // Other rebbeim on this device (or synced to it) that an issue can be sent to.
+  function rebbeim() {
+    var me = Store.currentProfile();
+    return Store.profiles().filter(function (p) { return p.role !== 'admin' && (!me || p.id !== me.id); })
+      .map(function (p) { var d = Store.peek(p.id); return { key: 'rebbi:' + p.id, name: rebbiName(p), cls: (d.settings && d.settings.className) || p.className || '' }; });
+  }
+  // Label for one recipient key, or for an issue / list of keys ("Main office, Rabbi Cohen").
+  function toLabel(t, issue) {
+    if (t && typeof t === 'object' && !Array.isArray(t)) { issue = t; t = toList(t); }
+    if (Array.isArray(t)) return t.map(function (k) { return toLabel(k, issue); }).join(', ');
+    var fixed = TO.filter(function (x) { return x[0] === (t || 'office'); })[0];
+    if (fixed) return fixed[1];
+    var id = String(t).replace(/^rebbi:/, '');
+    var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
+    return p ? rebbiName(p) : (issue && issue.toNames && issue.toNames[t]) || 'Another rebbi';
+  }
+  // Maintenance sees what was sent to maintenance. The main office and the principal see every issue except
+  // ones sent only to other rebbeim (those stay between the rebbeim).
+  function visibleTo(issue, staff) {
+    var l = toList(issue);
+    if ((staff || Store.staffRole()) === 'maintenance') return l.indexOf('maintenance') >= 0;
+    return l.some(function (k) { return k.indexOf('rebbi:') !== 0; });
+  }
+  // Issues other rebbeim sent to the logged-in rebbi.
+  function received() {
+    var me = Store.currentProfile();
+    if (!me) return [];
+    return all().filter(function (x) { return x.profileId !== me.id && toList(x.issue).indexOf('rebbi:' + me.id) >= 0; })
+      .sort(function (a, b) { return b.issue.date.localeCompare(a.issue.date); });
+  }
+  // For a rebbi it was sent to: the sender's messages he hasn't opened yet.
+  function receivedUnread(i) {
+    var me = Store.currentProfile(); if (!me) return 0;
+    return Math.max(0, rebbiMessages(i) - ((i.seenBy || {})[me.id] || 0));
+  }
+  function markReceivedSeen(item) {
+    var me = Store.currentProfile(); if (!me) return;
+    change(item, function (x) { x.seenBy = x.seenBy || {}; x.seenBy[me.id] = rebbiMessages(x); });
+  }
 
   function statusLabel(s) { return (STATUSES.filter(function (x) { return x[0] === s; })[0] || STATUSES[0])[1]; }
   function priorityLabel(s) { return (PRIORITIES.filter(function (x) { return x[0] === s; })[0] || PRIORITIES[0])[1]; }
@@ -24,15 +65,34 @@
     var title = UI.input({ placeholder: 'e.g. Broken chair, boy needs a tutor, parent complaint…' });
     var details = h('textarea', { rows: 4, dir: 'auto', placeholder: 'What happened, what you need, and anything the office should know.' });
     var pri = UI.select(PRIORITIES, 'normal');
-    var to = UI.select(TO, 'office', { 'aria-label': 'Send to' });
+    // Send to: tick any of the office, principal, maintenance and other rebbeim.
+    var others = rebbeim();
+    var picked = { office: true };
+    var sendBtn = null;
+    var summary = function () {
+      var keys = Object.keys(picked).filter(function (k) { return picked[k]; });
+      return keys.length ? toLabel(keys) : '';
+    };
+    var refresh = function () { if (sendBtn) { var t = summary(); sendBtn.textContent = t ? 'Send to ' + t : 'Send'; sendBtn.disabled = !t; } };
+    var box = function (key, label, sub) {
+      return h('label.to-check', h('input', { type: 'checkbox', checked: !!picked[key], onchange: function (e) { picked[key] = e.target.checked; refresh(); } }),
+        h('span', label, sub ? h('span.small.muted', ' · ' + sub) : null));
+    };
+    var to = h('div.to-picker',
+      h('div.to-checks', TO.map(function (x) { return box(x[0], x[1]); })),
+      others.length ? h('details.to-rebbeim', h('summary', 'Another rebbi…'),
+        h('div.to-checks', others.map(function (r) { return box(r.key, r.name, r.cls); }))) : null);
     var phone = UI.input({ type: 'tel', value: st.settings.rebbiPhone || '', placeholder: 'Your cell, so the office can call you back' });
-    var dlg = UI.modal('Report to the office', h('div',
-      UI.field('Send to', to),
+    var dlg = UI.modal('Report an issue', h('div',
+      h('div.field', h('span.field-label', 'Send to (choose one or more)'), to),
       UI.field('What is it?', title), UI.field('About which talmid? (optional)', who), UI.field('Details', details),
       h('div.form-grid', UI.field('How urgent', pri), UI.field('Your cell', phone))), [
       { label: 'Cancel' },
-      { label: 'Send to main office', primary: true, onClick: function () {
+      { label: 'Send to Main office', primary: true, onClick: function () {
         if (!title.value.trim()) { UI.toast('Say what the issue is'); title.focus(); return false; }
+        var toKeys = Object.keys(picked).filter(function (k) { return picked[k]; });
+        if (!toKeys.length) { UI.toast('Choose who to send it to'); return false; }
+        var toNames = {}; others.forEach(function (r) { if (picked[r.key]) toNames[r.key] = r.name; });
         var t = Store.talmid(who.value);
         Store.update(function (s) {
           if (phone.value.trim()) s.settings.rebbiPhone = phone.value.trim();
@@ -40,17 +100,17 @@
           s.issues.push({
             id: Store.uid(), date: Store.todayISO(), by: s.settings.rebbiName || 'Rebbi', byPhone: phone.value.trim(),
             className: s.settings.className || '', talmidId: t ? t.id : '', talmidName: t ? Store.displayName(t) : '',
-            title: title.value.trim(), details: details.value.trim(), priority: pri.value, status: 'open', assignedTo: '', due: '', to: to.value,
+            title: title.value.trim(), details: details.value.trim(), priority: pri.value, status: 'open', assignedTo: '', due: '', to: toKeys, toNames: toNames,
             notes: [], updatedAt: Store.todayISO()
           });
         });
-        UI.toast('Sent to ' + toLabel(to.value).replace('Main office', 'the office').replace('Principal', 'the principal').replace('Maintenance', 'maintenance'));
+        UI.toast('Sent to ' + toLabel(toKeys));
         if (done) done(); else App.render();
       } }
     ]);
     // The blue button says where it's going.
-    var sendBtn = dlg.el.querySelector('.modal-actions .btn.primary');
-    to.addEventListener('change', function () { sendBtn.textContent = 'Send to ' + toLabel(to.value).replace('Main office', 'main office').replace('Principal', 'principal').replace('Maintenance', 'maintenance'); });
+    sendBtn = dlg.el.querySelector('.modal-actions .btn.primary');
+    refresh();
   }
 
   // All issues on this device, newest first, with the profile they belong to and the parents' numbers if about a talmid.
@@ -209,7 +269,7 @@
       h('div.row.between.gap.wrap',
         h('div.grow', h('div.issue-title', { dir: 'auto' }, i.title),
           h('div.small.muted', 'From ' + i.by + (item.profile.className ? ' (' + item.profile.className + ')' : '') + ' · ' + UI.fmtDate(i.date))),
-        h('div.issue-pills', h('span.pill.to-pill', 'To: ' + toLabel(i.to)),
+        h('div.issue-pills', h('span.pill.to-pill', 'To: ' + toLabel(i)),
           h('span.pill' + (i.priority === 'urgent' ? '.neg' : i.priority === 'high' ? '.gold' : ''), priorityLabel(i.priority)))),
       i.details ? h('p.issue-details', { dir: 'auto' }, i.details) : null,
       h('div.issue-phones', tel('Rebbi', i.by, item.byPhone) || h('span.small.muted', 'No cell saved for ' + i.by + '.')),
@@ -244,15 +304,28 @@
   function unread(i) { var office = (i.notes || []).filter(function (n) { return isOffice(i, n); }).length; return Math.max(0, office - (i.seenOffice || 0)); }
   // For the office: the report itself plus each rebbi reply count as messages; unseen ones light the indicator.
   function rebbiMessages(i) { return 1 + (i.notes || []).filter(function (n) { return !isOffice(i, n); }).length; }
-  function officeUnread(i) { return rebbiMessages(i) > (i.officeSeen || 0); }
+  // Each staff type (main office, principal, maintenance) has its own "seen" mark, so one opening an issue doesn't clear it for the others.
+  function staffSeen(i, role) {
+    // Issues from before this existed only have the one shared mark (officeSeen).
+    if (!i.staffSeen) return i.officeSeen || 0;
+    var r = i.staffSeen[role];
+    return r !== undefined ? r : role === 'maintenance' ? 0 : (i.officeSeen || 0);
+  }
+  function officeUnread(i, role) { return rebbiMessages(i) > staffSeen(i, role || Store.staffRole() || 'office'); }
   function officeUnreadCount() { return all().filter(function (x) { return visibleTo(x.issue) && officeUnread(x.issue); }).length; }
-  function markOfficeSeen(item) { change(item, function (x) { x.officeSeen = rebbiMessages(x); }); }
-  function unreadCount() { return (Store.get().issues || []).reduce(function (n, i) { return n + (unread(i) ? 1 : 0); }, 0); }
+  function markOfficeSeen(item, role) {
+    role = role || Store.staffRole() || 'office';
+    change(item, function (x) { x.staffSeen = x.staffSeen || {}; x.staffSeen[role] = rebbiMessages(x); if (role !== 'maintenance') x.officeSeen = rebbiMessages(x); });
+  }
+  function unreadCount() {
+    return (Store.get().issues || []).reduce(function (n, i) { return n + (unread(i) ? 1 : 0); }, 0)
+      + received().filter(function (x) { return receivedUnread(x.issue); }).length;
+  }
 
   // What a rebbi sees of his own reports.
   function mine() {
     return (Store.get().issues || []).slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
 
-  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount, officeUnread: officeUnread, officeUnreadCount: officeUnreadCount, markOfficeSeen: markOfficeSeen, TO: TO, toLabel: toLabel, visibleTo: visibleTo, findMeeting: findMeeting, changeDay: changeDay };
+  window.Issues = { report: report, all: all, taskCard: taskCard, mine: mine, statusLabel: statusLabel, priorityLabel: priorityLabel, STATUSES: STATUSES, isOffice: isOffice, unread: unread, unreadCount: unreadCount, officeUnread: officeUnread, officeUnreadCount: officeUnreadCount, markOfficeSeen: markOfficeSeen, TO: TO, toLabel: toLabel, toList: toList, visibleTo: visibleTo, received: received, receivedUnread: receivedUnread, markReceivedSeen: markReceivedSeen, rebbeim: rebbeim, findMeeting: findMeeting, changeDay: changeDay };
 })();
