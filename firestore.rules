@@ -3,6 +3,10 @@ rules_version = '2';
 //   classes/{profileId}  one class (or the office's own data) per document, owned by the Google account that uploaded it.
 //                        A rebbi reads and writes only the classes he owns; the office reads and writes every class.
 //   admins/{email}       office accounts. Added by the project owner from the console or CLI, never from the app.
+//   people/{email}       the rebbeim directory: which classes each account has (names only), so a rebbi can pick
+//                        another rebbi to send an issue to. Only accounts that are in it themselves (or the office) can read it.
+//   shared/{issueId}     an issue a rebbi sent to other rebbeim. Only the people on it ("members", by email) can read it.
+//                        The sender writes the issue; the others may only add replies and mark it read.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
@@ -11,6 +15,8 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
     }
     function owns(data) { return signedIn() && data.owner == request.auth.uid; }
+    function myEmail() { return request.auth.token.email; }
+    function verified() { return signedIn() && request.auth.token.email_verified == true; }
 
     match /admins/{email} {
       allow get: if signedIn() && request.auth.token.email == email;
@@ -24,6 +30,24 @@ service cloud.firestore {
       // Only the office can hand a class to someone else.
       allow update: if isAdmin() || (owns(resource.data) && owns(request.resource.data));
       allow delete: if isAdmin() || owns(resource.data);
+    }
+
+    match /people/{email} {
+      allow read: if verified() && (isAdmin()
+        || (exists(/databases/$(database)/documents/people/$(myEmail()))
+            && get(/databases/$(database)/documents/people/$(myEmail())).data.profiles.size() > 0));
+      allow create, update: if verified() && email == myEmail() && request.resource.data.uid == request.auth.uid;
+      allow delete: if verified() && email == myEmail();
+    }
+
+    match /shared/{issueId} {
+      allow read: if verified() && myEmail() in resource.data.members;
+      allow create: if verified() && request.resource.data.from == request.auth.uid && myEmail() in request.resource.data.members;
+      // The sender may change anything but who sent it; everyone else only replies and read marks.
+      allow update: if verified() && myEmail() in resource.data.members && request.resource.data.from == resource.data.from
+        && (resource.data.from == request.auth.uid
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replies', 'seen', 'updatedAt']));
+      allow delete: if verified() && resource.data.from == request.auth.uid;
     }
 
     match /{document=**} {

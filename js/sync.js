@@ -25,8 +25,9 @@
   var BASE_KEY = 'rabbiapp.sync.base.';
   var MAX_BYTES = 900000; // Firestore documents hold up to 1 MB
 
-  var S = { status: 'off', user: null, admin: false, error: '', ready: false };
-  var auth = null, db = null, unsub = null, sdkPromise = null;
+  var S = { status: 'off', user: null, admin: false, error: '', ready: false, people: [], shared: {} };
+  var auth = null, db = null, unsub = null, sdkPromise = null, unsubPeople = null, unsubShared = null;
+  var SENT_KEY = 'rabbiapp.shared.sent.'; // what this device last sent for each shared issue (a hash)
   var timers = {};
   var deviceOnly = {}; // profiles that were on this device before signing in: uploaded only when asked
   var pendingRender = false;
@@ -162,8 +163,14 @@
     }).catch(function (e) { setStatus('error', e.message); UI.toast('Sign-in didn\'t work: ' + e.message); return null; });
   }
   // Log out of Google but keep the classes on the device (Log out on the profile menu).
+  function stopShared() {
+    if (unsubPeople) { unsubPeople(); unsubPeople = null; }
+    if (unsubShared) { unsubShared(); unsubShared = null; }
+    S.people = []; S.shared = {};
+  }
   function lock() {
     if (unsub) { unsub(); unsub = null; }
+    stopShared();
     if (auth && S.user) auth.signOut();
   }
   // May the signed-in account open this profile? The office may open any; a rebbi his own and this device's own.
@@ -177,6 +184,7 @@
     if (S.status === 'offline' || S.status === 'syncing') { alert('Some changes haven\'t reached the cloud yet. Connect to the internet and wait for "Up to date" before signing out.'); return; }
     UI.confirm('Sign out? This account\'s classes are removed from this device. They stay in the cloud and come back when you sign in again.', function () {
       if (unsub) { unsub(); unsub = null; }
+      stopShared();
       Store.profiles().filter(function (p) { return p.cloud; }).forEach(function (p) { Store.deleteProfile(p.id); ls(BASE_KEY + p.id, null); });
       ls(ON_KEY, null);
       (auth ? auth.signOut() : Promise.resolve()).then(function () {
@@ -188,6 +196,7 @@
 
   function onUser(u) {
     if (unsub) { unsub(); unsub = null; }
+    stopShared();
     S.user = u; S.admin = false; S.ready = false; S.adminP = null;
     if (!u) { setStatus(wanted() ? 'signedout' : 'off'); return; }
     ls(ON_KEY, '1');
@@ -215,6 +224,7 @@
           if (p.cloud && !ids[p.id] && (S.admin || p.ownerEmail === S.user.email)) { Store.setProfileFields(p.id, { cloud: undefined }); ls(BASE_KEY + p.id, null); }
         });
         Object.keys(deviceOnly).forEach(function (pid) { if (deviceOnly[pid] === false) { delete deviceOnly[pid]; upload(pid); } });
+        startShared();
       }
       setStatus(snap.metadata.hasPendingWrites ? 'syncing' : snap.metadata.fromCache ? (navigator.onLine === false ? 'offline' : 'loading') : 'synced');
       if (changed) renderSoon();
@@ -302,7 +312,7 @@
       return;
     }
     clearTimeout(timers[id]);
-    timers[id] = setTimeout(function () { pushLocal(id); }, 600);
+    timers[id] = setTimeout(function () { pushLocal(id); pushShared(id); publishPeople(); }, 600);
   });
 
   // Put a class that's only on this device into the cloud, owned by the signed-in account.
@@ -318,11 +328,149 @@
       owner: S.user.uid, ownerEmail: S.user.email, name: p.name || '', className: p.className || '', role: p.role === 'admin' ? 'admin' : 'rebbi',
       sampleGrade: p.sampleGrade || 0, sample: !!p.sample, staff: p.staff || '',
       data: local.data, issues: local.issues, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: S.user.uid
-    }).catch(function (e) {
+    }).then(function () { publishPeople(); }, function (e) {
       Store.setProfileFields(id, { cloud: undefined }); ls(BASE_KEY + id, null);
       setStatus('error', e.message); UI.toast('Upload failed: ' + e.message);
     });
   }
+
+  // ---------- issues sent from one rebbi to another ----------
+  // A rebbi can't read another rebbi's class, so an issue sent to other rebbeim is also copied to shared/{issueId},
+  // which only the people on it can open. Replies from the others are added there and copied back into the
+  // sender's own issue by the sender's device.
+  function myRebbiProfiles() {
+    return Store.profiles().filter(function (p) { return p.cloud && p.role !== 'admin' && p.ownerEmail === S.user.email; });
+  }
+  var lastPeople = '';
+  function publishPeople() {
+    if (!db || !S.user || !S.ready) return;
+    var profiles = {};
+    myRebbiProfiles().forEach(function (p) {
+      var st = Store.peek(p.id).settings || {};
+      profiles[p.id] = { name: st.rebbiName || p.name || '', className: st.className || p.className || '' };
+    });
+    var key = JSON.stringify(profiles);
+    if (key === lastPeople) return Promise.resolve();
+    if (key === '{}') return Promise.resolve(); // only rebbeim with a class are in the directory
+    lastPeople = key;
+    return db.collection('people').doc(S.user.email).set({ uid: S.user.uid, email: S.user.email, profiles: profiles, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      .then(function () { if (!unsubPeople) listenPeople(); }, function () { lastPeople = ''; });
+  }
+  // The directory of rebbeim (readable once this account has a class in it, or by the office).
+  function listenPeople() {
+    if (!db || !S.user || unsubPeople) return;
+    unsubPeople = db.collection('people').onSnapshot(function (snap) {
+      var list = [];
+      snap.forEach(function (d) {
+        var v = d.data() || {};
+        Object.keys(v.profiles || {}).forEach(function (pid) { list.push({ key: 'rebbi:' + pid, id: pid, name: v.profiles[pid].name, cls: v.profiles[pid].className, email: v.email || d.id }); });
+      });
+      S.people = list;
+      myRebbiProfiles().forEach(function (p) { pushShared(p.id); }); // now that we know everyone's address
+    }, function () { S.people = []; unsubPeople = null; }); // not in the directory yet: try again once we are
+  }
+  function startShared() {
+    if (!db || !S.user || unsubShared) return;
+    Promise.resolve(publishPeople()).then(function () {
+      if (!S.user) return;
+      listenPeople();
+      unsubShared = db.collection('shared').where('members', 'array-contains', S.user.email).onSnapshot(function (snap) {
+        var all = {};
+        snap.forEach(function (d) { all[d.id] = d.data(); });
+        S.shared = all;
+        mergeReplies();
+        renderSoon();
+      }, function (e) { setStatus('error', e.message); });
+    });
+  }
+  function noteKey(n) { return n.id || [n.date, n.by, n.text].join('|'); }
+  // On the sender's device: copy the others' replies and read marks into his own issue.
+  function mergeReplies() {
+    Object.keys(S.shared).forEach(function (iid) {
+      var doc = S.shared[iid];
+      if (doc.from !== S.user.uid || !Store.hasData(doc.fromProfileId)) return;
+      var replies = Object.keys(doc.replies || {}).map(function (k) { try { return JSON.parse(doc.replies[k]); } catch (e) { return null; } }).filter(Boolean);
+      var issue = (Store.peek(doc.fromProfileId).issues || []).filter(function (i) { return i.id === iid; })[0];
+      if (!issue) return;
+      var have = {}; (issue.notes || []).forEach(function (n) { have[noteKey(n)] = true; });
+      var add = replies.filter(function (n) { return !have[noteKey(n)]; }).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
+      var seen = doc.seen || {}, seenChanged = Object.keys(seen).some(function (k) { return (issue.seenBy || {})[k] !== seen[k]; });
+      if (!add.length && !seenChanged) return;
+      Store.updateProfile(doc.fromProfileId, function (d) {
+        (d.issues || []).forEach(function (i) {
+          if (i.id !== iid) return;
+          i.notes = (i.notes || []).concat(add);
+          i.seenBy = Object.assign({}, i.seenBy || {}, seen);
+          if (add.length) { i.updatedAt = Store.todayISO(); if (i.status === 'done') i.status = 'open'; }
+        });
+      });
+    });
+  }
+  // Recipients' email addresses for an issue's rebbi recipients.
+  function emailFor(key, issue) {
+    var pid = key.replace(/^rebbi:/, '');
+    var p = S.people.filter(function (x) { return x.id === pid; })[0];
+    if (p) return p.email;
+    var lp = Store.profiles().filter(function (x) { return x.id === pid; })[0];
+    return (lp && lp.ownerEmail) || (issue.toEmails || {})[key] || '';
+  }
+  // On the sender's device: send his issues that go to other rebbeim (only what changed).
+  function pushShared(id) {
+    if (!db || !S.user || !S.ready) return;
+    var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
+    if (!p || !p.cloud || p.ownerEmail !== S.user.email) return;
+    var data = Store.peek(id);
+    (data.issues || []).forEach(function (i) {
+      var keys = (Array.isArray(i.to) ? i.to : []).filter(function (k) { return k.indexOf('rebbi:') === 0; });
+      if (!keys.length) return;
+      var members = [S.user.email];
+      keys.forEach(function (k) { var e = emailFor(k, i); if (e && members.indexOf(e) < 0) members.push(e); });
+      var json = JSON.stringify(i);
+      var sig = hash(json + members.join(','));
+      if (ls(SENT_KEY + i.id) === sig) return;
+      if (members.length < 2 && !S.shared[i.id]) return; // nobody to send it to yet
+      db.collection('shared').doc(i.id).set({
+        from: S.user.uid, fromEmail: S.user.email, fromProfileId: id, members: members, toKeys: keys,
+        issue: json, byPhone: i.byPhone || (data.settings && data.settings.rebbiPhone) || '',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).then(function () { ls(SENT_KEY + i.id, sig); }, function (e) { setStatus('error', e.message); });
+    });
+  }
+  // On a recipient's device: issues other rebbeim sent to this profile.
+  function receivedFor(profileId) {
+    if (!S.user) return [];
+    var out = [];
+    Object.keys(S.shared).forEach(function (iid) {
+      var doc = S.shared[iid];
+      if (doc.from === S.user.uid && Store.hasData(doc.fromProfileId)) return; // my own (shown from my class)
+      if ((doc.toKeys || []).indexOf('rebbi:' + profileId) < 0) return;
+      var i; try { i = JSON.parse(doc.issue); } catch (e) { return; }
+      var have = {}; (i.notes || []).forEach(function (n) { have[noteKey(n)] = true; });
+      Object.keys(doc.replies || {}).forEach(function (k) {
+        try { var n = JSON.parse(doc.replies[k]); if (!have[noteKey(n)]) { i.notes = (i.notes || []).concat([n]); have[noteKey(n)] = true; } } catch (e) { /* skip */ }
+      });
+      (i.notes || []).sort(function (a, b) { return (a.at || a.date || '').localeCompare(b.at || b.date || ''); });
+      i.seenBy = Object.assign({}, i.seenBy || {}, doc.seen || {});
+      out.push({ issue: i, profileId: doc.fromProfileId, shared: true, talmid: null, byPhone: doc.byPhone || i.byPhone || '' });
+    });
+    return out;
+  }
+  function replyShared(issueId, note) {
+    if (!db || !S.user) return Promise.reject(new Error('Not signed in'));
+    var FP = firebase.firestore.FieldPath;
+    var doc = S.shared[issueId];
+    if (doc) { doc.replies = Object.assign({}, doc.replies || {}); doc.replies[note.id] = JSON.stringify(note); } // show it right away
+    return db.collection('shared').doc(issueId).update(new FP('replies', note.id), JSON.stringify(note), new FP('updatedAt'), firebase.firestore.FieldValue.serverTimestamp())
+      .catch(function (e) { setStatus('error', e.message); UI.toast('Reply didn\'t send: ' + e.message); });
+  }
+  function seenShared(issueId, profileId, n) {
+    if (!db || !S.user || !S.shared[issueId]) return;
+    var doc = S.shared[issueId];
+    if ((doc.seen || {})[profileId] === n) return;
+    doc.seen = Object.assign({}, doc.seen || {}); doc.seen[profileId] = n;
+    db.collection('shared').doc(issueId).update(new firebase.firestore.FieldPath('seen', profileId), n).catch(function () { /* try again next time */ });
+  }
+  function people() { return S.people.slice(); }
 
   // ---------- screens ----------
   function statusLine() {
@@ -369,7 +517,8 @@
   }
 
   window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
-    status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; } };
+    status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; },
+    people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   window.addEventListener('online', function () { if (wanted() && !S.user) start(); });

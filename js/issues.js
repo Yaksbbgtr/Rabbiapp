@@ -18,8 +18,15 @@
   // Other rebbeim on this device (or synced to it) that an issue can be sent to.
   function rebbeim() {
     var me = Store.currentProfile();
-    return Store.profiles().filter(function (p) { return p.role !== 'admin' && (!me || p.id !== me.id); })
-      .map(function (p) { var d = Store.peek(p.id); return { key: 'rebbi:' + p.id, name: rebbiName(p), cls: (d.settings && d.settings.className) || p.className || '' }; });
+    var list = Store.profiles().filter(function (p) { return p.role !== 'admin' && (!me || p.id !== me.id); })
+      .map(function (p) { var d = Store.peek(p.id); return { key: 'rebbi:' + p.id, name: rebbiName(p), cls: (d.settings && d.settings.className) || p.className || '', email: p.ownerEmail || '' }; });
+    // Rebbeim on other accounts, from the synced directory.
+    var have = {}; list.forEach(function (r) { have[r.key] = true; });
+    (window.Sync && Sync.people ? Sync.people() : []).forEach(function (r) {
+      if (have[r.key] || (me && r.id === me.id)) return;
+      have[r.key] = true; list.push({ key: r.key, name: r.name, cls: r.cls, email: r.email });
+    });
+    return list.sort(function (a, b) { return (a.cls || '').localeCompare(b.cls || '') || a.name.localeCompare(b.name); });
   }
   // Label for one recipient key, or for an issue / list of keys ("Main office, Rabbi Cohen").
   function toLabel(t, issue) {
@@ -29,7 +36,9 @@
     if (fixed) return fixed[1];
     var id = String(t).replace(/^rebbi:/, '');
     var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
-    return p ? rebbiName(p) : (issue && issue.toNames && issue.toNames[t]) || 'Another rebbi';
+    if (p) return rebbiName(p);
+    var d = (window.Sync && Sync.people ? Sync.people() : []).filter(function (x) { return x.id === id; })[0];
+    return d ? d.name : (issue && issue.toNames && issue.toNames[t]) || 'Another rebbi';
   }
   // Maintenance sees what was sent to maintenance. The main office and the principal see every issue except
   // ones sent only to other rebbeim (those stay between the rebbeim).
@@ -42,8 +51,11 @@
   function received() {
     var me = Store.currentProfile();
     if (!me) return [];
-    return all().filter(function (x) { return x.profileId !== me.id && toList(x.issue).indexOf('rebbi:' + me.id) >= 0; })
-      .sort(function (a, b) { return b.issue.date.localeCompare(a.issue.date); });
+    var out = all().filter(function (x) { return x.profileId !== me.id && toList(x.issue).indexOf('rebbi:' + me.id) >= 0; });
+    // Sent from another rebbi's account (through the cloud).
+    var have = {}; out.forEach(function (x) { have[x.issue.id] = true; });
+    (window.Sync && Sync.receivedFor ? Sync.receivedFor(me.id) : []).forEach(function (x) { if (!have[x.issue.id]) out.push(x); });
+    return out.sort(function (a, b) { return b.issue.date.localeCompare(a.issue.date); });
   }
   // For a rebbi it was sent to: the sender's messages he hasn't opened yet.
   function receivedUnread(i) {
@@ -52,6 +64,7 @@
   }
   function markReceivedSeen(item) {
     var me = Store.currentProfile(); if (!me) return;
+    if (item.shared) { Sync.seenShared(item.issue.id, me.id, rebbiMessages(item.issue)); return; }
     change(item, function (x) { x.seenBy = x.seenBy || {}; x.seenBy[me.id] = rebbiMessages(x); });
   }
 
@@ -92,7 +105,8 @@
         if (!title.value.trim()) { UI.toast('Say what the issue is'); title.focus(); return false; }
         var toKeys = Object.keys(picked).filter(function (k) { return picked[k]; });
         if (!toKeys.length) { UI.toast('Choose who to send it to'); return false; }
-        var toNames = {}; others.forEach(function (r) { if (picked[r.key]) toNames[r.key] = r.name; });
+        var toNames = {}, toEmails = {};
+        others.forEach(function (r) { if (picked[r.key]) { toNames[r.key] = r.name; if (r.email) toEmails[r.key] = r.email; } });
         var t = Store.talmid(who.value);
         Store.update(function (s) {
           if (phone.value.trim()) s.settings.rebbiPhone = phone.value.trim();
@@ -100,7 +114,7 @@
           s.issues.push({
             id: Store.uid(), date: Store.todayISO(), by: s.settings.rebbiName || 'Rebbi', byPhone: phone.value.trim(),
             className: s.settings.className || '', talmidId: t ? t.id : '', talmidName: t ? Store.displayName(t) : '',
-            title: title.value.trim(), details: details.value.trim(), priority: pri.value, status: 'open', assignedTo: '', due: '', to: toKeys, toNames: toNames,
+            title: title.value.trim(), details: details.value.trim(), priority: pri.value, status: 'open', assignedTo: '', due: '', to: toKeys, toNames: toNames, toEmails: toEmails,
             notes: [], updatedAt: Store.todayISO()
           });
         });
@@ -243,7 +257,7 @@
     var note = h('textarea', { rows: 2, dir: 'auto', placeholder: 'Reply to ' + (i.by || 'the rebbi') + '…', 'aria-label': 'Reply' });
     var addNote = function () {
       if (!note.value.trim()) return;
-      change(item, function (x) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: note.value.trim(), office: true }); });
+      change(item, function (x) { x.notes = x.notes || []; x.notes.push({ id: Store.uid(), at: new Date().toISOString(), date: Store.todayISO(), by: me, text: note.value.trim(), office: true }); });
       note.value = ''; onChange();
     };
     // Enter sends, Shift+Enter adds a line (same as the rebbi's side).
@@ -284,7 +298,7 @@
           bad ? h('div.shabbos-warn.msg-flag', '⚠ ' + UI.fmtDate(when.date) + ' is ' + bad) : null,
           when ? h('button.btn.small.msg-plan', { type: 'button', onclick: function () {
             changeDay(when, i.title, office ? '' : i.by, function (text) {
-              change(item, function (x) { x.notes = x.notes || []; x.notes.push({ date: Store.todayISO(), by: me, text: text, office: true }); });
+              change(item, function (x) { x.notes = x.notes || []; x.notes.push({ id: Store.uid(), at: new Date().toISOString(), date: Store.todayISO(), by: me, text: text, office: true }); });
               onChange();
             });
           } }, UI.icon('edit', 14), 'Change day') : null);

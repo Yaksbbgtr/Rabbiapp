@@ -689,3 +689,5 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .section-title { font-size: 1rem; margin: 18px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .dash-issue { cursor: pointer; }
 .dash-issue:hover strong { text-decoration: underline; }
+.allergy-card { border-color: var(--red); }
+.allergy-card h2 { color: var(--red); }

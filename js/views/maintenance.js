@@ -57,7 +57,6 @@
   // ---------- To-do list ----------
   maintOnly('maint-todo', {
     title: 'To-do list', short: 'To-do', icon: 'clipboard',
-    badge: function () { return todos().filter(function (t) { return !t.done; }).length; },
     render: function (main) {
       main.appendChild(h('div.page-head', h('div', h('h1', 'To-do list'), h('p.muted', 'Your own list of jobs. Add issues to it from the Issues page, or type a job here.'))));
       var input = UI.input({ placeholder: 'e.g. Change filters in the boiler room', 'aria-label': 'New job' });

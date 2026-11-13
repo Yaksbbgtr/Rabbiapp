@@ -93,7 +93,7 @@
         var v = input.value.trim(); if (!v) return;
         Store.update(function (s) {
           i.notes = i.notes || [];
-          i.notes.push({ date: Store.todayISO(), by: s.settings.rebbiName || i.by, text: v, office: false, from: Store.currentProfile().id });
+          i.notes.push({ id: Store.uid(), at: new Date().toISOString(), date: Store.todayISO(), by: s.settings.rebbiName || i.by, text: v, office: false, from: Store.currentProfile().id });
           i.updatedAt = Store.todayISO();
           if (i.status === 'done') i.status = 'open'; // a new message reopens it
         });
@@ -117,7 +117,7 @@
               Issues.changeDay(when, i.title, office ? (n.by || 'Office') : '', function (text) {
                 Store.update(function (s) {
                   i.notes = i.notes || [];
-                  i.notes.push({ date: Store.todayISO(), by: s.settings.rebbiName || i.by, text: text, office: false });
+                  i.notes.push({ id: Store.uid(), at: new Date().toISOString(), date: Store.todayISO(), by: s.settings.rebbiName || i.by, text: text, office: false });
                   i.updatedAt = Store.todayISO();
                   if (i.status === 'done') i.status = 'open';
                 });
@@ -149,11 +149,13 @@
       i.details ? h('p.issue-details', { dir: 'auto' }, i.details) : null));
     var input = h('textarea', { rows: 2, dir: 'auto', placeholder: 'Reply to ' + (i.by || 'the rebbi') + '…', 'aria-label': 'Reply' });
     var post = function (text) {
+      var note = { id: Store.uid(), at: new Date().toISOString(), date: Store.todayISO(), by: myName, text: text, office: true, from: me.id };
+      if (item.shared) { Sync.replyShared(i.id, note); return; }
       Store.updateProfile(item.profileId, function (d) {
         (d.issues || []).forEach(function (x) {
           if (x.id !== i.id) return;
           x.notes = x.notes || [];
-          x.notes.push({ date: Store.todayISO(), by: myName, text: text, office: true, from: me.id });
+          x.notes.push(note);
           x.updatedAt = Store.todayISO();
         });
       });
