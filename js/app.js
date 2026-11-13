@@ -15,14 +15,16 @@
     return { name: parts[0], params: parts.slice(1).map(decodeURIComponent) };
   }
 
-  var MAINTENANCE_PAGES = ['admin-issues', 'settings'];
+  var MAINTENANCE_PAGES = ['maint-home', 'admin-issues', 'maint-todo', 'settings'];
   function renderNav(active) {
     var nav = document.getElementById('nav');
     nav.innerHTML = '';
     var admin = Store.isAdmin();
     var names = order.filter(function (name) { var v = views[name]; return admin ? v.admin : !v.adminOnly; });
-    if (Store.staffRole() === 'maintenance') names = names.filter(function (n) { return MAINTENANCE_PAGES.indexOf(n) >= 0; });
-    if (admin) names.sort(function (a, b) { return (a === 'settings') - (b === 'settings'); }); // Settings last
+    var maint = Store.staffRole() === 'maintenance';
+    if (maint) names = MAINTENANCE_PAGES.filter(function (n) { return names.indexOf(n) >= 0; });
+    else names = names.filter(function (n) { return !views[n].maintOnly; });
+    if (admin && !maint) names.sort(function (a, b) { return (a === 'settings') - (b === 'settings'); }); // Settings last
     names.forEach(function (name) {
       var v = views[name];
       var count = v.badge ? v.badge() : 0;
@@ -56,8 +58,9 @@
     else if (route.name === 'login') route = { name: Store.isAdmin() ? 'admin' : 'dashboard', params: [] };
     // An administrator only has the admin pages and settings.
     if (profile && Store.isAdmin() && !(views[route.name] && views[route.name].admin)) route = { name: 'admin', params: [] };
-    // Maintenance only has Issues (what was sent to maintenance) and Settings.
-    if (profile && Store.staffRole() === 'maintenance' && MAINTENANCE_PAGES.indexOf(route.name) < 0) route = { name: 'admin-issues', params: [] };
+    // Maintenance has its Dashboard, Issues (what was sent to maintenance), To-do list and Settings; the other profiles don't have the maintenance pages.
+    if (profile && Store.staffRole() === 'maintenance') { if (MAINTENANCE_PAGES.indexOf(route.name) < 0) route = { name: 'maint-home', params: [] }; }
+    else if (views[route.name] && views[route.name].maintOnly) route = { name: Store.isAdmin() ? 'admin' : 'dashboard', params: [] };
     document.body.classList.toggle('logged-out', !profile);
     var pb = document.getElementById('profile-btn');
     pb.textContent = profile ? Profiles.initials(profile.name) : '';

@@ -82,7 +82,7 @@
           Store.login(id, pin.value.trim());
         } catch (e) { alert(e.message); return false; }
         UI.toast('Profile created');
-        App.go(kind.value === 'maintenance' ? 'admin-issues' : kind.value !== 'rebbi' ? 'admin' : 'talmidim');
+        App.go(kind.value === 'maintenance' ? 'maint-home' : kind.value !== 'rebbi' ? 'admin' : 'talmidim');
       } }
     ]);
   }

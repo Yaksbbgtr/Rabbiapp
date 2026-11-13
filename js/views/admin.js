@@ -428,23 +428,12 @@
     var unset = function (r) { return !r.n.annual && !r.n.paid; };
     var shown = tuitionFilter === 'owing' ? owing : tuitionFilter === 'paid' ? rows.filter(function (r) { return r.n.balance <= 0 && !unset(r); }) : rows;
     if (!shown.length) { main.appendChild(UI.empty(!rows.length ? 'No classes on this device yet.' : tuitionFilter === 'paid' ? 'No families are paid in full yet.' : 'No outstanding balances.')); return; }
-    // Brothers (same parents' phone, or same last name and father) are shown together as "<Last> Family".
-    var famOf = function (t) {
-      var ph = (t.fatherPhone || t.motherPhone || '').replace(/\D/g, '');
-      return ph ? 'p' + ph : 'n' + (t.last || '').toLowerCase() + '|' + (t.father || '').toLowerCase();
-    };
-    var groups = [], byFam = {};
-    rows.forEach(function (r) {
-      var f = famOf(r.t);
-      if (!byFam[f]) { byFam[f] = []; groups.push(byFam[f]); }
-      byFam[f].push(r);
-    });
     var isShown = {}; shown.forEach(function (r) { isShown[r.key] = true; });
     var balanceCell = function (n, none) { return n.balance > 0 ? money(n.balance) : none ? h('span.muted', 'Not set') : 'Paid ✓'; };
     var childRow = function (r, sib) {
       var parents = [r.t.father ? r.t.father + (r.t.fatherPhone ? ' ' + r.t.fatherPhone : '') : '', r.t.mother ? r.t.mother + (r.t.motherPhone ? ' ' + r.t.motherPhone : '') : ''].filter(Boolean).join(' · ');
       return h('tr', { class: 'clickable' + (sib ? ' sib' : ''), onclick: function () { editFamily(r.key, (r.t.first || '') + ' ' + (r.t.last || '') + (r.c.profile.className ? ' (' + r.c.profile.className + ')' : ''), parents); } },
-        h('td.cls', { 'data-label': 'Class' }, r.c.profile.className), h('th', (r.t.first || '') + ' ' + (r.t.last || ''), r.rec.notes ? h('div.small.muted', r.rec.notes) : null),
+        h('td.cls', { 'data-label': 'Class' }, r.c.profile.className), h('th', (r.t.first || '') + ' ' + (r.t.last || ''), sib && r.t.father ? h('div.small.muted', 'Father: ' + r.t.father) : null, r.rec.notes ? h('div.small.muted', r.rec.notes) : null),
         h('td.money', { 'data-label': 'Annual' }, h('span.val', money(r.n.annual), r.n.usesDefault ? h('span.small.muted', ' *') : null)), h('td.money', { 'data-label': 'Paid' }, h('span.val', money(r.n.paid))),
         h('td.money' + (r.n.balance > 0 ? '.low' : ''), { 'data-label': 'Balance' }, h('span.val', balanceCell(r.n, unset(r)))));
     };
@@ -452,11 +441,17 @@
     if (tuitionBy === 'class') {
       shown.forEach(function (r) { body.push(childRow(r, false)); });
     } else {
-      var lastOf = function (g) { return (g[0].t.last || '') + ' ' + (g[0].t.father || ''); };
-      groups.slice().sort(function (a, b) { return lastOf(a).localeCompare(lastOf(b)); }).forEach(function (g) {
+      // One drop-down per last name, with every boy of that name inside it.
+      var byLast = {}, lastGroups = [];
+      rows.forEach(function (r) {
+        var k = (r.t.last || '').trim().toLowerCase() || '?';
+        if (!byLast[k]) { byLast[k] = []; lastGroups.push(byLast[k]); }
+        byLast[k].push(r);
+      });
+      lastGroups.sort(function (a, b) { return (a[0].t.last || '').localeCompare(b[0].t.last || ''); }).forEach(function (g) {
         var vis = g.filter(function (r) { return isShown[r.key]; });
         if (!vis.length) return;
-        var fk = famOf(g[0].t), open = !!openFam[fk];
+        var fk = (g[0].t.last || '').trim().toLowerCase(), open = !!openFam[fk];
         var tot = g.reduce(function (a, r) { a.annual += r.n.annual; a.paid += r.n.paid; a.balance += r.n.balance; return a; }, { annual: 0, paid: 0, balance: 0 });
         var kids = vis.map(function (r) { var tr = childRow(r, true); if (!open) tr.hidden = true; return tr; });
         var head = h('tr.family-row.fam-toggle' + (open ? '.open' : ''), { tabindex: 0, role: 'button', 'aria-expanded': open ? 'true' : 'false',
@@ -467,7 +462,7 @@
           },
           onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); head.click(); } } },
           h('th', { colspan: 2 }, h('span.fam-chev', UI.icon('chev', 16)), (g[0].t.last || '') + ' Family',
-            h('span.small.muted', (g[0].t.father ? ' · ' + g[0].t.father : '') + ' · ' + g.length + (g.length === 1 ? ' boy: ' : ' boys: ') + g.map(function (r) { return r.c.profile.className; }).join(', '))),
+            h('span.small.muted', ' · ' + g.length + (g.length === 1 ? ' boy: ' : ' boys: ') + g.map(function (r) { return r.c.profile.className; }).join(', '))),
           h('td.money', { 'data-label': 'Family annual' }, h('span.val', money(tot.annual))), h('td.money', { 'data-label': 'Family paid' }, h('span.val', money(tot.paid))),
           h('td.money' + (tot.balance > 0 ? '.low' : ''), { 'data-label': 'Family balance' }, h('span.val', balanceCell(tot, g.every(unset)))));
         body.push(head); kids.forEach(function (tr) { body.push(tr); });
@@ -502,11 +497,13 @@
         }))),
       h('button.btn.primary', { type: 'button', onclick: function () { Issues.report('', function () { App.render(); }); } }, UI.icon('plus'), 'New issue')));
     main.appendChild(h('p.small.muted', staff === 'maintenance'
-      ? 'Issues sent to maintenance by rebbeim and the office. Reply in the conversation and mark them done when fixed.'
+      ? 'Issues sent to maintenance by rebbeim and the office. Add a job to your to-do list, reply in the conversation, and mark it done when fixed.'
       : 'Issues reported by rebbeim and staff, as tasks. Each shows who it was sent to (main office, principal or maintenance), the rebbi\'s cell and, when it\'s about a talmid, the parents\' cells.'));
     if (!shown.length) { main.appendChild(UI.empty(items.length ? 'Nothing here.' : 'No issues yet. Rebbeim report them from a talmid\'s page or the Today page; the office can add one with New issue.')); return; }
     shown.forEach(function (item) {
       var card = Issues.taskCard(item, function () { App.render(); });
+      var acts = staff === 'maintenance' && window.Maintenance && card.querySelector('.issue-actions');
+      if (acts) acts.insertBefore(Maintenance.cardButton(item), acts.firstChild);
       if (freshIds[item.issue.id]) { card.classList.add('fresh'); card.insertBefore(h('span.pill.neg.fresh-tag', 'New'), card.firstChild); }
       main.appendChild(card);
     });
