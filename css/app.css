@@ -689,3 +689,23 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .section-title { font-size: 1rem; margin: 18px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .dash-issue { cursor: pointer; }
 .dash-issue:hover strong { text-decoration: underline; }
+
+/* Printed day sheet (Today page) */
+.day-sheet { color: #000; font-size: 11pt; }
+.day-sheet .ds-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; border-bottom: 2px solid #1e3a5f; padding-bottom: 8px; margin-bottom: 12px; }
+.day-sheet .ds-title { font-size: 18pt; font-weight: 700; color: #1e3a5f; }
+.day-sheet .ds-he { text-align: right; }
+.day-sheet .ds-he .he { font-size: 16pt; font-weight: 700; }
+.day-sheet .ds-sub { color: #444; font-size: 10pt; }
+.day-sheet section { margin-bottom: 14px; break-inside: avoid; }
+.day-sheet h3 { color: #1e3a5f; text-transform: uppercase; font-size: 9pt; letter-spacing: .06em; margin: 0 0 6px; }
+.day-sheet ul { margin: 0; padding-left: 0; list-style: none; }
+.day-sheet li { padding: 2px 0; }
+.ds-table { width: 100%; border-collapse: collapse; }
+.ds-table th, .ds-table td { border: 1px solid #bbb; padding: 5px 7px; vertical-align: top; text-align: left; }
+.ds-table th { background: #eef2f7; font-size: 9pt; }
+.ds-pre { white-space: pre-wrap; }
+.ds-roster { columns: 3; column-gap: 20px; }
+.ds-roster > div { break-inside: avoid; padding: 2px 0; }
+.ds-box { display: inline-block; width: 12px; height: 12px; border: 1px solid #555; margin-right: 6px; font-size: 9pt; line-height: 12px; text-align: center; vertical-align: -1px; }
+.ds-line { border-bottom: 1px solid #999; height: 26px; }

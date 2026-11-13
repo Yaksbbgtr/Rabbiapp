@@ -12,11 +12,11 @@
       var parsha = HebCal.parshaOfWeek(rd);
       var talmidim = Store.activeTalmidim();
 
-      main.appendChild(h('div.page-head',
+      main.appendChild(h('div.page-head.no-print',
         h('div', h('h1', greeting() + (st.settings.rebbiName ? ', ' + st.settings.rebbiName : '')),
           h('p.muted', UI.fmtDate(today, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })))));
 
-      var grid = h('div.grid.dash');
+      var grid = h('div.grid.dash.no-print');
       main.appendChild(grid);
 
       // Date & parsha card
@@ -70,7 +70,9 @@
               onchange: function (e) { Store.update(function () { l.done = e.target.checked; }); } }),
             h('div', h('strong', l.subject), ' ', h('span', { dir: 'auto' }, l.plan)));
         })) : h('p.muted', 'Nothing planned for today.'),
-        h('a.btn', { href: '#/planner' }, 'Open planner')));
+        h('div.row.gap.wrap',
+          h('a.btn', { href: '#/planner' }, 'Open planner'),
+          h('button.btn', { type: 'button', onclick: function () { window.print(); } }, UI.icon('print', 16), 'Print today\'s plan'))));
 
       // Follow-ups
       var due = st.contacts.filter(function (c) { return c.followUp && !c.followUpDone && c.followUp <= HebCal.rdToISO(rd + 3); })
@@ -119,8 +121,44 @@
             } }, '×'));
         })) : null));
       packCards(grid);
+      main.appendChild(daySheet(st, today, rd, hd, parsha, talmidim, events, due, lessons));
     }
   });
+
+  // The printed page for the day: date, parsha, plan, attendance, follow-ups, what's coming up, and room for notes.
+  function daySheet(st, today, rd, hd, parsha, talmidim, events, due, lessons) {
+    var s = st.settings;
+    var att = st.attendance[today] || {};
+    var taken = Object.keys(att).length > 0;
+    var mark = { P: '', L: 'Late', A: 'Absent', E: 'Excused' };
+    var omer = HebCal.omerDay(rd);
+    var notes = st.notes.filter(function (n) { return n.date === today; });
+    return h('div.print-only.day-sheet',
+      h('div.ds-head',
+        h('div', h('div.ds-title', UI.fmtDate(today, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })),
+          h('div.ds-sub', [s.rebbiName, s.className, s.school].filter(Boolean).join(' · '))),
+        h('div.ds-he', h('div.he', HebCal.formatHebrew(hd)),
+          h('div.ds-sub', (parsha.holiday ? parsha.en : 'Parshas ' + parsha.en) + ' · ', h('span.he', parsha.he)))),
+      omer ? h('p', 'Tonight: ' + omer + ' (' + HebCal.gematriya(omer) + ') la\'omer') : null,
+      h('section', h('h3', 'Today\'s plan'),
+        lessons.length ? h('table.ds-table',
+          h('thead', h('tr', h('th', { style: 'width:24px' }, ''), h('th', { style: 'width:110px' }, 'Subject'), h('th', 'Plan'), h('th', { style: 'width:30%' }, 'Where we stopped / notes'))),
+          h('tbody', lessons.map(function (l) {
+            return h('tr', h('td', l.done ? '☑' : '☐'), h('td', h('strong', l.subject)), h('td.ds-pre', { dir: 'auto' }, l.plan || ''), h('td.ds-pre', { dir: 'auto' }, l.notes || ''));
+          }))) : h('p', 'Nothing planned for today.')),
+      h('section', h('h3', 'Attendance' + (taken ? '' : ' (not taken yet)')),
+        h('div.ds-roster', talmidim.map(function (t) {
+          var m = taken ? mark[att[t.id]] || '' : '';
+          return h('div', h('span.ds-box', m ? '' : taken ? '✓' : ''), Store.displayName(t), m ? h('strong', ' – ' + m) : null);
+        }))),
+      due.length ? h('section', h('h3', 'Parent follow-ups'),
+        h('ul', due.map(function (c) { return h('li', '☐ ', h('strong', Store.displayName(Store.talmid(c.talmidId))), ' – ', c.note, ' (due ' + UI.fmtDate(c.followUp) + ')'); }))) : null,
+      events.length ? h('section', h('h3', 'Coming up'),
+        h('ul', events.map(function (e) { return h('li', (e.rd === rd ? 'Today' : e.rd === rd + 1 ? 'Tomorrow' : UI.fmtDate(HebCal.rdToISO(e.rd))) + ' – ' + e.text.replace('🎂 ', '')); }))) : null,
+      h('section', h('h3', 'Notes'),
+        notes.length ? h('ul', notes.map(function (n) { return h('li', { dir: 'auto' }, n.text); })) : null,
+        h('div.ds-lines', [1, 2, 3, 4, 5].map(function () { return h('div.ds-line'); }))));
+  }
 
   // Cards have different heights, so a plain grid leaves gaps under the short ones. Give each card as many
   // small rows as it is tall, so the next card tucks in right underneath (order stays left-to-right).
