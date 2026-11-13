@@ -254,12 +254,17 @@
           UI.download('Attendance ' + iso + '.csv', csv([['Class', 'Rebbi', 'Last name', 'First name', 'Status', 'Father\'s cell', 'Mother\'s cell']].concat(rows)), 'text/csv'); UI.toast('Spreadsheet downloaded');
         } }, UI.icon('file', 16), 'Export this day'),
         h('button.btn.small', { type: 'button', onclick: function () { window.print(); } }, UI.icon('print', 16), 'Print'))));
+    // The main office and the principal can take or fix a class's attendance (e.g. when the rebbi is out).
+    var canMark = Store.staffRole() !== 'maintenance';
     perClass.forEach(function (x) {
       var c = x.c;
       main.appendChild(h('div.card',
         h('div.row.between.gap.wrap',
           h('div', h('strong', c.profile.className || '(no class name)'), h('span.muted.small', ' · ' + c.profile.name)),
-          x.taken ? h('span.small', (x.P + x.L) + ' here · ' + (x.A + x.E) + ' absent · ' + x.L + ' late') : h('span.pill.gold', 'Not taken')),
+          h('div.row.gap.wrap', { style: 'align-items:center' },
+            x.taken ? h('span.small', (x.P + x.L) + ' here · ' + (x.A + x.E) + ' absent · ' + x.L + ' late' + ((c.data.attendanceBy || {})[iso] ? ' · by ' + c.data.attendanceBy[iso] : '')) : h('span.pill.gold', 'Not taken'),
+            canMark ? h('button.btn.small' + (x.taken ? '' : '.primary'), { type: 'button', onclick: function () { markAttendance(c, iso); } },
+              UI.icon('check', 16), x.taken ? 'Edit' : 'Take attendance') : null)),
         x.absent.length ? h('div.small', h('strong', 'Absent: '), x.absent.map(function (a, i) {
           var t = a.t, n = t.fatherPhone || t.motherPhone;
           return [i ? ', ' : '', (t.first || '') + ' ' + (t.last || '') + (a.excused ? ' (excused)' : ''),
@@ -267,6 +272,41 @@
         })) : null,
         x.late.length ? h('div.small', h('strong', 'Late: '), x.late.map(function (t) { return (t.first || '') + ' ' + (t.last || ''); }).join(', ')) : null));
     });
+  }
+
+  // Take or edit one class's attendance for a day, from the office. Everyone starts as Here, like on the rebbi's side.
+  var ATT = [['P', 'Here'], ['L', 'Late'], ['A', 'Absent'], ['E', 'Excused']];
+  function markAttendance(c, iso) {
+    var saved = (Store.peek(c.profile.id).attendance || {})[iso] || {};
+    var day = {};
+    c.talmidim.forEach(function (t) { day[t.id] = saved[t.id] || 'P'; });
+    var rows = c.talmidim.map(function (t) {
+      var seg = h('div.seg.att-seg', { role: 'group', 'aria-label': (t.first || '') + ' ' + (t.last || '') });
+      var draw = function () {
+        seg.innerHTML = '';
+        ATT.forEach(function (a) {
+          seg.appendChild(h('button' + (day[t.id] === a[0] ? '.on.att-' + a[0] : ''), { type: 'button', onclick: function () { day[t.id] = a[0]; draw(); } }, a[1]));
+        });
+      };
+      draw();
+      return h('div.row.between.gap.wrap.att-office-row', h('span', (t.first || '') + ' ' + (t.last || '')), seg);
+    });
+    var who = Store.get().settings.rebbiName || Store.currentProfile().name;
+    UI.modal((c.profile.className || c.profile.name) + ' – ' + UI.fmtDate(iso), h('div',
+      h('p.small.muted', 'Everyone starts as Here. Tap Late, Absent or Excused for the exceptions, then Save. ' + (c.profile.name || 'The rebbi') + ' sees it in his attendance.'),
+      h('div.att-office-list', rows)), [
+      { label: 'Cancel' },
+      { label: 'Save attendance', primary: true, onClick: function () {
+        Store.updateProfile(c.profile.id, function (d) {
+          d.attendance = d.attendance || {};
+          d.attendance[iso] = Object.assign({}, d.attendance[iso] || {}, day);
+          d.attendanceBy = d.attendanceBy || {};
+          d.attendanceBy[iso] = who;
+        });
+        UI.toast('Attendance saved for ' + (c.profile.className || c.profile.name));
+        App.render();
+      } }
+    ]);
   }
 
   // ================= Phones (parents' directory) =================

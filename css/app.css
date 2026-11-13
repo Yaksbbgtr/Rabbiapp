@@ -709,3 +709,8 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .ds-roster > div { break-inside: avoid; padding: 2px 0; }
 .ds-box { display: inline-block; width: 12px; height: 12px; border: 1px solid #555; margin-right: 6px; font-size: 9pt; line-height: 12px; text-align: center; vertical-align: -1px; }
 .ds-line { border-bottom: 1px solid #999; height: 26px; }
+.att-office-list { max-height: 60vh; overflow: auto; }
+.att-office-row { padding: 6px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.att-seg button.on.att-L { background: var(--gold-soft, #fbefd0); }
+.att-seg button.on.att-A { background: var(--red-soft); color: var(--red); }
+.att-seg button.on.att-E { background: var(--blue-soft); }
