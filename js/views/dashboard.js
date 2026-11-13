@@ -62,8 +62,8 @@
 
       // Allergy / medical alerts for the class
       var allergic = talmidim.filter(function (t) { return t.allergies && t.allergies.trim(); });
-      if (allergic.length) grid.appendChild(h('div.card.allergy-card',
-        h('h2', '⚠ Allergy alerts'),
+      if (allergic.length) grid.appendChild(h('div.card',
+        h('h2', 'Allergies'),
         h('ul.list', allergic.map(function (t) {
           return h('li', h('a.plain-link', { href: '#/talmid/' + t.id }, h('strong', Store.displayName(t))), ' – ', h('span', { dir: 'auto' }, t.allergies));
         }))));

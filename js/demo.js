@@ -22,7 +22,7 @@
       members: { 1: [2, ['Yosef', 'יוסף']], 3: [5, ['Moshe', 'משה']], 6: [8, ['Eliyahu', 'אליהו']] } },
     { last: 'Mandel', father: ['Dovid', 'דוד'], mother: 'Leah', phone: '(555) 0172-4420', mphone: '(555) 0173-4421', street: '48 Oak St',
       members: { 2: [4, ['Chaim', 'חיים']], 5: [1, ['Yehuda', 'יהודה']] } },
-    { last: 'Tauber', father: ['Meir', 'מאיר'], mother: 'Esther', phone: '(555) 0174-4430', mphone: '', street: '7 Cedar Lane',
+    { last: 'Tauber', father: ['Meir', 'מאיר'], mother: 'Esther', phone: '(555) 0174-4430', mphone: '(555) 0175-4431', street: '7 Cedar Lane',
       members: { 4: [6, ['Naftali', 'נפתלי']], 7: [3, ['Shlomo', 'שלמה']], 8: [10, ['Pinchas', 'פינחס']] } }
   ];
   // Make a sample boy part of one of the sibling families above (same parents, phones, email and address).
@@ -152,7 +152,7 @@
         id: uid(), first: f[0], last: last, hebName: f[1] + ' בן ' + father[1],
         father: father[0] + ' ' + last, mother: mother + ' ' + last,
         fatherPhone: '(555) 01' + pad(10 + k) + '-' + (2000 + grade * 100 + k * 37),
-        motherPhone: k % 3 === 2 ? '' : '(555) 01' + pad(40 + k) + '-' + (3100 + k * 13),
+        motherPhone: '(555) 01' + pad(40 + k) + '-' + (3100 + grade * 100 + k * 13),
         email: father[0].toLowerCase() + '.' + last.toLowerCase() + '@example.com',
         address: (100 + k * 17 + grade) + ' ' + STREETS[(k + grade) % STREETS.length],
         birthday: (thisYear - 5 - grade + (month > 8 ? -1 : 0)) + '-' + pad(month) + '-' + pad(day),

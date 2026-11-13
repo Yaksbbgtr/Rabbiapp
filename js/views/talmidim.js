@@ -25,7 +25,7 @@
       UI.field('Father', f.father), UI.field('Father\'s cell', f.fatherPhone),
       UI.field('Mother', f.mother), UI.field('Mother\'s cell', f.motherPhone),
       UI.field('Email', f.email), UI.field('Address', f.address),
-      h('div.span2', UI.field('Allergies / medical alerts', f.allergies, 'Shown in red in the Family box on his page, on the Today page, and on the office\'s lists')),
+      h('div.span2', UI.field('Allergies / medical alerts', f.allergies, 'Shown in the Family box on his page, on the Today page, and on the office\'s lists')),
       h('div.span2', UI.field('Notes (private)', f.notes)));
     UI.modal(isNew ? 'Add talmid' : 'Edit ' + Store.displayName(t), body, [
       { label: 'Cancel' },
@@ -91,8 +91,7 @@
             h('div.avatar', initials(t)),
             h('div.grow',
               h('div.name', (t.first || '') + ' ' + (t.last || '')),
-              t.hebName ? h('div.he.muted', t.hebName) : null),
-            t.allergies && t.allergies.trim() ? h('span.pill.neg', { title: t.allergies }, '⚠ Allergy') : null));
+              t.hebName ? h('div.he.muted', t.hebName) : null)));
         });
       }
       search.addEventListener('input', draw);
@@ -166,7 +165,7 @@
           kv('Mother', [t.mother || '', t.motherPhone ? [t.mother ? ' · ' : '', h('a', { href: 'tel:' + t.motherPhone.replace(/[^\d+]/g, '') }, t.motherPhone)] : null]),
           kv('Email', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''),
           kv('Address', t.address),
-          t.allergies && t.allergies.trim() ? [h('dt.allergy-dt', '⚠ Allergy'), h('dd.allergy-dd', { dir: 'auto' }, t.allergies)] : null),
+          kv('Allergies', t.allergies && t.allergies.trim())),
         t.notes ? h('div.note-box', { dir: 'auto' }, t.notes) : null,
         window.lastContactBlock(t),
         h('div.row.gap.wrap',
