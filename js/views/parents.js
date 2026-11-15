@@ -128,6 +128,54 @@
     return vals;
   }
 
+  // Write the message with Claude (the rebbi's own account). Names never go to Claude:
+  // the request uses [NAME], [PARENTS] and [REBBI], and the app fills them in when the letter is pasted back.
+  function letterWithClaude(t, kindName, detailText, done) {
+    var st = Store.get();
+    var vals = messageValues(t, detailText);
+    var about = h('textarea', { rows: 3, dir: 'auto', placeholder: 'e.g. He has been coming late, or: thank you for the siyum seudah' },
+      [kindName, detailText.trim()].filter(Boolean).join(': '));
+    var tone = UI.select([['warm and encouraging', 'Warm and encouraging'], ['caring but serious', 'Caring but serious'], ['friendly and to the point', 'Friendly and to the point']], 'warm and encouraging');
+    var len = UI.select([['a short note of a few sentences', 'Short note'], ['two or three short paragraphs', 'Medium'], ['a full letter', 'Full letter']], 'a short note of a few sentences');
+    var lang = UI.select([['English', 'English'], ['Yiddish', 'Yiddish'], ['Hebrew', 'Hebrew']], 'English');
+    var hasFacts = t && (vals.strengths || vals.working_on || vals.bechina || vals.absences);
+    var facts = h('input', { type: 'checkbox', checked: !!hasFacts });
+    var form = h('div',
+      UI.field('What is the letter about?', about, t ? 'Tip: write "he" instead of his name – the app puts his name in.' : null),
+      h('div.row.gap.wrap', UI.field('Tone', tone), UI.field('Length', len), UI.field('Language', lang)),
+      hasFacts ? h('label.check-row', facts, 'Include his limud levels, last bechina and absences (without his name)') : null);
+    function build() {
+      var L = ['I am a rebbi in a yeshiva ketana (Orthodox Jewish boys\' elementary school), ' + (st.settings.className ? 'teaching ' + st.settings.className : '') + '. Please write ' +
+        (t ? 'a message to the parents of a boy in my class.' : 'a message to all the parents of my class.')];
+      L.push('', 'What it is about: ' + (about.value.trim() || 'a general update'));
+      if (hasFacts && facts.checked) {
+        L.push('', 'What I know about him (use only what fits):');
+        if (vals.strengths) L.push('- Knows well: ' + vals.strengths);
+        if (vals.working_on) L.push('- Still working on: ' + vals.working_on);
+        if (vals.bechina) L.push('- Last bechina: ' + vals.bechina + ', ' + vals.score);
+        if (vals.absences) L.push('- Absent ' + vals.absences + ' times in the last month');
+      }
+      L.push('', 'Tone: ' + tone.value + '. Length: ' + len.value + '. Write it in ' + lang.value + '.',
+        'This week is Parshas ' + vals.parsha + '.',
+        t ? 'Write [NAME] wherever the boy\'s name goes and start with "Dear [PARENTS],". Sign it "[REBBI]".' : 'Start with "Dear Parents," and sign it "[REBBI]".',
+        'Reply with only the message itself, ready to send – no title, notes or options.');
+      return L.join('\n');
+    }
+    AskClaude.handoff({
+      title: 'Write with Claude', form: form, build: build,
+      intro: 'Claude writes the message in your own Claude account. Names are left out – the app puts them back in when you paste it here.',
+      pasteTitle: 'Paste the message back here',
+      pasteHint: 'Copy Claude\'s message and paste it here. ' + (t ? 'His name and yours are filled in for you.' : 'Your name is filled in for you.'),
+      pasteButton: 'Use this message',
+      onPaste: function (text) {
+        var fill = text.replace(/^```[a-z]*\s*$/gim, '').trim()
+          .replace(/\[NAME\]/g, vals.name).replace(/\[PARENTS\]/g, vals.parent).replace(/\[REBBI\]/g, vals.rebbi);
+        done(fill);
+        UI.toast('Message ready – check it before sending');
+      }
+    });
+  }
+
   Views.register('parents', {
     title: 'Parents', icon: 'phone',
     render: function (main) {
@@ -227,7 +275,9 @@
         main.appendChild(h('div.grid.two',
           h('div.card', UI.field('What kind of message?', tplSel), UI.field('About which talmid?', who),
             h('label.field', detailLabel, detail),
-            h('button.btn', { onclick: editTemplates }, 'Edit templates')),
+            h('div.row.gap.wrap',
+              h('button.btn', { onclick: function () { letterWithClaude(Store.talmid(who.value), tplSel.selectedOptions[0] ? tplSel.selectedOptions[0].text : '', detail.value, function (text) { out.value = text; grow(); }); } }, UI.icon('send', 18), 'Write with Claude'),
+              h('button.btn', { onclick: editTemplates }, 'Edit templates'))),
           h('div.card', h('h2', 'Message'), out, facts, actions)));
       }
 

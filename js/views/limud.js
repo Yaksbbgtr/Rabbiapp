@@ -117,6 +117,9 @@
           h('button.btn.primary', { onclick: function () { createProject(u); } }, UI.icon('plus'), 'Create project'),
           h('button.btn', { onclick: function () { editUnit(u); } }, UI.icon('edit'), 'Edit'))));
 
+      var pc = projectsCard(u);
+      if (pc) main.appendChild(pc);
+
       main.appendChild(h('div.seg', [['notes', 'Source notes'], ['talmidim', 'Talmidim']].map(function (m) {
         return h('button' + (unitTab === m[0] ? '.on' : ''), { onclick: function () { unitTab = m[0]; App.render(); } }, m[1]);
       })));
@@ -163,7 +166,7 @@
     }
   });
 
-  // ---------- Create project (demo for now) ----------
+  // ---------- Create project: made with Claude (the rebbi's own account), then printed and saved here ----------
   function createProject(u) {
     var st = Store.get();
     var kinds = [
@@ -173,30 +176,111 @@
     if (st.settings.coloringPages !== false) {
       kinds.push({ key: 'coloring', label: 'Coloring page', desc: 'A picture from the limud to color, with a pasuk or key words to trace.' });
     }
-    var body = h('div');
-    var m = UI.modal('Create project', body, [{ label: 'Close' }]);
-    function pick() {
-      body.innerHTML = '';
-      body.appendChild(h('p.muted', 'For ', h('strong', { dir: 'auto' }, u.title), '. What would you like to make?'));
-      body.appendChild(h('div.project-kinds', kinds.map(function (k) {
-        return h('button.project-kind', { type: 'button', onclick: function () { demo(k); } },
+    var m = UI.modal('Create project', h('div',
+      h('p.muted', 'For ', h('strong', { dir: 'auto' }, u.title), '. What would you like to make?'),
+      h('div.project-kinds', kinds.map(function (k) {
+        return h('button.project-kind', { type: 'button', onclick: function () { m.close(); makeWithClaude(u, k.key); } },
           UI.icon(k.key === 'coloring' ? 'image' : k.key === 'test' ? 'clipboard' : 'file', 26),
           h('div', h('div.name', k.label), h('div.small.muted', k.desc)));
+      })),
+      h('p.small.muted', 'Claude (AI) writes it in your own Claude account. You check it, and print it from Claude or from here.'),
+      st.settings.coloringPages === false ? h('p.small.muted', 'Coloring pages are turned off in Settings → Additional settings.') : null), [{ label: 'Close' }]);
+  }
+
+  function makeWithClaude(u, kind) {
+    var st = Store.get();
+    var cls = st.settings.className || 'my class';
+    var notes = (u.notes || '').trim();
+    var cover = UI.input({ value: u.title, placeholder: 'e.g. Perek 12, pesukim 1-9' });
+    var count = UI.select([['6', '6'], ['10', '10'], ['15', '15'], ['20', '20']], kind === 'test' ? '15' : '10');
+    var level = UI.select([['easier', 'Easier'], ['on level', 'On grade level'], ['challenging', 'Challenge']], 'on level');
+    var lang = UI.select([['English', 'English'], ['Yiddish', 'Yiddish'], ['Hebrew', 'Hebrew (Lashon Kodesh)']], 'English');
+    var useNotes = h('input', { type: 'checkbox', checked: !!notes });
+    var types = [['blanks', 'Fill in the blank (pesukim)'], ['matching', 'Matching (word – translation)'], ['questions', 'Review questions'], ['multiple', 'Multiple choice']];
+    var picked = kind === 'test' ? ['blanks', 'multiple', 'questions'] : ['blanks', 'matching', 'questions'];
+    var typeBoxes = types.map(function (t) { return h('label.check-row', h('input', { type: 'checkbox', value: t[0], checked: picked.indexOf(t[0]) >= 0 }), t[1]); });
+    var scene = UI.input({ placeholder: 'e.g. Avraham Avinu\'s tent with the three malachim coming' });
+    var trace = UI.input({ placeholder: 'e.g. לֶךְ לְךָ', dir: 'auto' });
+    var extra = h('textarea', { rows: 2, dir: 'auto', placeholder: 'Anything else? (optional)' });
+    var form;
+    if (kind === 'coloring') {
+      form = h('div', UI.field('What should the picture show?', scene), UI.field('Words to trace under the picture (optional)', trace, 'The app adds these in big hollow letters – Claude only draws the picture.'), UI.field('Anything else', extra));
+    } else {
+      form = h('div', UI.field('What should it cover?', cover),
+        h('div.row.gap.wrap', UI.field('Questions', count), UI.field('Level', level), UI.field('Written in', lang)),
+        h('div.field', h('span.field-label', 'Kinds of questions'), typeBoxes),
+        notes ? h('label.check-row', useNotes, 'Use my source notes for this limud') : null,
+        UI.field('Anything else', extra));
+    }
+    function chosen() { return typeBoxes.map(function (l) { return l.firstChild; }).filter(function (c) { return c.checked; }).map(function (c) { return types.filter(function (t) { return t[0] === c.value; })[0][1]; }); }
+    function build() {
+      var lines = [];
+      if (kind === 'coloring') {
+        lines.push('I am a rebbi in a yeshiva ketana (Orthodox Jewish boys\' elementary school). Please draw a coloring page for my class (' + cls + ').');
+        lines.push('', 'Limud: ' + u.title + ' (' + u.subject + ')');
+        lines.push('The picture should show: ' + (scene.value.trim() || 'a scene from this limud'));
+        if (extra.value.trim()) lines.push('Also: ' + extra.value.trim());
+        lines.push('', 'Make it one SVG image:',
+          '- black outlines only on a white background: no colored fills, no gray, no shading',
+          '- thick, clean lines (stroke-width 3 to 5) and big, simple shapes that a young boy can color in',
+          '- viewBox="0 0 800 1000" (a portrait page), filling the space',
+          '- no text, letters or words in the picture (I will add them myself)',
+          '- appropriate for a yeshiva: modest, traditional dress, and never any image of Hashem',
+          '', 'Reply with only the SVG code in one code block.');
+      } else {
+        var isTest = kind === 'test';
+        lines.push('I am a rebbi in a yeshiva ketana (Orthodox Jewish boys\' elementary school). Please write a printable ' + (isTest ? 'test (bechina)' : 'worksheet for chazara') + ' for my class (' + cls + ').');
+        lines.push('', 'Limud: ' + u.title + ' (' + u.subject + ')');
+        lines.push('Cover: ' + (cover.value.trim() || u.title));
+        lines.push('About ' + count.value + ' questions in total. Level: ' + level.value + '.');
+        var ch = chosen();
+        if (ch.length) lines.push('Kinds of questions: ' + ch.join(', ') + '.');
+        lines.push('Write the instructions and questions in ' + lang.value + '. Quote pesukim and Hebrew words in Hebrew with nekudos.');
+        if (extra.value.trim()) lines.push('Also: ' + extra.value.trim());
+        if (notes && useNotes.checked) lines.push('', 'My source notes for this limud:', '"""', notes, '"""');
+        lines.push('', 'Please:',
+          '- Stay accurate to the text and to how it is taught in yeshivos. Do not make up pesukim; if you are not sure of the exact words, leave that question out.',
+          '- Write it as plain text ready to print: a title line starting with "# ", short instructions, then numbered questions. Use ______ for blanks.',
+          '- For matching, number one column (1, 2, 3) and letter the other (a, b, c).',
+          isTest ? '- Show the points for each question in brackets, like [5], adding up to 100.' : null,
+          '- At the end, add a line "## Answer key" and then the answers.',
+          '- No pictures, tables or emojis.');
+      }
+      return lines.filter(function (l) { return l !== null; }).join('\n');
+    }
+    var label = AskClaude.KIND[kind];
+    AskClaude.handoff({
+      title: label + ' with Claude', form: form, build: build,
+      intro: kind === 'coloring' ? 'Claude draws the picture. You can print it straight from Claude, or paste it back here to add the tracing words and the yeshiva header.'
+        : 'Claude writes it from this limud' + (notes ? ' and your source notes' : '') + '. You can print it from Claude, or paste it back here to print with the yeshiva header and keep it with this limud.',
+      pasteTitle: 'Paste it back to print and save here (optional)',
+      pasteHint: kind === 'coloring' ? 'In Claude, copy the picture\'s code (the Copy button on it) and paste it here.' : 'Copy Claude\'s whole answer and paste it here.',
+      pasteButton: 'Save and print',
+      onPaste: function (text) {
+        var p = { unitId: u.id, kind: kind };
+        if (kind === 'coloring') {
+          p.svg = AskClaude.extractSvg(text);
+          if (!p.svg) { UI.toast('No picture found – copy the SVG code from Claude'); return false; }
+          p.title = scene.value.trim() || u.title;
+          p.trace = trace.value.trim();
+        } else {
+          p.text = text;
+          p.title = AskClaude.firstTitle(text) || label + ' – ' + u.title;
+        }
+        AskClaude.viewProject(AskClaude.saveProject(p));
+        App.render();
+      }
+    });
+  }
+
+  function projectsCard(u) {
+    var list = AskClaude.projectsFor(u.id);
+    if (!list.length) return null;
+    return h('div.card', h('h2', 'Projects'),
+      h('ul.list', list.slice().reverse().map(function (p) {
+        return h('li.dash-issue', { onclick: function () { AskClaude.viewProject(p); } },
+          h('div.row.between.gap', h('strong', { dir: 'auto' }, p.title), h('span.pill', AskClaude.KIND[p.kind])),
+          h('div.small.muted', 'Made ' + UI.fmtDate(p.created) + ' · tap to view or print'));
       })));
-      if (st.settings.coloringPages === false) body.appendChild(h('p.small.muted', 'Coloring pages are turned off in Settings → Additional settings.'));
-    }
-    function demo(k) {
-      body.innerHTML = '';
-      body.appendChild(h('div',
-        h('div.pill.gold', 'Demo'),
-        h('h3', { style: 'margin-top:10px' }, k.label + ' – ' + u.title),
-        h('p', 'This is a preview of the button. Making the ' + k.label.toLowerCase() + ' itself is not built yet.'),
-        h('p.small.muted', 'When it is, it will use your source notes' + (u.notes && u.notes.trim() ? ' (you have some for this limud)' : '') +
-          ' and make a printable ' + k.label.toLowerCase() + ' for ' + (st.settings.className || 'your class') + '.'),
-        h('div.row.gap.wrap',
-          h('button.btn', { type: 'button', onclick: pick }, UI.icon('chevl', 16), 'Back'),
-          h('button.btn.primary', { type: 'button', onclick: function () { m.close(); UI.toast('Demo only – nothing was created'); } }, 'OK'))));
-    }
-    pick();
   }
 })();
