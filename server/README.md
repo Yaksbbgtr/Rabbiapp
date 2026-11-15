@@ -66,6 +66,7 @@ Copy `data/school.sample.json` to `data/school.json` and fill in each rebbi's ce
 | `PARENTLOCKER_DELAY_SECONDS` | `120` | wait after a class's last reply before entering it |
 | `PARENTLOCKER_DRY_RUN` | `false` | fill in but don't press Save |
 | `OFFICE_PHONE` | | also texted when the robot can't enter a class |
+| `PARENTLOCKER_EMAIL`, `PARENTLOCKER_PASSWORD` | | Parent Locker login on a server (on a Mac, use `npm run pl:password`) |
 | `PORT` | `3000` | |
 
 ### Going live with real texts (later)
@@ -79,7 +80,8 @@ Copy `data/school.sample.json` to `data/school.json` and fill in each rebbi's ce
 Parent Locker has no API, so a hidden browser (Playwright) enters attendance on the website the way a rebbi would: **Take Attendance → the course → Present / Late / Absent for each boy → Save Attendance**, then reloads the page to check it saved. Code: `src/parentlocker-robot.js` (selectors at the top, in case Parent Locker changes the page).
 
 - Each reply is saved to `data/parentlocker-queue.json` first. The robot waits `PARENTLOCKER_DELAY_SECONDS` (default 120) after a class's last reply, so corrections ("Dovid came in") go in with it, then sends the latest attendance once. Classes go one at a time.
-- If it can't (login expired, course not on today's page, a name doesn't match, page changed), it texts the rebbi, and `OFFICE_PHONE` if set, to enter it by hand.
+- When its saved session runs out it logs in again with the password from the Keychain, or `PARENTLOCKER_EMAIL` / `PARENTLOCKER_PASSWORD` on a server. A rejected password isn't retried until it's changed.
+- If it can't (password rejected, course not on today's page, a name doesn't match, page changed), it texts the rebbi, and `OFFICE_PHONE` if set, to enter it by hand.
 - It only enters **today's** attendance, and checks the page shows today's date first.
 
 ### Setting it up
@@ -87,7 +89,10 @@ Parent Locker has no API, so a hidden browser (Playwright) enters attendance on 
 ```
 cd server
 npm install
-npm run pl:login        # a browser opens: log in to Parent Locker, then quit it with ⌘Q (saves the login, not the password)
+npm run pl:password -- you@school.org
+                        # in the Terminal app: saves the Parent Locker email and password in the Mac's Keychain,
+                        # so the robot can log itself back in when its session runs out
+npm run pl:login        # optional: log in once by hand in a browser, then quit it with ⌘Q
 npm run pl:courses      # today's courses on the Take Attendance page
 npm run pl:roster -- "PB-L Limudei Kodesh" "Rabbi Cohen" "+15550001001" "Kitah Gimmel"
                         # copies that course's class list into data/school.json (add nicknames to "aliases" after)

@@ -57,7 +57,7 @@ const NICKNAMES = {
   yisroel: ['srully', 'sruly', 'srulik', 'yisrael'], avraham: ['avi', 'avrumi', 'avrohom', 'avrum', 'avrumy'],
   avrohom: ['avi', 'avrumi', 'avrum', 'avrumy'], yitzchok: ['itzy', 'yitzy', 'itche', 'yitzchak'],
   yitzchak: ['itzy', 'yitzy', 'itche', 'yitzchok'], menachem: ['mendy', 'mendel'], chaim: ['chaimy', 'chaimie'],
-  shlomo: ['shloimy', 'shloime', 'shloimie'], yehoshua: ['shuey', 'shia', 'shiye'], aharon: ['ahron', 'aron', 'ahrele'],
+  shlomo: ['shloimy', 'shloime', 'shloimie'], yehoshua: ['shuey', 'shia', 'shiye', 'shua', 'shuie'], aharon: ['ahron', 'aron', 'ahrele'],
   aaron: ['ahron', 'aron', 'aharon'], binyomin: ['binny', 'benny', 'yomi', 'binyamin'], binyamin: ['binny', 'benny', 'yomi', 'binyomin'],
   eliyahu: ['eli', 'eliyohu'], mordechai: ['motty', 'mordy', 'motti', 'mutty'], tzvi: ['hershy', 'tzvika'],
   yoel: ['yoely', 'yoeli'], baruch: ['boruch', 'boruchy', 'baruchy'], meir: ['meiry', 'meier'], pinchas: ['pinny', 'pini'],

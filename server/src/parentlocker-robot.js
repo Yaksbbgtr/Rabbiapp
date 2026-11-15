@@ -6,12 +6,31 @@
  *   home.php → Take Attendance → the course link → mark each boy Present / Late /
  *   Absent → Save Attendance → reload and check every boy shows as saved.
  *
- * It signs in with a saved browser session (data/parentlocker/session.json,
- * made by `npm run pl:login`), never a password. If Parent Locker changes this
- * page, the selectors in SEL are the place to fix.
+ * It uses a saved browser session (data/parentlocker/session.json). When that
+ * runs out it logs in again with the email and password from the Mac's
+ * Keychain (`npm run pl:password`) or, on a server, PARENTLOCKER_EMAIL and
+ * PARENTLOCKER_PASSWORD. If Parent Locker changes these pages, the selectors in
+ * SEL are the place to fix.
  */
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
+
+const KEYCHAIN_SERVICE = 'parentlocker-robot';
+
+// { email, password } or null. Never logged or written anywhere.
+function credentials() {
+  if (process.env.PARENTLOCKER_EMAIL && process.env.PARENTLOCKER_PASSWORD) {
+    return { email: process.env.PARENTLOCKER_EMAIL, password: process.env.PARENTLOCKER_PASSWORD };
+  }
+  if (process.platform !== 'darwin') return null;
+  try {
+    const attrs = execFileSync('security', ['find-generic-password', '-s', KEYCHAIN_SERVICE], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const m = attrs.match(/"acct"<blob>="([^"]*)"/);
+    const password = execFileSync('security', ['find-generic-password', '-s', KEYCHAIN_SERVICE, '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).replace(/\n$/, '');
+    return m && password ? { email: m[1], password } : null;
+  } catch (e) { return null; }
+}
 
 const SESSION = process.env.PARENTLOCKER_SESSION ||
   path.join(process.env.DATA_DIR || path.join(__dirname, '..', 'data'), 'parentlocker', 'session.json');
@@ -30,6 +49,9 @@ function baseUrl() {
 }
 
 const SEL = {
+  loginEmail: 'input[name="user"]',
+  loginPassword: 'input[name="pass"]',
+  loginButton: '#submitButton',
   takeAttendance: { role: 'link', name: 'Take Attendance' },
   row: '.srow',
   name: '.student-name',
@@ -51,17 +73,35 @@ function playwright() {
   }
 }
 
+const onLoginPage = page => /login/i.test(new URL(page.url()).hostname + new URL(page.url()).pathname);
+
+// After a rejected password, don't keep trying it (that could lock the account) until it's changed.
+let rejected = null;
+const fingerprint = c => require('crypto').createHash('sha256').update(c.email + '\0' + c.password).digest('hex');
+
+async function logIn(page) {
+  const creds = credentials();
+  if (!creds) throw new RobotError('LOGIN_EXPIRED', 'The Parent Locker login has run out and no password is saved. Run `npm run pl:password`.');
+  if (rejected === fingerprint(creds)) throw new RobotError('LOGIN_FAILED', 'Parent Locker rejected the saved password earlier. Run `npm run pl:password` to update it.');
+  await page.fill(SEL.loginEmail, creds.email);
+  await page.fill(SEL.loginPassword, creds.password);
+  await page.click(SEL.loginButton);
+  await page.waitForURL(u => !/login/i.test(u.hostname + u.pathname), { timeout: 20000 }).catch(() => {});
+  await page.waitForLoadState('networkidle');
+  if (onLoginPage(page)) { rejected = fingerprint(creds); throw new RobotError('LOGIN_FAILED', 'Parent Locker did not accept the saved email and password. Run `npm run pl:password` to update them.'); }
+  if (!/home\.php/.test(page.url())) await page.goto(baseUrl() + '/home.php');
+}
+
 async function withCourse(course, fn) {
-  if (!fs.existsSync(SESSION)) throw new RobotError('NO_SESSION', 'No saved Parent Locker login. Run `npm run pl:login`.');
+  const hasSession = fs.existsSync(SESSION);
+  if (!hasSession && !credentials()) throw new RobotError('NO_SESSION', 'No Parent Locker login saved. Run `npm run pl:password`.');
   const browser = await playwright().chromium.launch({ headless: process.env.PARENTLOCKER_SHOW !== 'true' });
   try {
-    const ctx = await browser.newContext({ storageState: SESSION, viewport: { width: 1280, height: 2400 } });
+    const ctx = await browser.newContext({ storageState: hasSession ? SESSION : undefined, viewport: { width: 1280, height: 2400 } });
     ctx.setDefaultTimeout(20000);
     const page = await ctx.newPage();
     await page.goto(baseUrl() + '/home.php');
-    if (/login/i.test(new URL(page.url()).hostname + new URL(page.url()).pathname)) {
-      throw new RobotError('LOGIN_EXPIRED', 'The saved Parent Locker login has expired. Run `npm run pl:login` again.');
-    }
+    if (onLoginPage(page)) await logIn(page);
     await page.getByRole(SEL.takeAttendance.role, { name: SEL.takeAttendance.name }).click();
     await page.waitForLoadState('networkidle');
     const link = page.getByRole('link', { name: course });
@@ -70,6 +110,7 @@ async function withCourse(course, fn) {
     await page.waitForSelector(SEL.row);
     await page.waitForLoadState('networkidle');
     const result = await fn(page);
+    fs.mkdirSync(path.dirname(SESSION), { recursive: true });
     await ctx.storageState({ path: SESSION }); // keep the login fresh
     fs.chmodSync(SESSION, 0o600);
     return result;
@@ -157,4 +198,4 @@ async function takeAttendance({ course, date, records, save }) {
   });
 }
 
-module.exports = { takeAttendance, readCourse, RobotError, SESSION, baseUrl };
+module.exports = { takeAttendance, readCourse, RobotError, SESSION, baseUrl, credentials, KEYCHAIN_SERVICE };

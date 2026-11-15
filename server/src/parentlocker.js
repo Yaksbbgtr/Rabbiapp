@@ -68,6 +68,9 @@ function schedule(rec, delay = DELAY_MS) {
       if (!latest || latest.status !== 'scheduled') return;
       updateEntry(rec.date, rec.rebbiId, { status: 'sending' });
       const r = await pushAttendance(latest);
+      // A correction that came in while the robot was busy has its own timer; leave it scheduled for that one.
+      const now = readQueue().find(x => x.date === rec.date && x.rebbiId === rec.rebbiId);
+      if (now && now.rev !== latest.rev) return;
       const entry = updateEntry(rec.date, rec.rebbiId, r.ok
         ? { status: DRY_RUN ? 'dry-run' : 'sent', sentAt: new Date().toISOString(), result: r.result, error: undefined, code: undefined }
         : { status: 'error', error: r.error, code: r.code });
@@ -78,8 +81,10 @@ function schedule(rec, delay = DELAY_MS) {
 
 // Replace the queued entry for this class/day with the latest attendance.
 async function sync(rec) {
-  const q = readQueue().filter(x => !(x.date === rec.date && x.rebbiId === rec.rebbiId));
-  const entry = Object.assign({}, rec, { status: enabled ? 'scheduled' : 'waiting', updatedAt: new Date().toISOString() });
+  const all = readQueue();
+  const prev = all.find(x => x.date === rec.date && x.rebbiId === rec.rebbiId);
+  const q = all.filter(x => x !== prev);
+  const entry = Object.assign({}, rec, { status: enabled ? 'scheduled' : 'waiting', rev: ((prev && prev.rev) || 0) + 1, updatedAt: new Date().toISOString() });
   q.push(entry);
   writeQueue(q);
   if (enabled) schedule(rec);

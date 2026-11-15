@@ -2,6 +2,7 @@
 /*
  * Parent Locker helper commands.
  *
+ *   npm run pl:password -- you@school.org  save the Parent Locker login in the Mac's Keychain (run in Terminal)
  *   npm run pl:courses                      list today's courses on the Take Attendance page
  *   npm run pl:roster -- "<course>" "<rebbi name>" "<cell>" [class name]
  *                                           copy a course's class list from Parent Locker into data/school.json
@@ -27,6 +28,22 @@ function readSchool() {
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 async function main() {
+  if (cmd === 'password') {
+    // Saves the Parent Locker email and password in this Mac's Keychain. macOS asks for the password itself
+    // (hidden, twice), so it never appears on screen, in a file or in the shell history.
+    const email = pos[0];
+    if (!email || !email.includes('@')) throw new Error('Usage: npm run pl:password -- you@example.org');
+    if (process.platform !== 'darwin') throw new Error('Keychain is Mac-only. On a server set PARENTLOCKER_EMAIL and PARENTLOCKER_PASSWORD instead.');
+    if (!process.stdin.isTTY) throw new Error('This asks for the password, so run it in the Terminal app, not through Claude.');
+    const { spawnSync } = require('child_process');
+    spawnSync('security', ['delete-generic-password', '-s', robot.KEYCHAIN_SERVICE], { stdio: 'ignore' });
+    console.log(`Type your Parent Locker password for ${email} (it won't show), then again to confirm:`);
+    const r = spawnSync('security', ['add-generic-password', '-s', robot.KEYCHAIN_SERVICE, '-a', email, '-l', 'Parent Locker (attendance robot)', '-w'], { stdio: 'inherit' });
+    if (r.status !== 0) throw new Error('Not saved.');
+    console.log('Saved in Keychain as "Parent Locker (attendance robot)".');
+    return;
+  }
+
   if (cmd === 'courses') {
     const { chromium } = require('playwright');
     const b = await chromium.launch();

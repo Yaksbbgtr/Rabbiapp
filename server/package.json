@@ -11,7 +11,8 @@
     "pl:record": "playwright codegen --load-storage=data/parentlocker/session.json -o data/parentlocker/recording.js https://login.parentlocker.com",
     "pl:courses": "node src/pl-cli.js courses",
     "pl:roster": "node src/pl-cli.js roster",
-    "pl:try": "node src/pl-cli.js try"
+    "pl:try": "node src/pl-cli.js try",
+    "pl:password": "node src/pl-cli.js password"
   },
   "engines": {
     "node": ">=18"
