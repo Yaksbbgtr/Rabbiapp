@@ -6,8 +6,18 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "pl:login": "playwright codegen --save-storage=data/parentlocker/session.json https://login.parentlocker.com",
+    "pl:record": "playwright codegen --load-storage=data/parentlocker/session.json -o data/parentlocker/recording.js https://login.parentlocker.com",
+    "pl:courses": "node src/pl-cli.js courses",
+    "pl:roster": "node src/pl-cli.js roster",
+    "pl:try": "node src/pl-cli.js try"
   },
-  "engines": { "node": ">=18" },
-  "license": "UNLICENSED"
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "playwright": "^1.65.1"
+  }
 }

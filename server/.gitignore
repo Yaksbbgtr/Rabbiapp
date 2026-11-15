@@ -4,3 +4,6 @@ data/parentlocker-queue.json
 # real roster with phone numbers stays private
 data/school.json
 .env
+node_modules/
+# Parent Locker login session and recordings (real names, cookies)
+data/parentlocker/

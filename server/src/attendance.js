@@ -59,10 +59,23 @@ function summary(rec, roster) {
 
 async function syncParentLocker(rebbi, date, rec) {
   return parentlocker.sync({
-    date, rebbiId: rebbi.id, rebbi: rebbi.name, className: rebbi.className,
-    records: rebbi.talmidim.map(st => ({ studentId: st.id, name: fullName(st), status: rec.absent[st.id] || 'P' }))
+    date, rebbiId: rebbi.id, rebbi: rebbi.name, className: rebbi.className, course: rebbi.parentLockerCourse,
+    records: rebbi.talmidim.map(st => ({
+      studentId: st.id, name: fullName(st), plName: st.parentLockerName || `${st.last}, ${st.first}`, status: rec.absent[st.id] || 'P'
+    }))
   });
 }
+
+// If the robot couldn't enter a class's attendance, tell that rebbi (and the office, if set) so it gets done by hand.
+parentlocker.onResult(async (entry, r) => {
+  if (r.ok || !entry) return;
+  const rebbi = store.rebbi(entry.rebbiId);
+  const text = `⚠️ Parent Locker didn't take today's attendance for ${entry.className}: ${r.error}\n` +
+    'Please enter it on Parent Locker yourself. Your reply here is saved.';
+  const to = [rebbi && rebbi.phone, process.env.OFFICE_PHONE].filter(Boolean);
+  for (const phone of to) await sms.send(phone, text);
+  store.save();
+});
 
 /** Handle an incoming text. Returns the reply text (also sent via sms unless opts.noSend). */
 async function handleIncoming(phone, body, opts = {}) {

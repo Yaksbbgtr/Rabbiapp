@@ -32,7 +32,7 @@ If a rebbi hasn't answered within 45 minutes he gets one reminder. No texts go o
 
 ## Try the demo
 
-Requires Node.js 18 or newer. There are no packages to install.
+Requires Node.js 18 or newer. The texting demo needs no packages; the Parent Locker robot needs `npm install`.
 
 ```
 cd server
@@ -61,7 +61,11 @@ Copy `data/school.sample.json` to `data/school.json` and fill in each rebbi's ce
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | | for real texts |
 | `PUBLIC_URL` | | public address of the server (to verify Twilio webhooks) |
 | `DEMO` | `true` | set `false` in production to turn off the demo buttons |
-| `PARENTLOCKER_ENABLED` | `false` | turn on after the connector is written |
+| `PARENTLOCKER_ENABLED` | `false` | `true` = the robot enters attendance on Parent Locker |
+| `PARENTLOCKER_URL` | from the saved login | the school's Parent Locker site, e.g. `https://yourschool.parentlocker.com` |
+| `PARENTLOCKER_DELAY_SECONDS` | `120` | wait after a class's last reply before entering it |
+| `PARENTLOCKER_DRY_RUN` | `false` | fill in but don't press Save |
+| `OFFICE_PHONE` | | also texted when the robot can't enter a class |
 | `PORT` | `3000` | |
 
 ### Going live with real texts (later)
@@ -72,4 +76,25 @@ Copy `data/school.sample.json` to `data/school.json` and fill in each rebbi's ce
 
 ## Parent Locker
 
-Parent Locker doesn't publish an API, so `src/parentlocker.js` is a placeholder. After every reply it saves the class's full attendance for the day to `data/parentlocker-queue.json` with status `waiting`, and the demo page shows exactly what would be sent. When the school gets integration access from Parent Locker, fill in `pushAttendance()` in that file and set `PARENTLOCKER_ENABLED=true`. Nothing else needs to change.
+Parent Locker has no API, so a hidden browser (Playwright) enters attendance on the website the way a rebbi would: **Take Attendance → the course → Present / Late / Absent for each boy → Save Attendance**, then reloads the page to check it saved. Code: `src/parentlocker-robot.js` (selectors at the top, in case Parent Locker changes the page).
+
+- Each reply is saved to `data/parentlocker-queue.json` first. The robot waits `PARENTLOCKER_DELAY_SECONDS` (default 120) after a class's last reply, so corrections ("Dovid came in") go in with it, then sends the latest attendance once. Classes go one at a time.
+- If it can't (login expired, course not on today's page, a name doesn't match, page changed), it texts the rebbi, and `OFFICE_PHONE` if set, to enter it by hand.
+- It only enters **today's** attendance, and checks the page shows today's date first.
+
+### Setting it up
+
+```
+cd server
+npm install
+npm run pl:login        # a browser opens: log in to Parent Locker, then quit it with ⌘Q (saves the login, not the password)
+npm run pl:courses      # today's courses on the Take Attendance page
+npm run pl:roster -- "PB-L Limudei Kodesh" "Rabbi Cohen" "+15550001001" "Kitah Gimmel"
+                        # copies that course's class list into data/school.json (add nicknames to "aliases" after)
+npm run pl:try -- rabbi-cohen "Katz, Moshe=A" "Rosen=L"
+                        # fills in Parent Locker and takes a screenshot but does NOT save; add --save to save, --show to watch
+```
+
+Then run the server with `PARENTLOCKER_ENABLED=true`. `PARENTLOCKER_DRY_RUN=true` fills in without saving, for testing.
+
+The login session, screenshots and `school.json` hold real names and are git-ignored. `npm run pl:record` records clicks on the site (Playwright codegen) if the page changes and the robot needs updating.
