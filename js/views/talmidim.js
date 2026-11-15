@@ -69,6 +69,45 @@
     ]);
   }
 
+  // Print the class list: plain, with tick boxes, or with parents' names and phones.
+  function printClassList() {
+    var kind = UI.select([['plain', 'Names'], ['check', 'Names with boxes to tick (e.g. permission slips, chazara)'], ['parents', 'Names with parents\' names and phones']], 'plain');
+    var boxes = UI.select([['5', '5'], ['6', '6'], ['8', '8'], ['10', '10']], '6');
+    var heading = UI.input({ placeholder: 'e.g. Siyum money (optional)' });
+    var boxField = UI.field('How many boxes?', boxes);
+    var show = function () { boxField.style.display = kind.value === 'check' ? '' : 'none'; };
+    kind.addEventListener('change', show); show();
+    UI.modal('Print class list', h('div', UI.field('What to print', kind), boxField, UI.field('Heading (optional)', heading)), [
+      { label: 'Cancel' },
+      { label: 'Print', primary: true, onClick: function () { UI.printSheet(classListSheet(kind.value, +boxes.value, heading.value.trim())); } }
+    ]);
+  }
+  function classListSheet(kind, nBoxes, heading) {
+    var st = Store.get();
+    var list = Store.activeTalmidim();
+    var phones = function (t) {
+      return [['Father', t.fatherPhone], ['Mother', t.motherPhone]].filter(function (x) { return x[1] && String(x[1]).trim(); }).map(function (x) { return x[0] + ': ' + x[1]; });
+    };
+    var head = ['#', 'Name', 'Hebrew name'];
+    if (kind === 'parents') head = head.concat(['Father', 'Mother', 'Phones']);
+    var cols = [];
+    if (kind === 'check') for (var i = 0; i < nBoxes; i++) cols.push('');
+    return h('div.cl-sheet',
+      h('div.ai-sheet-head', h('div.row.between', h('div.small', st.settings.school || ''), h('div.small', UI.fmtDate(Store.todayISO())))),
+      h('h1', heading || 'Class list'),
+      h('div', [st.settings.rebbiName, st.settings.className].filter(Boolean).join(' · ') + ' · ' + list.length + ' talmidim'),
+      h('table.cl-table',
+        h('thead', h('tr', head.map(function (x) { return h('th', x); }), cols.map(function () { return h('th', ''); }))),
+        h('tbody', list.map(function (t, i) {
+          return h('tr',
+            h('td.n', String(i + 1)),
+            h('td', ((t.first || '') + ' ' + (t.last || '')).trim()),
+            h('td.he', { dir: 'rtl' }, t.hebName || ''),
+            kind === 'parents' ? [h('td', t.father || ''), h('td', t.mother || ''), h('td', phones(t).map(function (p, j) { return [j ? h('br') : null, p]; }))] : null,
+            cols.map(function () { return h('td.box', ''); }));
+        }))));
+  }
+
   Views.register('talmidim', {
     title: 'Talmidim', icon: 'users',
     render: function (main) {
@@ -100,6 +139,7 @@
         h('div.row.gap.wrap',
           h('button.btn', { onclick: function () { window.ClassListScanner.open(); } }, UI.icon('camera'), 'Scan class list'),
           h('button.btn', { onclick: bulkAdd }, 'Paste class list'),
+          all.length ? h('button.btn', { onclick: printClassList }, UI.icon('print'), 'Print class list') : null,
           h('button.btn.primary', { onclick: function () { editTalmid(); } }, UI.icon('plus'), 'Add talmid'))));
       main.appendChild(search);
       main.appendChild(list);

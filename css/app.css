@@ -736,10 +736,20 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .ai-color-title { font-size: 1.2em; }
 .ai-trace { text-align: center; font-size: 64pt; line-height: 1.2; font-weight: 700; color: transparent; -webkit-text-stroke: 2px #000; margin-top: 8px; font-family: 'Frank Ruehl CLM', 'Times New Roman', serif; }
 .ai-key { margin-top: 24px; }
-#ai-print { display: none; }
+#print-sheet { display: none; }
 @media print {
-  body.ai-printing > *:not(#ai-print) { display: none !important; }
-  body.ai-printing #ai-print { display: block; }
+  body.sheet-printing > *:not(#print-sheet) { display: none !important; }
+  body.sheet-printing #print-sheet { display: block; }
   .ai-newpage { page-break-before: always; break-before: page; }
   .ai-picture { max-height: 78vh; }
 }
+
+/* printed class list */
+.cl-sheet { font-size: 11pt; color: #000; }
+.cl-sheet h1 { font-size: 16pt; margin: 4px 0 2px; }
+.cl-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.cl-table th, .cl-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; vertical-align: top; }
+.cl-table th { font-size: 9pt; background: #eee; }
+.cl-table td.n { width: 2em; text-align: right; }
+.cl-table td.box { width: 1.6em; }
+.cl-table .he { font-size: 12pt; text-align: right; }

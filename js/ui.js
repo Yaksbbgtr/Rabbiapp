@@ -171,6 +171,18 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }
 
+  // Print just this element (the app around it is hidden while printing).
+  function printSheet(el) {
+    var old = document.getElementById('print-sheet');
+    if (old) old.remove();
+    var box = h('div#print-sheet', el);
+    document.body.appendChild(box);
+    document.body.classList.add('sheet-printing');
+    var done = function () { document.body.classList.remove('sheet-printing'); box.remove(); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    setTimeout(function () { window.print(); }, 50); // let pictures load
+  }
+
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { toast('Copied to clipboard'); });
@@ -226,6 +238,7 @@
   }
 
   window.UI = {
+    printSheet: printSheet,
     getTheme: getTheme, setTheme: setTheme, themeButtons: themeButtons,
     levelSelect: levelSelect,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,

@@ -138,16 +138,7 @@
     }
     return wrap;
   }
-  function printEl(el) {
-    var old = document.getElementById('ai-print');
-    if (old) old.remove();
-    var box = h('div#ai-print', el);
-    document.body.appendChild(box);
-    document.body.classList.add('ai-printing');
-    var done = function () { document.body.classList.remove('ai-printing'); box.remove(); window.removeEventListener('afterprint', done); };
-    window.addEventListener('afterprint', done);
-    setTimeout(function () { window.print(); }, 50); // let the picture load
-  }
+  function printEl(el) { UI.printSheet(el); }
 
   // ---------- saved projects (s.projects) ----------
   var KIND = { worksheet: 'Worksheet', test: 'Test', coloring: 'Coloring page' };
