@@ -48,10 +48,32 @@ function levenshtein(a, b) {
   return prev[n];
 }
 
+// Common nicknames, so "Moishy" finds Moshe without anyone typing them in.
+// (Only nicknames, not English names: "Samuel" could be a different boy than Shmuel.)
+const NICKNAMES = {
+  moshe: ['moishy', 'moishe', 'moshy', 'moishie'], yaakov: ['yanky', 'yankel', 'yakov', 'yaki'],
+  dovid: ['duvi', 'dovi', 'dudi', 'duvid'], shmuel: ['shmuli', 'shmuly', 'shmulik'],
+  yehuda: ['yidi', 'yudi', 'yehudah', 'yehudi', 'yidel'], yosef: ['yossi', 'yossy', 'yossel', 'yosi'],
+  yisroel: ['srully', 'sruly', 'srulik', 'yisrael'], avraham: ['avi', 'avrumi', 'avrohom', 'avrum', 'avrumy'],
+  avrohom: ['avi', 'avrumi', 'avrum', 'avrumy'], yitzchok: ['itzy', 'yitzy', 'itche', 'yitzchak'],
+  yitzchak: ['itzy', 'yitzy', 'itche', 'yitzchok'], menachem: ['mendy', 'mendel'], chaim: ['chaimy', 'chaimie'],
+  shlomo: ['shloimy', 'shloime', 'shloimie'], yehoshua: ['shuey', 'shia', 'shiye'], aharon: ['ahron', 'aron', 'ahrele'],
+  aaron: ['ahron', 'aron', 'aharon'], binyomin: ['binny', 'benny', 'yomi', 'binyamin'], binyamin: ['binny', 'benny', 'yomi', 'binyomin'],
+  eliyahu: ['eli', 'eliyohu'], mordechai: ['motty', 'mordy', 'motti', 'mutty'], tzvi: ['hershy', 'tzvika'],
+  yoel: ['yoely', 'yoeli'], baruch: ['boruch', 'boruchy', 'baruchy'], meir: ['meiry', 'meier'], pinchas: ['pinny', 'pini'],
+  efraim: ['effy', 'efrayim'], ephraim: ['effy'], naftali: ['tuli', 'tully'], shimon: ['shimmy', 'shimi'],
+  reuven: ['ruvi', 'reuvy', 'ruvie'], yechiel: ['chiely'], nosson: ['nossi', 'nosi'], nachman: ['nachy'], nachum: ['nachy'],
+  yechezkel: ['chezky', 'chezki'], ezriel: ['ezzy'], gavriel: ['gavi', 'gabi'], michoel: ['michy'], michael: ['michy'],
+  zev: ['zevy'], dov: ['dovy', 'berel'], akiva: ['kivi', 'kivy'], elimelech: ['meilech', 'melech'],
+  refoel: ['refi', 'rafi'], refael: ['refi', 'rafi']
+};
+
 function namesFor(st) {
   const first = normalize(st.first), last = normalize(st.last);
   const firsts = [first, normalize(st.hebrew)].concat((st.aliases || []).map(normalize)).filter(Boolean);
-  return { first, last, firsts };
+  const nicks = [];
+  for (const f of firsts) for (const nick of NICKNAMES[f.split(' ')[0]] || []) if (!firsts.includes(nick) && !nicks.includes(nick)) nicks.push(nick);
+  return { first, last, firsts, nicks };
 }
 
 // Find students matching one piece of text, e.g. "moshe k", "katz", "yanky", "משה".
@@ -59,11 +81,13 @@ function matchName(text, roster) {
   const t = normalize(text);
   if (!t) return [];
   const words = t.split(' ');
-  const exact = [], fuzzy = [];
+  const exact = [], nick = [], fuzzy = [];
   for (const st of roster) {
     const n = namesFor(st);
     const full = n.firsts.map(f => f + ' ' + n.last);
     if (full.includes(t) || n.firsts.includes(t) || t === n.last) { exact.push(st); continue; }
+    // Built-in nicknames count only if no boy has that name or alias of his own (see below).
+    if (n.nicks.includes(t) || (words.length === 2 && n.nicks.includes(words[0]) && n.last.startsWith(words[1]))) { nick.push(st); continue; }
     // "moshe k" / "moshe katz" / "katz moshe"
     if (words.length === 2) {
       const [a, b] = words;
@@ -74,12 +98,14 @@ function matchName(text, roster) {
     const allowed = t.length >= 7 ? 2 : t.length >= 4 ? 1 : 0;
     if (allowed && n.firsts.concat(full, [n.last]).some(c => levenshtein(c, t) <= allowed)) fuzzy.push(st);
   }
-  return exact.length ? exact : fuzzy;
+  return exact.length ? exact : nick.length ? nick : fuzzy;
 }
 
 function splitNames(raw) {
   return String(raw || '')
     .toLowerCase()
+    // "orlansky late kaufman absent": a status word after a name ends that name's part
+    .replace(/(\S)\s+(late|absent|sick|out|home|came in|is here|here|arrived)\s+(?=\S)/g, '$1 $2, ')
     .split(/\s*(?:,|;|\n|&|\+|\/|\band\b)\s*/)
     .map(s => normalize(s).replace(FILLER, ' ').replace(/\s+/g, ' ').trim())
     .filter(Boolean);

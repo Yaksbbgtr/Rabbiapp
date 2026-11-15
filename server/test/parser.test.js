@@ -61,3 +61,19 @@ test('unknown names are reported', () => {
   assert.deepStrictEqual(ids(r.absent), ['g3']);
   assert.deepStrictEqual(r.unknown, ['zalman']);
 });
+
+test('a status word after each name, without commas', () => {
+  const r = parseReply('Dovid late Shmuel absent', roster);
+  assert.deepStrictEqual(ids(r.late), ['g6']);
+  assert.deepStrictEqual(ids(r.absent), ['g7']);
+  const r2 = parseReply('rosen late weiss absent', roster);
+  assert.deepStrictEqual(ids(r2.late), ['g6']);
+  assert.deepStrictEqual(ids(r2.absent), ['g7']);
+});
+
+test('common nicknames work without being typed in', () => {
+  const plain = roster.map(st => Object.assign({}, st, { aliases: [] }));
+  assert.deepStrictEqual(ids(parseReply('Shmuli', plain).absent), ['g7']);
+  assert.deepStrictEqual(ids(parseReply('Duvi late', plain).late), ['g6']);
+  assert.strictEqual(parseReply('Moishy', plain).ambiguous.length, 1); // two Moshes: asks which
+});
