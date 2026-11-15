@@ -5,17 +5,18 @@
   "private": true,
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node --env-file-if-exists=.env src/server.js",
     "test": "node --test test/*.test.js",
     "pl:login": "playwright codegen --save-storage=data/parentlocker/session.json https://login.parentlocker.com",
     "pl:record": "playwright codegen --load-storage=data/parentlocker/session.json -o data/parentlocker/recording.js https://login.parentlocker.com",
     "pl:courses": "node src/pl-cli.js courses",
     "pl:roster": "node src/pl-cli.js roster",
     "pl:try": "node src/pl-cli.js try",
-    "pl:password": "node src/pl-cli.js password"
+    "pl:password": "node src/pl-cli.js password",
+    "sms:test": "node --env-file-if-exists=.env src/sms-test.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "license": "UNLICENSED",
   "dependencies": {
