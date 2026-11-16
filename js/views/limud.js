@@ -151,7 +151,7 @@
         talmidim.forEach(function (t) { counts[m[t.id] || 0]++; });
         main.appendChild(h('div.card',
           h('div.legend', window.MASTERY_LEVELS.map(function (l, i) { return h('span.level.l' + i, counts[i] + ' ' + l); })),
-          h('p.small.muted', 'Tap ', UI.icon('chat', 14), ' next to a talmid to write a comment. A filled-in bubble means he has one: tap it, or his row, to read it.'),
+          h('p.small.muted', 'Tap ', UI.icon('chat', 14), ' next to a talmid (or tap his row) to open his comment box. It saves as you type.'),
           h('div.row.gap.wrap',
             h('button.btn.small', { onclick: function () {
               Store.update(function (s) { var mm = s.mastery[u.id] = s.mastery[u.id] || {}; talmidim.forEach(function (t) { if (!mm[t.id]) mm[t.id] = 1; }); });
@@ -160,7 +160,7 @@
             h('button.btn.small', { onclick: function () { Store.update(function () { u.archived = !u.archived; }); App.render(); } }, u.archived ? 'Reopen this limud' : 'Mark finished'))));
         main.appendChild(talmidim.length ? h('div.card.att-list', talmidim.map(function (t) {
           var cp = UI.limudCommentParts(u.id, t.id, Store.displayName(t));
-          return h('div.att-row.lc-row' + (cp.note ? '.has-comment' : ''), { onclick: function (e) { if (!e.target.closest('a,select,button')) cp.toggle(); } },
+          return h('div.att-row.lc-row' + '.has-comment', { onclick: function (e) { if (!e.target.closest('a,select,button,textarea')) cp.toggle(); } },
             h('div.att-name', h('a.plain-link', { href: '#/talmid/' + t.id }, Store.displayName(t)), t.hebName && !st.settings.hebrewFirst ? h('span.he.muted.small', t.hebName) : null),
             h('div.lc-controls', cp.button,
               UI.levelSelect(t.id, u.id, Store.displayName(t) + ', ' + u.title)),

@@ -206,57 +206,50 @@
     var c = ((Store.get().limudComments || {})[unitId] || {})[talmidId];
     return c && c.text ? c : null;
   }
-  function editLimudComment(unitId, talmidId) {
-    var st = Store.get();
-    var t = Store.talmid(talmidId);
-    var u = st.units.find(function (x) { return x.id === unitId; });
-    var cur = limudComment(unitId, talmidId);
-    var ta = h('textarea', { rows: 4, dir: 'auto', 'aria-label': 'Comment',
-      placeholder: 'e.g. Knows the pesukim but mixes up Rashi on pasuk 3. Review with him Thursday.' }, cur ? cur.text : '');
-    var save = function (text) {
-      Store.update(function (s) {
-        var all = s.limudComments = s.limudComments || {};
-        var mine = all[unitId] = all[unitId] || {};
-        if (text) mine[talmidId] = { text: text, date: Store.todayISO() };
-        else delete mine[talmidId];
-      });
-      App.render();
-    };
-    var buttons = [{ label: 'Cancel' }];
-    if (cur) buttons.push({ label: 'Delete', onClick: function () { save(''); toast('Comment deleted'); } });
-    buttons.push({ label: 'Save', primary: true, onClick: function () { save(ta.value.trim()); } });
-    modal('Comment', h('div',
-      h('p.muted', h('strong', { dir: 'auto' }, Store.displayName(t)), ' · ', h('span', { dir: 'auto' }, u ? u.title : '')),
-      ta), buttons);
-    setTimeout(function () { ta.focus(); }, 50);
-  }
-
-  // The comment bubble for one talmid in one limud, plus the hidden note it opens.
-  // Returns { button, note }. With no comment yet, the bubble starts one; with a comment,
-  // the bubble (or a tap on the row) shows or hides it. Open notes stay open across re-renders.
+  // The comment bubble for one talmid in one limud, plus the comment box it opens.
+  // Like the report card comment: no pop-up, he just types in the box and it saves as he types.
+  // Returns { button, note, toggle }. The box stays hidden until the bubble or the row is tapped.
   var openComments = {};
   window.addEventListener('hashchange', function () { openComments = {}; });
   function limudCommentParts(unitId, talmidId, label) {
     var key = unitId + '/' + talmidId;
     var c = limudComment(unitId, talmidId);
-    var note = c ? h('button.lc-note', { dir: 'auto', title: 'Edit comment', onclick: function () { editLimudComment(unitId, talmidId); } },
-      c.text, h('span.lc-date', fmtDate(c.date) + ' · tap to edit')) : null;
+    var saved = h('span.rc-saved', { 'aria-live': 'polite' });
+    var ta = h('textarea.rc-comment-edit.lc-edit', {
+      dir: 'auto', rows: 2, 'aria-label': 'Comment for ' + label,
+      placeholder: 'Write a comment… e.g. Knows the pesukim, mixes up Rashi on pasuk 3.'
+    }, c ? c.text : '');
+    var dateEl = h('span', c ? fmtDate(c.date) : '');
+    var note = h('div.lc-note', dateEl, saved, ta);
     var btn = h('button.icon-btn.lc-btn' + (c ? '.has' : ''), {
-      'aria-label': (c ? 'Show comment for ' : 'Add a comment for ') + label, title: c ? 'Show comment' : 'Add a comment'
+      'aria-label': 'Comment for ' + label, title: 'Comment'
     }, icon('chat', 18));
-    var show = function (on) {
-      if (!note) return;
+    var grow = function () { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; };
+    var timer;
+    ta.addEventListener('input', function () {
+      grow();
+      var text = ta.value.trim();
+      Store.update(function (s) {
+        var all = s.limudComments = s.limudComments || {};
+        var mine = all[unitId] = all[unitId] || {};
+        if (text) mine[talmidId] = { text: ta.value, date: Store.todayISO() };
+        else delete mine[talmidId];
+      });
+      dateEl.textContent = text ? fmtDate(Store.todayISO()) : '';
+      btn.classList.toggle('has', !!text);
+      saved.textContent = 'Saved ✓';
+      clearTimeout(timer); timer = setTimeout(function () { saved.textContent = ''; }, 1500);
+    });
+    var show = function (on, focus) {
       openComments[key] = on;
       note.hidden = !on;
       btn.classList.toggle('open', on);
       btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (on) { setTimeout(grow, 0); if (focus && !ta.value) setTimeout(function () { ta.focus(); }, 0); }
     };
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      if (!c) editLimudComment(unitId, talmidId); else show(note.hidden);
-    });
+    btn.addEventListener('click', function (e) { e.stopPropagation(); show(note.hidden, true); });
     show(!!openComments[key]);
-    return { button: btn, note: note, toggle: function () { if (c) show(note.hidden); } };
+    return { button: btn, note: note, toggle: function () { show(note.hidden, true); } };
   }
 
   // The phone's own pop-up menu (a native select) styled as the colored level pill.
@@ -304,7 +297,6 @@
     levelSelect: levelSelect,
     limudComment: limudComment,
     limudCommentParts: limudCommentParts,
-    editLimudComment: editLimudComment,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,
     input: input, select: select, fmtDate: fmtDate, hebDate: hebDate, addDays: addDays,
     empty: empty, download: download, copyText: copyText, talmidOptions: talmidOptions

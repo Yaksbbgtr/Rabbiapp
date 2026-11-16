@@ -232,7 +232,7 @@
         units.length ? h('p.small.muted', 'Tap a level to change it.') : null,
         units.length ? h('ul.list', units.map(function (u) {
           var cp = UI.limudCommentParts(u.id, t.id, u.title);
-          return h('li' + (cp.note ? '.has-comment' : ''), { onclick: function (e) { if (!e.target.closest('a,select,button')) cp.toggle(); } },
+          return h('li' + '.has-comment', { onclick: function (e) { if (!e.target.closest('a,select,button,textarea')) cp.toggle(); } },
             h('div.row.between', h('a.plain-link', { href: '#/unit/' + u.id }, h('strong', u.subject), ' ', u.title),
               h('div.lc-controls', cp.button, UI.levelSelect(t.id, u.id, u.title))),
             cp.note);
