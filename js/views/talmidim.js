@@ -235,8 +235,6 @@
           return h('li',
             h('div.row.between', h('a.plain-link', { href: '#/unit/' + u.id }, h('strong', u.subject), ' ', u.title),
               h('div.lc-controls',
-                h('button.icon-btn.lc-btn' + (c ? '.has' : ''), { 'aria-label': (c ? 'Edit comment on ' : 'Add a comment on ') + u.title, title: c ? 'Edit comment' : 'Add a comment',
-                  onclick: function () { UI.editLimudComment(u.id, t.id); } }, UI.icon('chat', 18)),
                 UI.levelSelect(t.id, u.id, u.title))),
             c ? h('button.lc-note', { dir: 'auto', onclick: function () { UI.editLimudComment(u.id, t.id); } }, c.text, h('span.lc-date', UI.fmtDate(c.date))) : null);
         })) : h('p.muted', 'No limudim yet.')));

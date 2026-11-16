@@ -801,3 +801,4 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
   background: var(--gold-soft); border: 0; border-radius: 10px; padding: 8px 10px; margin-top: 2px; white-space: pre-wrap; cursor: pointer;
 }
 .lc-date { display: block; font-size: .75rem; color: var(--muted); margin-top: 3px; }
+.lc-controls .level-select, .lc-controls .level { width: 9em; }
