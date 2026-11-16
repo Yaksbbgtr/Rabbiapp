@@ -209,8 +209,9 @@
   // The comment bubble for one talmid in one limud, plus the comment box it opens.
   // Like the report card comment: no pop-up, he just types in the box and it saves as he types.
   // Returns { button, note, toggle }. The box stays hidden until the bubble or the row is tapped.
-  var openComments = {};
-  window.addEventListener('hashchange', function () { openComments = {}; });
+  // Only one comment box is open at a time; opening another slides the first one closed.
+  var openKey = null, closeOpen = null;
+  window.addEventListener('hashchange', function () { openKey = null; closeOpen = null; });
   function limudCommentParts(unitId, talmidId, label) {
     var key = unitId + '/' + talmidId;
     var c = limudComment(unitId, talmidId);
@@ -220,7 +221,7 @@
       placeholder: 'Write a comment… e.g. Knows the pesukim, mixes up Rashi on pasuk 3.'
     }, c ? c.text : '');
     var dateEl = h('span', c ? fmtDate(c.date) : '');
-    var note = h('div.lc-note', dateEl, saved, ta);
+    var note = h('div.lc-note', h('div.lc-inner', h('div.lc-meta', dateEl, saved), ta));
     var btn = h('button.icon-btn.lc-btn' + (c ? '.has' : ''), {
       'aria-label': 'Comment for ' + label, title: 'Comment'
     }, icon('chat', 18));
@@ -240,16 +241,31 @@
       saved.textContent = 'Saved ✓';
       clearTimeout(timer); timer = setTimeout(function () { saved.textContent = ''; }, 1500);
     });
+    var isOpen = false;
     var show = function (on, focus) {
-      openComments[key] = on;
-      note.hidden = !on;
+      if (on && closeOpen && openKey !== key) closeOpen();
+      isOpen = on;
+      note.classList.toggle('open', on);
+      ta.tabIndex = on ? 0 : -1;
       btn.classList.toggle('open', on);
       btn.setAttribute('aria-expanded', on ? 'true' : 'false');
-      if (on) { setTimeout(grow, 0); if (focus && !ta.value) setTimeout(function () { ta.focus(); }, 0); }
+      if (on) {
+        openKey = key; closeOpen = function () { show(false); };
+        grow();
+        if (focus) setTimeout(function () { ta.focus({ preventScroll: true }); var n = ta.value.length; ta.setSelectionRange(n, n); }, 60);
+      } else {
+        if (openKey === key) { openKey = null; closeOpen = null; }
+        if (document.activeElement === ta) ta.blur();
+      }
     };
-    btn.addEventListener('click', function (e) { e.stopPropagation(); show(note.hidden, true); });
-    show(!!openComments[key]);
-    return { button: btn, note: note, toggle: function () { show(note.hidden, true); } };
+    // Enter finishes the note (it's already saved) and slides the box closed; Shift+Enter starts a new line.
+    ta.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); show(false); }
+    });
+    ta.setAttribute('enterkeyhint', 'done');
+    btn.addEventListener('click', function (e) { e.stopPropagation(); show(!isOpen, true); });
+    if (openKey === key) { show(true); } else { ta.tabIndex = -1; btn.setAttribute('aria-expanded', 'false'); }
+    return { button: btn, note: note, toggle: function () { show(!isOpen, true); } };
   }
 
   // The phone's own pop-up menu (a native select) styled as the colored level pill.

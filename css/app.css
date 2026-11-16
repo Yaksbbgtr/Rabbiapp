@@ -796,10 +796,17 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .lc-controls { display: flex; align-items: center; gap: 8px; }
 .lc-btn { color: var(--muted); }
 .lc-btn.has { color: var(--navy); background: var(--blue-soft); }
-.lc-note { flex-basis: 100%; width: 100%; font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.lc-note {
+  flex-basis: 100%; width: 100%; font-size: .78rem; color: var(--muted);
+  display: grid; grid-template-rows: 0fr; opacity: 0; margin-top: -13px;
+  transition: grid-template-rows .28s ease, opacity .2s ease, margin-top .28s ease;
+}
+.lc-note.open { grid-template-rows: 1fr; opacity: 1; margin-top: 2px; }
+.lc-inner { overflow: hidden; min-height: 0; padding: 0 3px 3px; }
+.lc-meta { min-height: 1.2em; }
+@media (prefers-reduced-motion: reduce) { .lc-note { transition: none; } }
 .lc-note .rc-saved { font-size: .78rem; }
 .lc-edit { min-height: 60px; margin-top: 4px; font-size: .95rem; color: var(--ink); }
 .lc-controls .level-select, .lc-controls .level { width: 9em; }
 .has-comment { cursor: pointer; }
 .lc-btn.open { background: var(--navy); color: #fff; }
-.lc-note[hidden] { display: none; }
