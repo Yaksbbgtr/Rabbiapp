@@ -231,16 +231,41 @@
     setTimeout(function () { ta.focus(); }, 50);
   }
 
+  // The comment bubble for one talmid in one limud, plus the hidden note it opens.
+  // Returns { button, note }. With no comment yet, the bubble starts one; with a comment,
+  // the bubble (or a tap on the row) shows or hides it. Open notes stay open across re-renders.
+  var openComments = {};
+  window.addEventListener('hashchange', function () { openComments = {}; });
+  function limudCommentParts(unitId, talmidId, label) {
+    var key = unitId + '/' + talmidId;
+    var c = limudComment(unitId, talmidId);
+    var note = c ? h('button.lc-note', { dir: 'auto', title: 'Edit comment', onclick: function () { editLimudComment(unitId, talmidId); } },
+      c.text, h('span.lc-date', fmtDate(c.date) + ' · tap to edit')) : null;
+    var btn = h('button.icon-btn.lc-btn' + (c ? '.has' : ''), {
+      'aria-label': (c ? 'Show comment for ' : 'Add a comment for ') + label, title: c ? 'Show comment' : 'Add a comment'
+    }, icon('chat', 18));
+    var show = function (on) {
+      if (!note) return;
+      openComments[key] = on;
+      note.hidden = !on;
+      btn.classList.toggle('open', on);
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    };
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!c) editLimudComment(unitId, talmidId); else show(note.hidden);
+    });
+    show(!!openComments[key]);
+    return { button: btn, note: note, toggle: function () { if (c) show(note.hidden); } };
+  }
+
   // The phone's own pop-up menu (a native select) styled as the colored level pill.
   function levelSelect(talmidId, unitId, label) {
     var cur = (Store.get().mastery[unitId] || {})[talmidId] || 0;
-    var hasComment = !!limudComment(unitId, talmidId);
     var sel = h('select.level.level-select.l' + cur, { 'aria-label': label || 'Level' },
       window.MASTERY_LEVELS.map(function (l, i) { return h('option', { value: i, selected: i === cur }, l); }),
-      h('option', { disabled: true }, '─────'),
-      h('option', { value: 'comment' }, hasComment ? 'Comment ✎' : 'Comment…'));
+    );
     sel.addEventListener('change', function () {
-      if (sel.value === 'comment') { sel.value = cur; editLimudComment(unitId, talmidId); return; }
       var v = +sel.value;
       Store.update(function (s) { (s.mastery[unitId] = s.mastery[unitId] || {})[talmidId] = v; });
       App.render();
@@ -278,6 +303,7 @@
     getTheme: getTheme, setTheme: setTheme, themeButtons: themeButtons,
     levelSelect: levelSelect,
     limudComment: limudComment,
+    limudCommentParts: limudCommentParts,
     editLimudComment: editLimudComment,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,
     input: input, select: select, fmtDate: fmtDate, hebDate: hebDate, addDays: addDays,

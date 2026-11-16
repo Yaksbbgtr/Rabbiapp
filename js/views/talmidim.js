@@ -231,12 +231,11 @@
         h('h2', 'Limud progress'),
         units.length ? h('p.small.muted', 'Tap a level to change it.') : null,
         units.length ? h('ul.list', units.map(function (u) {
-          var c = UI.limudComment(u.id, t.id);
-          return h('li',
+          var cp = UI.limudCommentParts(u.id, t.id, u.title);
+          return h('li' + (cp.note ? '.has-comment' : ''), { onclick: function (e) { if (!e.target.closest('a,select,button')) cp.toggle(); } },
             h('div.row.between', h('a.plain-link', { href: '#/unit/' + u.id }, h('strong', u.subject), ' ', u.title),
-              h('div.lc-controls',
-                UI.levelSelect(t.id, u.id, u.title))),
-            c ? h('button.lc-note', { dir: 'auto', onclick: function () { UI.editLimudComment(u.id, t.id); } }, c.text, h('span.lc-date', UI.fmtDate(c.date))) : null);
+              h('div.lc-controls', cp.button, UI.levelSelect(t.id, u.id, u.title))),
+            cp.note);
         })) : h('p.muted', 'No limudim yet.')));
 
       // Scores: every bechina, so missing ones can be filled in

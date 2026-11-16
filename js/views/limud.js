@@ -151,7 +151,7 @@
         talmidim.forEach(function (t) { counts[m[t.id] || 0]++; });
         main.appendChild(h('div.card',
           h('div.legend', window.MASTERY_LEVELS.map(function (l, i) { return h('span.level.l' + i, counts[i] + ' ' + l); })),
-          h('p.small.muted', 'To write a comment about a talmid, choose "Comment…" from his level menu.'),
+          h('p.small.muted', 'Tap ', UI.icon('chat', 14), ' next to a talmid to write a comment. A filled-in bubble means he has one: tap it, or his row, to read it.'),
           h('div.row.gap.wrap',
             h('button.btn.small', { onclick: function () {
               Store.update(function (s) { var mm = s.mastery[u.id] = s.mastery[u.id] || {}; talmidim.forEach(function (t) { if (!mm[t.id]) mm[t.id] = 1; }); });
@@ -159,13 +159,12 @@
             } }, 'Mark everyone "Learning"'),
             h('button.btn.small', { onclick: function () { Store.update(function () { u.archived = !u.archived; }); App.render(); } }, u.archived ? 'Reopen this limud' : 'Mark finished'))));
         main.appendChild(talmidim.length ? h('div.card.att-list', talmidim.map(function (t) {
-          var c = UI.limudComment(u.id, t.id);
-          return h('div.att-row.lc-row',
+          var cp = UI.limudCommentParts(u.id, t.id, Store.displayName(t));
+          return h('div.att-row.lc-row' + (cp.note ? '.has-comment' : ''), { onclick: function (e) { if (!e.target.closest('a,select,button')) cp.toggle(); } },
             h('div.att-name', h('a.plain-link', { href: '#/talmid/' + t.id }, Store.displayName(t)), t.hebName && !st.settings.hebrewFirst ? h('span.he.muted.small', t.hebName) : null),
-            h('div.lc-controls',
+            h('div.lc-controls', cp.button,
               UI.levelSelect(t.id, u.id, Store.displayName(t) + ', ' + u.title)),
-            c ? h('button.lc-note', { dir: 'auto', onclick: function () { UI.editLimudComment(u.id, t.id); } }, c.text,
-              h('span.lc-date', UI.fmtDate(c.date))) : null);
+            cp.note);
         })) : UI.empty('Add talmidim first.', h('a.btn.primary', { href: '#/talmidim' }, 'Add talmidim')));
       }
     }
