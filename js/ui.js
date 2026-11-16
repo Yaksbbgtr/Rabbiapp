@@ -272,8 +272,7 @@
   function levelSelect(talmidId, unitId, label) {
     var cur = (Store.get().mastery[unitId] || {})[talmidId] || 0;
     var sel = h('select.level.level-select.l' + cur, { 'aria-label': label || 'Level' },
-      window.MASTERY_LEVELS.map(function (l, i) { return h('option', { value: i, selected: i === cur }, l); }),
-    );
+      window.MASTERY_LEVELS.map(function (l, i) { return h('option', { value: i, selected: i === cur }, l); }));
     sel.addEventListener('change', function () {
       var v = +sel.value;
       Store.update(function (s) { (s.mastery[unitId] = s.mastery[unitId] || {})[talmidId] = v; });
