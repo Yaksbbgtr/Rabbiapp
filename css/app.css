@@ -803,8 +803,5 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .lc-date { display: block; font-size: .75rem; color: var(--muted); margin-top: 3px; }
 .lc-controls .level-select, .lc-controls .level { width: 9em; }
 .has-comment { cursor: pointer; }
-.lc-btn.has { position: relative; }
-.lc-btn.has::after { content: ''; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
 .lc-btn.open { background: var(--navy); color: #fff; }
-.lc-btn.open::after { display: none; }
 .lc-note[hidden] { display: none; }
