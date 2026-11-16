@@ -17,6 +17,36 @@
     var n = number.replace(/[^\d+*#]/g, '');
     return kind === 'text' ? 'sms:' + n + (body ? '?&body=' + encodeURIComponent(body) : '') : 'tel:' + n;
   }
+  function initials(t) {
+    var a = (t.first || '').trim(), b = (t.last || '').trim();
+    return ((a[0] || '') + (b[0] || '')).toUpperCase() || (t.hebName || '?').trim().slice(0, 1);
+  }
+  // One family in the Directory: the talmid, then each parent with call and text buttons, then email.
+  function dirCard(t) {
+    var shown = Store.displayName(t);
+    var english = ((t.first || '') + ' ' + (t.last || '')).trim();
+    var sub = shown === t.hebName ? english : t.hebName;
+    var nums = {};
+    parentPhones(t).forEach(function (n) { nums[n.who] = n.number; });
+    var parentRow = function (who, name) {
+      var number = nums[who];
+      if (!name && !number) return null;
+      return h('div.dir-parent',
+        h('div.dir-who', h('span.dir-role', who), h('span.dir-pname', name || '—'),
+          number ? h('a.dir-num', { href: telHref('call', number) }, number) : h('span.dir-num.muted', 'No phone')),
+        number ? h('div.dir-actions',
+          h('a.dir-act', { href: telHref('call', number), 'aria-label': 'Call ' + who.toLowerCase() + ' of ' + shown, title: 'Call' }, UI.icon('phone', 18)),
+          h('a.dir-act', { href: telHref('text', number), 'aria-label': 'Text ' + who.toLowerCase() + ' of ' + shown, title: 'Text' }, UI.icon('chat', 18))) : null);
+    };
+    var rows = [parentRow('Father', t.father), parentRow('Mother', t.mother)].filter(Boolean);
+    return h('div.card.dir-card',
+      h('a.dir-head', { href: '#/talmid/' + t.id },
+        h('span.dir-avatar', initials(t)),
+        h('span.dir-names', h('strong', { dir: 'auto' }, shown), sub ? h('span.small.muted', { dir: 'auto' }, sub) : null),
+        UI.icon('chev', 18)),
+      rows.length ? rows : h('p.small.muted.dir-none', 'No parent details yet.'),
+      t.email ? h('a.dir-email', { href: 'mailto:' + t.email }, UI.icon('mail', 16), h('span', t.email)) : null);
+  }
   // Pick which parent to reach (asks only when there is more than one number), then call cb(entry).
   function pickNumber(t, kind, cb) {
     var nums = parentPhones(t);
@@ -283,20 +313,35 @@
 
       if (tab === 'directory') {
         var talmidim = Store.activeTalmidim();
-        main.appendChild(h('div.card.scroll-x',
-          h('table.grid-table',
-            h('thead', h('tr', ['Talmid', 'Father', 'Mother', 'Phone', 'Email'].map(function (x) { return h('th', x); }))),
-            h('tbody', talmidim.map(function (t) {
-              return h('tr', h('th', h('a', { href: '#/talmid/' + t.id }, Store.displayName(t))), h('td', t.father || ''), h('td', t.mother || ''),
-                h('td', parentPhones(t).map(function (n, i) { return [i ? h('br') : null, h('span.small.muted', n.who + ' '), h('a', { href: telHref('call', n.number) }, n.number)]; })), h('td', t.email ? h('a', { href: 'mailto:' + t.email }, t.email) : ''));
-            }))),
-          h('div.row.gap',
-            h('button.btn', { onclick: function () { window.print(); } }, UI.icon('print'), 'Print'),
-            h('button.btn', { onclick: function () {
-              var emails = talmidim.map(function (t) { return t.email; }).filter(Boolean);
-              if (!emails.length) { UI.toast('No emails saved yet'); return; }
-              UI.copyText(emails.join(', '));
-            } }, 'Copy all emails'))));
+        var grid = h('div.dir-grid');
+        var countEl = h('span.muted.small');
+        var drawDir = function (q) {
+          q = (q || '').trim().toLowerCase();
+          var shown = talmidim.filter(function (t) {
+            if (!q) return true;
+            return [t.first, t.last, t.hebName, t.father, t.mother, t.fatherPhone, t.motherPhone, t.email]
+              .join(' ').toLowerCase().indexOf(q) >= 0;
+          });
+          grid.innerHTML = '';
+          countEl.textContent = shown.length + (shown.length === 1 ? ' family' : ' families');
+          if (!shown.length) { grid.appendChild(h('p.muted', q ? 'No family matches "' + q + '".' : 'No talmidim yet.')); return; }
+          shown.forEach(function (t) { grid.appendChild(dirCard(t)); });
+        };
+        var search = h('input.dir-search', { type: 'search', placeholder: 'Search by name, parent or phone', 'aria-label': 'Search families',
+          oninput: function (e) { drawDir(e.target.value); } });
+        main.appendChild(h('div.dir-bar', search,
+          h('div.row.gap.between', countEl,
+            h('div.row.gap',
+              h('button.btn.small', { onclick: function () {
+                var emails = talmidim.map(function (t) { return t.email; }).filter(Boolean);
+                if (!emails.length) { UI.toast('No emails saved yet'); return; }
+                UI.copyText(emails.join(', '));
+              } }, UI.icon('copy', 16), 'Copy all emails'),
+              h('button.btn.small', { onclick: function () {
+                if (window.printClassList) window.printClassList('parents'); else window.print();
+              } }, UI.icon('print', 16), 'Print')))));
+        main.appendChild(grid);
+        drawDir('');
       }
     }
   });

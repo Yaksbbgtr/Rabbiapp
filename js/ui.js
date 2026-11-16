@@ -61,7 +61,9 @@
     send: 'M21 3L10 14M21 3l-7 18-4-7-7-4z',
     camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
     image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1.5 1.5 0 1 0 0-.01',
-    chevl: 'M15 6l-6 6 6 6'
+    chevl: 'M15 6l-6 6 6 6',
+    chat: 'M4 5h16v11H9l-5 4z',
+    mail: 'M3 6h18v12H3zM3 7l9 6 9-6'
   };
   function icon(name, size) {
     var ns = 'http://www.w3.org/2000/svg';
@@ -199,6 +201,36 @@
     return opts;
   }
 
+  // A rebbi's comment on how one talmid is doing in one limud. Returns { text, date } or null.
+  function limudComment(unitId, talmidId) {
+    var c = ((Store.get().limudComments || {})[unitId] || {})[talmidId];
+    return c && c.text ? c : null;
+  }
+  function editLimudComment(unitId, talmidId) {
+    var st = Store.get();
+    var t = Store.talmid(talmidId);
+    var u = st.units.find(function (x) { return x.id === unitId; });
+    var cur = limudComment(unitId, talmidId);
+    var ta = h('textarea', { rows: 4, dir: 'auto', 'aria-label': 'Comment',
+      placeholder: 'e.g. Knows the pesukim but mixes up Rashi on pasuk 3. Review with him Thursday.' }, cur ? cur.text : '');
+    var save = function (text) {
+      Store.update(function (s) {
+        var all = s.limudComments = s.limudComments || {};
+        var mine = all[unitId] = all[unitId] || {};
+        if (text) mine[talmidId] = { text: text, date: Store.todayISO() };
+        else delete mine[talmidId];
+      });
+      App.render();
+    };
+    var buttons = [{ label: 'Cancel' }];
+    if (cur) buttons.push({ label: 'Delete', onClick: function () { save(''); toast('Comment deleted'); } });
+    buttons.push({ label: 'Save', primary: true, onClick: function () { save(ta.value.trim()); } });
+    modal('Comment', h('div',
+      h('p.muted', h('strong', { dir: 'auto' }, Store.displayName(t)), ' · ', h('span', { dir: 'auto' }, u ? u.title : '')),
+      ta), buttons);
+    setTimeout(function () { ta.focus(); }, 50);
+  }
+
   // The phone's own pop-up menu (a native select) styled as the colored level pill.
   function levelSelect(talmidId, unitId, label) {
     var cur = (Store.get().mastery[unitId] || {})[talmidId] || 0;
@@ -241,6 +273,8 @@
     printSheet: printSheet,
     getTheme: getTheme, setTheme: setTheme, themeButtons: themeButtons,
     levelSelect: levelSelect,
+    limudComment: limudComment,
+    editLimudComment: editLimudComment,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,
     input: input, select: select, fmtDate: fmtDate, hebDate: hebDate, addDays: addDays,
     empty: empty, download: download, copyText: copyText, talmidOptions: talmidOptions

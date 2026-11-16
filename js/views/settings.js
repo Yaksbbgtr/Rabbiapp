@@ -118,7 +118,7 @@
           h('button.btn', { onclick: function () {
             UI.confirm('Start a new school year? Talmidim, attendance, grades, plans and logs are cleared. Your settings, jobs and templates are kept. Download a backup first!', function () {
               Store.update(function (x) {
-                x.talmidim = []; x.attendance = {}; x.units = []; x.mastery = {}; x.tests = []; x.scores = {};
+                x.talmidim = []; x.attendance = {}; x.units = []; x.mastery = {}; x.limudComments = {}; x.tests = []; x.scores = {};
                 x.lessons = []; x.contacts = []; x.comments = {}; x.notes = [];
                 x.jobs.forEach(function (j) { j.holder = null; });
               });

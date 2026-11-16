@@ -36,6 +36,7 @@
       attendance: {},          // { 'YYYY-MM-DD': { talmidId: 'P'|'A'|'L'|'E' } }
       units: [],               // limud units: { id, subject, title, date, archived }
       mastery: {},             // { unitId: { talmidId: 0..3 } }
+      limudComments: {},       // { unitId: { talmidId: { text, date } } }
       tests: [],               // bechinos: { id, title, subject, date, max }
       scores: {},              // { testId: { talmidId: number } }
       lessons: [],             // planner: { id, date, subject, plan, done, notes }

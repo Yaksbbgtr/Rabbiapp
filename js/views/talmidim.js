@@ -70,8 +70,8 @@
   }
 
   // Print the class list: plain, with tick boxes, or with parents' names and phones.
-  function printClassList() {
-    var kind = UI.select([['plain', 'Names'], ['check', 'Names with boxes to tick (e.g. permission slips, chazara)'], ['parents', 'Names with parents\' names and phones']], 'plain');
+  function printClassList(startKind) {
+    var kind = UI.select([['plain', 'Names'], ['check', 'Names with boxes to tick (e.g. permission slips, chazara)'], ['parents', 'Names with parents\' names and phones']], typeof startKind === 'string' ? startKind : 'plain');
     var boxes = UI.select([['5', '5'], ['6', '6'], ['8', '8'], ['10', '10']], '6');
     var heading = UI.input({ placeholder: 'e.g. Siyum money (optional)' });
     var boxField = UI.field('How many boxes?', boxes);
@@ -82,6 +82,7 @@
       { label: 'Print', primary: true, onClick: function () { UI.printSheet(classListSheet(kind.value, +boxes.value, heading.value.trim())); } }
     ]);
   }
+  window.printClassList = printClassList;
   function classListSheet(kind, nBoxes, heading) {
     var st = Store.get();
     var list = Store.activeTalmidim();
@@ -230,8 +231,14 @@
         h('h2', 'Limud progress'),
         units.length ? h('p.small.muted', 'Tap a level to change it.') : null,
         units.length ? h('ul.list', units.map(function (u) {
-          return h('li.row.between', h('a.plain-link', { href: '#/unit/' + u.id }, h('strong', u.subject), ' ', u.title),
-            UI.levelSelect(t.id, u.id, u.title));
+          var c = UI.limudComment(u.id, t.id);
+          return h('li',
+            h('div.row.between', h('a.plain-link', { href: '#/unit/' + u.id }, h('strong', u.subject), ' ', u.title),
+              h('div.lc-controls',
+                h('button.icon-btn.lc-btn' + (c ? '.has' : ''), { 'aria-label': (c ? 'Edit comment on ' : 'Add a comment on ') + u.title, title: c ? 'Edit comment' : 'Add a comment',
+                  onclick: function () { UI.editLimudComment(u.id, t.id); } }, UI.icon('chat', 18)),
+                UI.levelSelect(t.id, u.id, u.title))),
+            c ? h('button.lc-note', { dir: 'auto', onclick: function () { UI.editLimudComment(u.id, t.id); } }, c.text, h('span.lc-date', UI.fmtDate(c.date))) : null);
         })) : h('p.muted', 'No limudim yet.')));
 
       // Scores: every bechina, so missing ones can be filled in
