@@ -810,3 +810,8 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .lc-controls .level-select, .lc-controls .level { width: 9em; }
 .has-comment { cursor: pointer; }
 .lc-btn.open { background: var(--navy); color: #fff; }
+
+/* Add to calendar */
+.cal-choices { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 8px; }
+.cal-choices .btn { text-decoration: none; }
+.cal-help summary { cursor: pointer; color: var(--muted, inherit); font-size: .9rem; margin-top: 6px; }

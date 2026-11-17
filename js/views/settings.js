@@ -75,6 +75,7 @@
           })))));
 
       main.appendChild(Profiles.settingsCard());
+      main.appendChild(Calendar.settingsCard());
 
       var seg = h('div.seg');
       UI.themeButtons(seg, function () { App.render(); });
