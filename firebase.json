@@ -3,5 +3,16 @@
     "rules": "firestore.rules",
     "database": "(default)",
     "location": "nam5"
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        "test",
+        ".git"
+      ]
+    }
+  ]
 }

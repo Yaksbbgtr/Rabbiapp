@@ -205,7 +205,7 @@
     setStatus('loading');
     S.adminP = db.collection('admins').doc(u.email).get()
       .then(function (d) { S.admin = d.exists; }, function () { S.admin = false; });
-    S.adminP.then(listen);
+    S.adminP.then(listen).then(function () { if (window.Calendar && Calendar.publishSoon) Calendar.publishSoon(); });
   }
 
   function listen() {
@@ -516,9 +516,23 @@
       S.status === 'error' ? statusLine() : null);
   }
 
+  // ---------- live calendar feed ----------
+  // calendars/{token}: the rebbi's calendar as ready-made .ics text. The calendar Cloud Function serves it at a
+  // secret link that Google / Apple Calendar subscribe to. Only the owner can write it; nobody reads it from the app.
+  function publishCalendar(token, ics, name) {
+    if (!S.user || !db) return Promise.reject(new Error('not signed in'));
+    return db.collection('calendars').doc(token).set({ owner: S.user.uid, name: name || '', ics: ics,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  }
+  function removeCalendar(token) {
+    if (!S.user || !db) return Promise.reject(new Error('not signed in'));
+    return db.collection('calendars').doc(token).delete();
+  }
+
   window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
     status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; },
-    people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared };
+    people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared,
+    publishCalendar: publishCalendar, removeCalendar: removeCalendar };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   window.addEventListener('online', function () { if (wanted() && !S.user) start(); });

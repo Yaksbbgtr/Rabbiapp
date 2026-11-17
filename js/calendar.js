@@ -27,10 +27,12 @@
   function stamp() { return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); }
 
   // ev: { uid, title, date (YYYY-MM-DD, all-day), details?, category? }
-  function ics(events, calName) {
+  // live: a subscribed calendar; asks calendar apps to check back every hour.
+  function ics(events, calName, live) {
     var now = stamp();
     var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Rebbi App//Calendar export//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
     if (calName) lines.push('X-WR-CALNAME:' + esc(calName));
+    if (live) lines.push('REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H');
     events.forEach(function (ev) {
       lines.push('BEGIN:VEVENT',
         'UID:' + ev.uid + '@rebbi-app',
@@ -180,13 +182,154 @@
     UI.modal('Add to calendar', body, [{ label: 'Close' }]);
   }
 
+
+  // ---------- live calendar (updates itself) ----------
+  // The app keeps a copy of the calendar in the cloud (calendars/{token}) whenever the class changes.
+  // Google / Apple Calendar subscribe to a secret link that always serves the newest copy.
+  var FEED_BASE = 'https://us-central1-rabbi--app.cloudfunctions.net/calendar/';
+  var SENT_KEY = 'rabbiapp.calfeed.sent.';
+  function feed() { return Store.get().settings.calFeed || null; }
+  function feedURL(f) { return FEED_BASE + f.token + '.ics'; }
+  function webcalURL(f) { return feedURL(f).replace(/^https:/, 'webcal:'); }
+  function googleSubscribeURL(f) { return 'https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(webcalURL(f)); }
+  function newToken() {
+    var a = new Uint8Array(18); crypto.getRandomValues(a);
+    return Array.from(a, function (b) { return 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[b % 62]; }).join('') +
+      Date.now().toString(36);
+  }
+  function hashStr(str) {
+    var x = 5381;
+    for (var i = 0; i < str.length; i++) x = ((x << 5) + x + str.charCodeAt(i)) | 0;
+    return (x >>> 0).toString(36) + '.' + str.length;
+  }
+  function ls(k, v) {
+    try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  // Planner items from the last 2 months on, every bechina, and birthdays / yomim tovim for the coming 18 months.
+  function feedEvents(f) {
+    var today = Store.todayISO();
+    return collect({ lessons: f.lessons, tests: f.tests, birthdays: f.birthdays, holidays: f.holidays,
+      from: f.tests ? '0000-01-01' : UI.addDays(today, -60), to: '9999-12-31',
+      yearFrom: UI.addDays(today, -30), yearTo: UI.addDays(today, 548) })
+      .filter(function (ev) { return ev.category !== 'Planner' || ev.date >= UI.addDays(today, -60); });
+  }
+
+  var timer = null, publishing = false;
+  function publishSoon(delay) {
+    clearTimeout(timer);
+    timer = setTimeout(publish, delay === undefined ? 4000 : delay);
+  }
+  // Uploads the calendar if it changed since this device last sent it. Quietly waits for sign-in / internet.
+  function publish(force) {
+    var f = feed();
+    if (!f || !f.token || publishing || !window.Sync || !Sync.isOn() || !navigator.onLine) return Promise.resolve(false);
+    var events = feedEvents(f), name = className();
+    var sig = hashStr(name + JSON.stringify(events));
+    if (!force && ls(SENT_KEY + f.token) === sig) return Promise.resolve(false);
+    publishing = true;
+    return Sync.publishCalendar(f.token, ics(events, name, true), name).then(function () {
+      ls(SENT_KEY + f.token, sig); publishing = false; return true;
+    }, function (e) { publishing = false; console.warn('Calendar not updated: ' + e.message); return false; });
+  }
+  Store.onChange(function () { if (feed()) publishSoon(); });
+  window.addEventListener('online', function () { publishSoon(1000); });
+  setTimeout(function () { publishSoon(0); }, 6000); // a new day moves the birthday / yom tov window along
+
+  function turnOn(include) {
+    Store.update(function (s) { s.settings.calFeed = Object.assign({ token: newToken() }, include); });
+    return publish(true);
+  }
+  function turnOff() {
+    var f = feed();
+    Store.update(function (s) { delete s.settings.calFeed; });
+    if (f) { ls(SENT_KEY + f.token, null); return Sync.removeCalendar(f.token).catch(function () { /* already gone */ }); }
+    return Promise.resolve();
+  }
+
+  // refresh: called after turning it on / off / new link (Settings re-renders the page).
+  function liveCard(refresh) {
+    refresh = refresh || function () { App.render(); };
+    var f = feed();
+    var card = h('div.card', h('h2', 'Live calendar (updates itself)'));
+    if (!window.Sync || !Sync.isOn()) {
+      card.appendChild(h('p', 'Your planner, bechinos and birthdays show in Google or Apple Calendar and stay up to date as you make changes. ' +
+        'To use it, first turn on sync and sign in (see "Sync" on this page).'));
+      return card;
+    }
+    var pick = f || { lessons: true, tests: true, birthdays: true, holidays: false };
+    var boxes = {};
+    function box(key, label) {
+      boxes[key] = h('input', { type: 'checkbox', checked: !!pick[key], onchange: function () {
+        if (!feed()) return;
+        Store.update(function (s) { s.settings.calFeed[key] = boxes[key].checked; });
+        UI.toast('Saved – your calendar will update');
+      } });
+      return h('label.check-row', boxes[key], h('span', label));
+    }
+    var choices = h('div', box('lessons', 'Planner'), box('tests', 'Bechinos'), box('birthdays', 'Talmidim\'s Hebrew birthdays'), box('holidays', 'Yomim tovim & fast days'));
+    if (!f) {
+      card.appendChild(h('p', 'Add your class to Google or Apple Calendar once, and it keeps itself up to date: whatever you add, change or delete here shows up there too.'));
+      card.appendChild(choices);
+      card.appendChild(h('div.cal-choices', h('button.btn.primary', { type: 'button', onclick: function (e) {
+        var inc = {}; Object.keys(boxes).forEach(function (k) { inc[k] = boxes[k].checked; });
+        e.target.disabled = true;
+        turnOn(inc).then(function (ok) { UI.toast(ok ? 'Live calendar is on' : 'Turned on – it will upload when you\'re online'); refresh(); });
+      } }, UI.icon('calendar', 16), 'Turn on live calendar')));
+      return card;
+    }
+    card.appendChild(h('p', 'Add it once on each phone or computer:'));
+    card.appendChild(h('div.cal-choices',
+      h('a.btn.primary', { href: webcalURL(f) }, UI.icon('calendar', 16), 'Apple Calendar'),
+      h('a.btn', { href: googleSubscribeURL(f), target: '_blank', rel: 'noopener' }, UI.icon('calendar', 16), 'Google Calendar'),
+      h('button.btn', { type: 'button', onclick: function () { UI.copyText(feedURL(f)); } }, UI.icon('copy', 16), 'Copy link')));
+    card.appendChild(h('details.cal-help',
+      h('summary', 'How it works'),
+      h('p.small', h('strong', 'iPhone / iPad / Mac: '), 'tap Apple Calendar, then Subscribe. ',
+        h('strong', 'Google: '), 'tap Google Calendar, then Add. It then shows in the Google Calendar app on Android and iPhone too. ',
+        h('strong', 'Outlook: '), 'Add calendar → Subscribe from web, and paste the copied link.'),
+      h('p.small.muted', 'Changes reach Apple Calendar within about an hour. Google checks on its own schedule, usually a few times a day. ' +
+        'The calendar is read-only there: make changes in Rebbi App. Anyone with the link can see the calendar, so only share it with people you trust; "New link" stops the old one.')));
+    card.appendChild(h('div', { style: 'margin-top:10px' }, h('span.field-label', 'Show in the calendar'), choices));
+    card.appendChild(h('div.row.gap.wrap', { style: 'margin-top:12px' },
+      h('button.btn', { type: 'button', onclick: function () {
+        UI.confirm('Make a new link? Calendars added with the old link stop updating, and you\'ll need to add the calendar again on each device.', function () {
+          var inc = Object.assign({}, feed()); delete inc.token;
+          turnOff().then(function () { return turnOn(inc); }).then(function () { UI.toast('New link made'); refresh(); });
+        }, 'New link');
+      } }, 'New link'),
+      h('button.btn.danger', { type: 'button', onclick: function () {
+        UI.confirm('Turn off the live calendar? It will stop updating and disappear from calendars that subscribed to it.', function () {
+          turnOff().then(function () { UI.toast('Live calendar turned off'); refresh(); });
+        }, 'Turn off');
+      } }, 'Turn off')));
+    return card;
+  }
+
+  // The Planner's "Add to calendar" button: the live calendar, plus the one-time copy.
+  function open() {
+    var holder = h('div');
+    function fill() {
+      holder.innerHTML = '';
+      holder.appendChild(liveCard(fill));
+      holder.appendChild(h('p', h('button.link', { type: 'button', onclick: function () { dlg.close(); exportDialog({ birthdays: false }); } }, 'Or make a one-time copy instead…')));
+    }
+    fill();
+    var dlg = UI.modal('Add to calendar', holder, [{ label: 'Close' }]);
+  }
+
   function settingsCard() {
-    return h('div.card',
-      h('h2', 'Google & Apple Calendar'),
-      h('p', 'Put your planner, bechinos and talmidim\'s Hebrew birthdays into the calendar on your phone or computer.'),
-      h('button.btn', { type: 'button', onclick: function () { exportDialog(); } }, UI.icon('calendar'), 'Add to calendar…'));
+    var wrap = h('div');
+    wrap.appendChild(liveCard());
+    wrap.appendChild(h('div.card',
+      h('h2', 'One-time copy to a calendar'),
+      h('p', 'Or copy your planner, bechinos and birthdays into a calendar once, without a live link (doesn\'t need sync).'),
+      h('button.btn', { type: 'button', onclick: function () { exportDialog(); } }, UI.icon('calendar'), 'Copy to calendar…')));
+    return wrap;
   }
 
   window.Calendar = { ics: ics, googleLink: googleLink, collect: collect, testEvent: testEvent,
-    addOne: addOne, exportDialog: exportDialog, settingsCard: settingsCard };
+    addOne: addOne, exportDialog: exportDialog, open: open, settingsCard: settingsCard,
+    publish: publish, publishSoon: publishSoon, feedEvents: feedEvents, feedURL: function () { var f = feed(); return f ? feedURL(f) : null; } };
 })();

@@ -50,6 +50,16 @@ service cloud.firestore {
       allow delete: if verified() && resource.data.from == request.auth.uid;
     }
 
+    // calendars/{token}: a rebbi's live calendar (.ics text), served to Google / Apple Calendar by the calendar
+    // Cloud Function (which reads it with admin rights). The token is a long random secret. Apps never read it back.
+    match /calendars/{token} {
+      allow get: if owns(resource.data);
+      allow list: if false;
+      allow create: if owns(request.resource.data) && token.size() >= 24 && request.resource.data.ics is string && request.resource.data.ics.size() < 900000;
+      allow update: if owns(resource.data) && owns(request.resource.data) && request.resource.data.ics is string && request.resource.data.ics.size() < 900000;
+      allow delete: if owns(resource.data);
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

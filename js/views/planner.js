@@ -118,7 +118,7 @@
       main.appendChild(h('div.page-head',
         h('div', h('h1', 'Planner')),
         h('div.row.gap.wrap',
-          h('button.btn', { type: 'button', onclick: function () { Calendar.exportDialog({ birthdays: false }); } }, UI.icon('calendar', 16), 'Add to calendar'),
+          h('button.btn', { type: 'button', onclick: function () { Calendar.open(); } }, UI.icon('calendar', 16), 'Add to calendar'),
           h('div.seg', [['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(function (m) {
             return h('button' + (mode === m[0] ? '.on' : ''), { type: 'button', onclick: function () { mode = m[0]; App.render(); } }, m[1]);
           })))));

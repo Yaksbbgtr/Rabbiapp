@@ -1,0 +1,12 @@
+{
+  "name": "rebbi-app-functions",
+  "private": true,
+  "description": "Serves each rebbi's live calendar (.ics) to Google / Apple Calendar.",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "scripts": { "test": "node --test test/" },
+  "dependencies": {
+    "firebase-admin": "^13.4.0",
+    "firebase-functions": "^6.4.0"
+  }
+}
