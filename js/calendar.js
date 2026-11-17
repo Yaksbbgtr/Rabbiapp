@@ -2,7 +2,9 @@
  * Calendar export: puts planner items, bechinos, Hebrew birthdays and yomim tovim
  * into Google Calendar or Apple Calendar (iPhone, iPad, Mac), and Outlook.
  *
- * Everything is a one-way copy, built on this device: a standard .ics calendar file
+ * The other way, your own calendar's events show (read-only) in the planner: see "the other way" below.
+ *
+ * The one-time copy is built on this device: a standard .ics calendar file
  * (Apple, Outlook, Google import) or a prefilled Google "new event" link for one item.
  * Each event keeps a fixed UID, so importing again updates it instead of adding a duplicate.
  */
@@ -307,12 +309,161 @@
     return card;
   }
 
+  // ---------- the other way: your Apple / Google calendar inside the planner ----------
+  // The rebbi pastes his calendar's share link (kept on this device only: the office can see class data, not this).
+  // The calimport Cloud Function reads it (browsers can't, no CORS) and sends back its events; they're kept here
+  // and shown read-only in the planner, refreshed every 15 minutes while the app is open.
+  var IMPORT_URL = 'https://us-central1-rabbi--app.cloudfunctions.net/calimport';
+  var LINKS_KEY = 'rabbiapp.calimport.links', CACHE_KEY = 'rabbiapp.calimport.cache', STALE = 15 * 60000;
+  var importing = null;
+  function links() { try { return JSON.parse(ls(LINKS_KEY)) || []; } catch (e) { return []; } }
+  function setLinks(a) { ls(LINKS_KEY, a.length ? JSON.stringify(a) : null); }
+  function cache() { try { return JSON.parse(ls(CACHE_KEY)) || { at: 0, cals: {} }; } catch (e) { return { at: 0, cals: {} }; } }
+  var IMPORT_ERRORS = {
+    link: 'That isn\'t an Apple (iCloud), Google or Outlook calendar link.',
+    gone: 'The calendar wasn\'t found. Is it still shared? Copy the link again.',
+    notcal: 'That link didn\'t give a calendar.', big: 'That calendar is too big.',
+    signin: 'Sign in to sync first.', fetch: 'Couldn\'t reach the calendar right now.'
+  };
+
+  function fetchOne(link) {
+    return Sync.idToken().then(function (tok) {
+      return fetch(IMPORT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ url: link.url }) });
+    }).then(function (r) {
+      return r.json().catch(function () { return { error: 'fetch' }; }).then(function (b) {
+        if (!r.ok || b.error) throw new Error(b.error || 'fetch');
+        return b;
+      });
+    });
+  }
+
+  // Reads every linked calendar again. Keeps the last good copy if one can't be reached.
+  function refreshImported(force) {
+    var list = links();
+    if (!list.length || !window.Sync || !Sync.isOn() || !navigator.onLine) return Promise.resolve(false);
+    if (importing) return importing;
+    var c = cache();
+    if (!force && Date.now() - c.at < STALE) return Promise.resolve(false);
+    c.at = Date.now(); ls(CACHE_KEY, JSON.stringify(c)); // don't ask again for 15 minutes, even if this fails
+    importing = Promise.all(list.map(function (l) {
+      return fetchOne(l).then(function (b) {
+        return { url: l.url, name: b.name || '', events: b.events || [], error: '' };
+      }, function (e) {
+        var old = c.cals[l.url] || { events: [] };
+        return { url: l.url, name: old.name || '', events: old.events, error: e.message };
+      });
+    })).then(function (res) {
+      var next = { at: Date.now(), cals: {} };
+      res.forEach(function (x) { next.cals[x.url] = x; });
+      ls(CACHE_KEY, JSON.stringify(next));
+      importing = null;
+      if (/^#\/(planner|settings)/.test(location.hash) && !document.querySelector('.modal-overlay')) App.render();
+      return true;
+    });
+    return importing;
+  }
+  window.addEventListener('online', function () { setTimeout(refreshImported, 1500); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshImported(); });
+  setInterval(function () { if (!document.hidden) refreshImported(); }, STALE + 5000);
+
+  function localISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  // Events from your own calendars on one day: all-day ones first, then by time.
+  function importedOn(iso) {
+    var c = cache(), out = [], seen = {};
+    links().forEach(function (l, i) {
+      var cal = c.cals[l.url];
+      if (!cal) return;
+      cal.events.forEach(function (ev) {
+        var on;
+        if (ev.allDay) on = ev.date === iso || (ev.date < iso && ev.endDate && iso < ev.endDate);
+        else on = localISO(new Date(ev.start)) === iso;
+        if (!on || seen[ev.id]) return;
+        seen[ev.id] = 1;
+        out.push(Object.assign({ cal: i, calName: l.name || cal.name || 'My calendar' }, ev));
+      });
+    });
+    return out.sort(function (a, b) { return (a.allDay ? 0 : 1) - (b.allDay ? 0 : 1) || String(a.start || '').localeCompare(String(b.start || '')); });
+  }
+  function timeText(ev) {
+    if (ev.allDay) return 'All day';
+    var f = function (s) { return new Date(s).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); };
+    return f(ev.start) + (ev.end && ev.end !== ev.start ? ' – ' + f(ev.end) : '');
+  }
+  function importedRow(ev) {
+    return h('div.lesson.ext.ext-' + (ev.cal % 4), { title: 'From ' + ev.calName + ' – change it there' },
+      h('span.ext-dot', { 'aria-hidden': 'true' }),
+      h('div.grow',
+        h('span.ext-time', timeText(ev)), ' ', h('span', { dir: 'auto' }, ev.title),
+        ev.location ? h('div.small.muted', { dir: 'auto' }, ev.location) : null));
+  }
+
+  function importCard(refresh) {
+    refresh = refresh || function () { App.render(); };
+    var card = h('div.card', h('h2', 'Show your calendar in the planner'));
+    if (!window.Sync || !Sync.isOn()) {
+      card.appendChild(h('p', 'Events from your Apple or Google Calendar can show in the planner too. To use it, first turn on sync and sign in (see "Sync" on this page).'));
+      return card;
+    }
+    var list = links(), c = cache();
+    card.appendChild(h('p', 'See what\'s on your Apple or Google Calendar right in the planner, next to your plans. ' +
+      'It checks for changes every 15 minutes. They show here only; to change them, use your calendar app.'));
+    list.forEach(function (l, i) {
+      var cal = c.cals[l.url];
+      var status = !cal ? 'Loading…' : cal.error ? '⚠ ' + (IMPORT_ERRORS[cal.error] || IMPORT_ERRORS.fetch)
+        : cal.events.length + (cal.events.length === 1 ? ' event' : ' events');
+      card.appendChild(h('div.ext-link.row.gap',
+        h('span.ext-dot.ext-' + (i % 4), { 'aria-hidden': 'true' }),
+        h('div.grow', h('strong', l.name || (cal && cal.name) || 'My calendar'), h('div.small.muted', status)),
+        h('button.lesson-x', { type: 'button', title: 'Remove', 'aria-label': 'Remove this calendar', onclick: function () {
+          UI.confirm('Stop showing this calendar in the planner? (Nothing is deleted from the calendar itself.)', function () {
+            setLinks(links().filter(function (x) { return x.url !== l.url; }));
+            var cc = cache(); delete cc.cals[l.url]; ls(CACHE_KEY, JSON.stringify(cc));
+            UI.toast('Calendar removed'); refresh();
+          }, 'Remove');
+        } }, UI.icon('x', 16))));
+    });
+    var urlIn = UI.input({ type: 'url', dir: 'ltr', placeholder: 'webcal://p…-caldav.icloud.com/published/…', autocomplete: 'off' });
+    var nameIn = UI.input({ placeholder: 'e.g. Home, Yeshiva' });
+    var add = h('button.btn.primary', { type: 'button', onclick: function () {
+      var url = urlIn.value.trim();
+      if (!url) { UI.toast('Paste the calendar link first'); urlIn.focus(); return; }
+      if (links().some(function (x) { return x.url === url; })) { UI.toast('That calendar is already added'); return; }
+      add.disabled = true; add.textContent = 'Checking…';
+      var link = { url: url, name: nameIn.value.trim() };
+      fetchOne(link).then(function (b) {
+        setLinks(links().concat([link]));
+        var cc = cache(); cc.cals[url] = { url: url, name: b.name || '', events: b.events || [], error: '' }; ls(CACHE_KEY, JSON.stringify(cc));
+        UI.toast('Added – ' + (b.events || []).length + ' events'); refresh();
+      }, function (e) {
+        add.disabled = false; add.textContent = 'Add calendar';
+        UI.toast(IMPORT_ERRORS[e.message] || IMPORT_ERRORS.fetch);
+      });
+    } }, 'Add calendar');
+    card.appendChild(h('details.cal-help', { open: !list.length },
+      h('summary', list.length ? 'Add another calendar' : 'Add a calendar'),
+      h('div', { style: 'margin-top:8px' }, UI.field('Calendar link', urlIn), UI.field('Name (optional)', nameIn), add),
+      h('p.small', h('strong', 'iPhone / iPad: '), 'open the Calendar app → Calendars → tap ⓘ next to the calendar → turn on ',
+        h('em', 'Public Calendar'), ' → Share Link… → Copy, then paste it here. ',
+        h('strong', 'Mac: '), 'Calendar → right-click the calendar → Share Calendar… → Public Calendar, then copy the link. ',
+        h('strong', 'Google: '), 'on a computer, calendar.google.com → ⚙ Settings → click your calendar → copy ',
+        h('em', 'Secret address in iCal format'), '.'),
+      h('p.small.muted', 'Only iCloud calendars can be shared this way (not "On My iPhone" ones). Anyone with the link can see that calendar, so keep it private. ' +
+        'The link is kept on this device only: add it once on each phone or computer you use.')));
+    if (list.length) card.appendChild(h('button.btn.small', { type: 'button', onclick: function (e) {
+      e.target.disabled = true;
+      refreshImported(true).then(function () { UI.toast('Up to date'); refresh(); });
+    } }, 'Check now'));
+    return card;
+  }
+
   // The Planner's "Add to calendar" button: the live calendar, plus the one-time copy.
   function open() {
     var holder = h('div');
     function fill() {
       holder.innerHTML = '';
       holder.appendChild(liveCard(fill));
+      holder.appendChild(importCard(fill));
       holder.appendChild(h('p', h('button.link', { type: 'button', onclick: function () { dlg.close(); exportDialog({ birthdays: false }); } }, 'Or make a one-time copy instead…')));
     }
     fill();
@@ -322,6 +473,7 @@
   function settingsCard() {
     var wrap = h('div');
     wrap.appendChild(liveCard());
+    wrap.appendChild(importCard());
     wrap.appendChild(h('div.card',
       h('h2', 'One-time copy to a calendar'),
       h('p', 'Or copy your planner, bechinos and birthdays into a calendar once, without a live link (doesn\'t need sync).'),
@@ -331,5 +483,6 @@
 
   window.Calendar = { ics: ics, googleLink: googleLink, collect: collect, testEvent: testEvent,
     addOne: addOne, exportDialog: exportDialog, open: open, settingsCard: settingsCard,
-    publish: publish, publishSoon: publishSoon, feedEvents: feedEvents, feedURL: function () { var f = feed(); return f ? feedURL(f) : null; } };
+    publish: publish, publishSoon: publishSoon,
+    importedOn: importedOn, importedRow: importedRow, refreshImported: refreshImported, hasImported: function () { return links().length > 0; }, feedEvents: feedEvents, feedURL: function () { var f = feed(); return f ? feedURL(f) : null; } };
 })();

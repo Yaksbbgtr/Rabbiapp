@@ -92,6 +92,7 @@
     render: function (main) {
       var today = Store.todayISO();
       cursor = cursor || today;
+      Calendar.refreshImported(); // re-renders when new events arrive (at most every 15 minutes)
       var todayRD = HebCal.isoToRD(today);
       var rd = HebCal.isoToRD(cursor);
       var sunday = rd - HebCal.weekday(rd);
@@ -144,10 +145,12 @@
     var hols = HebCal.holidaysBetween(rd, rd);
     var isShabbos = HebCal.weekday(rd) === 6;
     var lessons = lessonsOn(iso);
+    var ext = Calendar.importedOn(iso);
     main.appendChild(h('div.card.day.day-big' + (rd === todayRD ? '.today' : '') + (isShabbos ? '.shabbos' : ''),
       h('div.row.gap.wrap',
         hols.map(function (x) { return h('span.pill' + (x.fast ? '.neg' : '.gold'), x.en); }),
         isShabbos ? h('span.pill.gold', shabbosLabel(rd)) : null),
+      ext.length ? h('div.lesson-list.ext-list', ext.map(Calendar.importedRow)) : null,
       lessons.length ? h('div.lesson-list', lessons.map(lessonRow))
         : h('p.muted', isShabbos ? 'Good Shabbos!' : 'Nothing planned for this day yet.'),
       h('button.btn.primary', { type: 'button', onclick: function () { editLesson(null, iso); } }, UI.icon('plus'), 'Add to this day')));
@@ -189,6 +192,7 @@
               h('span.muted.small', UI.fmtDate(iso, { weekday: undefined }))),
             h('span.he.muted', HebCal.formatHebrew(hd, { noYear: true }))),
           dayHols.map(function (x) { return h('div.pill' + (x.fast ? '.neg' : '.gold'), x.en); }),
+          Calendar.importedOn(iso).map(Calendar.importedRow),
           isShabbos ? h('div.muted.small', shabbosLabel(rd)) :
             h('div', lessons.map(lessonRow),
               h('button.btn.small.ghost', { type: 'button', onclick: function () { editLesson(null, iso); } }, UI.icon('plus', 16), 'Add'))));
@@ -226,7 +230,7 @@
         var d = HebCal.rdToISO(rd);
         var inMonth = +d.slice(5, 7) - 1 === m;
         var hd = HebCal.fromRD(rd);
-        var n = lessonsOn(d).length;
+        var n = lessonsOn(d).length + Calendar.importedOn(d).length;
         var dayHols = hols.filter(function (x) { return x.rd === rd && !x.roshChodesh; });
         var isShabbos = HebCal.weekday(rd) === 6;
         grid.appendChild(h('button.month-cell' + (inMonth ? '' : '.other') + (rd === todayRD ? '.today' : '') + (isShabbos ? '.shabbos' : ''), {

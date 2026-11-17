@@ -816,3 +816,14 @@ input.invalid { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft);
 .cal-choices .btn { text-decoration: none; }
 .cal-help summary { cursor: pointer; color: var(--muted, inherit); font-size: .9rem; margin-top: 6px; }
 .modal .card { box-shadow: none; border: 0; padding: 0; margin: 0 0 8px; background: transparent; }
+
+/* events from the rebbi's own Apple / Google calendar (read-only) */
+.lesson.ext { align-items: baseline; padding: 4px 0; }
+.ext-list { margin-bottom: 6px; border-bottom: 1px dashed var(--line); }
+.ext-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--navy-2); display: inline-block; transform: translateY(-1px); }
+.ext-1 .ext-dot, .ext-dot.ext-1 { background: var(--green); }
+.ext-2 .ext-dot, .ext-dot.ext-2 { background: var(--amber); }
+.ext-3 .ext-dot, .ext-dot.ext-3 { background: var(--red); }
+.ext-time { color: var(--muted); font-size: .85em; font-variant-numeric: tabular-nums; }
+.ext-link { align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+@media print { .lesson.ext { color: #444; } }

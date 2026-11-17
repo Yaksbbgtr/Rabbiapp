@@ -532,7 +532,8 @@
   window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
     status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; },
     people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared,
-    publishCalendar: publishCalendar, removeCalendar: removeCalendar };
+    publishCalendar: publishCalendar, removeCalendar: removeCalendar,
+    idToken: function () { return S.user ? S.user.getIdToken() : Promise.reject(new Error('not signed in')); } };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   window.addEventListener('online', function () { if (wanted() && !S.user) start(); });
