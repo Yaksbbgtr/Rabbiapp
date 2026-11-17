@@ -14,7 +14,12 @@ const TOKEN = /^\/?(?:calendar\/)?([A-Za-z0-9]{24,64})(?:\.ics)?\/?$/;
 async function handle(req, res, getDoc) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.status(405).set('Allow', 'GET, HEAD').send('Method not allowed'); return; }
   const m = TOKEN.exec(req.path || '');
-  const snap = m ? await getDoc(m[1]) : null;
+  let snap = null;
+  try { snap = m ? await getDoc(m[1]) : null; } catch (e) {
+    console.error('calendar read failed', e);
+    res.status(503).set('Retry-After', '600').set('Cache-Control', 'no-store').send('Calendar temporarily unavailable (' + (e.code || 'error') + ').');
+    return;
+  }
   const ics = snap && snap.exists ? snap.get('ics') : null;
   if (typeof ics !== 'string') { res.status(404).set('Cache-Control', 'no-store').send('This calendar link is no longer active.'); return; }
   res.set('Content-Type', 'text/calendar; charset=utf-8');
