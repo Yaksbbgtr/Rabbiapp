@@ -153,10 +153,22 @@
           h('div.legend', window.MASTERY_LEVELS.map(function (l, i) { return h('span.level.l' + i, counts[i] + ' ' + l); })),
           h('p.small.muted', 'Tap ', UI.icon('chat', 14), ' next to a talmid (or tap his row) to write a comment. It saves as you type; press Enter when you are done.'),
           h('div.row.gap.wrap',
-            h('button.btn.small', { onclick: function () {
-              Store.update(function (s) { var mm = s.mastery[u.id] = s.mastery[u.id] || {}; talmidim.forEach(function (t) { if (!mm[t.id]) mm[t.id] = 1; }); });
-              App.render();
-            } }, 'Mark everyone "Learning"'),
+            // Mark every talmid at one level; asks first if that changes boys who already have a different mark.
+            h('select.bulk-level', { 'aria-label': 'Mark everyone', onchange: function (e) {
+              var lvl = +e.target.value, name = window.MASTERY_LEVELS[lvl];
+              e.target.value = '';
+              var changes = talmidim.filter(function (t) { return (m[t.id] || 0) !== lvl; });
+              if (!changes.length) { UI.toast('Everyone is already "' + name + '"'); return; }
+              var marked = changes.filter(function (t) { return m[t.id]; }).length;
+              var go = function () {
+                Store.update(function (s) { var mm = s.mastery[u.id] = s.mastery[u.id] || {}; talmidim.forEach(function (t) { mm[t.id] = lvl; }); });
+                UI.toast('Everyone marked "' + name + '"'); App.render();
+              };
+              if (marked) UI.confirm('Mark everyone "' + name + '"? This changes ' + marked + (marked === 1 ? ' talmid who already has' : ' talmidim who already have') + ' a different mark.', go, 'Mark everyone');
+              else go();
+            } },
+              h('option', { value: '', selected: true, disabled: true }, 'Mark everyone…'),
+              window.MASTERY_LEVELS.map(function (l, i) { return h('option', { value: String(i) }, l); })),
             h('button.btn.small', { onclick: function () { Store.update(function () { u.archived = !u.archived; }); App.render(); } }, u.archived ? 'Reopen this limud' : 'Mark finished'))));
         main.appendChild(talmidim.length ? h('div.card.att-list', talmidim.map(function (t) {
           var cp = UI.limudCommentParts(u.id, t.id, Store.displayName(t));
