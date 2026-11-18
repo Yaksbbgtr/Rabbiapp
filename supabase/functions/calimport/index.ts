@@ -3,7 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
 import ical from 'npm:node-ical@0.27.6';
 import { handleImport } from '../_shared/calcore.js';
 
-const auth = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false } });
+const auth = createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY'))!, { auth: { persistSession: false } });
 
 Deno.serve((req) => handleImport(req, {
   ical,
