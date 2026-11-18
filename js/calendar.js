@@ -467,27 +467,22 @@
     return card;
   }
 
-  // The Planner's "Add to calendar" button: the live calendar, plus the one-time copy.
+  // The Planner's "Add to calendar" button: the live calendar.
   function open() {
     var holder = h('div');
     function fill() {
       holder.innerHTML = '';
       holder.appendChild(liveCard(fill));
       holder.appendChild(importCard(fill));
-      holder.appendChild(h('p', h('button.link', { type: 'button', onclick: function () { dlg.close(); exportDialog({ birthdays: false }); } }, 'Or make a one-time copy instead…')));
     }
     fill();
-    var dlg = UI.modal('Add to calendar', holder, [{ label: 'Close' }]);
+    UI.modal('Add to calendar', holder, [{ label: 'Close' }]);
   }
 
   function settingsCard() {
     var wrap = h('div');
     wrap.appendChild(liveCard());
     wrap.appendChild(importCard());
-    wrap.appendChild(h('div.card',
-      h('h2', 'One-time copy to a calendar'),
-      h('p', 'Or copy your planner, bechinos and birthdays into a calendar once, without a live link (doesn\'t need sync).'),
-      h('button.btn', { type: 'button', onclick: function () { exportDialog(); } }, UI.icon('calendar'), 'Copy to calendar…')));
     return wrap;
   }
 
