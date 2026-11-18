@@ -39,6 +39,8 @@ cd server
 npm start
 ```
 
+Or `npm run demo`, which always uses pretend texts even when `.env` is set up for Twilio.
+
 Open <http://localhost:3000>. Press **Send morning texts now**, pick a rebbi on the pretend phone, and reply as him. Today's attendance and the Parent Locker queue update on the right. No real texts are sent in demo mode.
 
 ```

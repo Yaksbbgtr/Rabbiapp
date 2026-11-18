@@ -6,6 +6,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node --env-file-if-exists=.env src/server.js",
+    "demo": "SMS_PROVIDER=demo DEMO=true node --env-file-if-exists=.env src/server.js",
     "test": "node --test test/*.test.js",
     "pl:login": "playwright codegen --save-storage=data/parentlocker/session.json https://login.parentlocker.com",
     "pl:record": "playwright codegen --load-storage=data/parentlocker/session.json -o data/parentlocker/recording.js https://login.parentlocker.com",
