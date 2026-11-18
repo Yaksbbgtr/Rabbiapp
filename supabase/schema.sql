@@ -1,10 +1,13 @@
 -- Rebbi App on Supabase: tables, who-may-see-what (row level security) and the few database functions the app calls.
 -- Run once in the Supabase dashboard: SQL Editor → New query → paste this whole file → Run. Safe to run again.
 --
---   classes    one class (or the office's own data) per row, owned by the account that uploaded it.
---              A rebbi reads and writes only his own; the office reads and writes every class.
+--   classes    one class (or the office's own data) per row, belonging to one Google account (owner_email).
+--              A rebbi reads and writes only his own; the office reads and writes every class and can give a
+--              class to someone else, even before that person has ever signed in.
 --              data / issues hold one JSON string per top-level key / per issue, so edits from two devices merge.
---   admins     office accounts (by email). Added by the project owner in the dashboard, never from the app.
+--   admins     office accounts (by email): see every class and manage access. Added and removed by other office
+--              accounts on the app's Access page (the very first one by the project owner, in the dashboard).
+--   accounts   everyone who has signed in (name, last seen, asked for office access), for the Access page.
 --   people     the rebbeim directory: which classes each account has (names only), so a rebbi can pick another
 --              rebbi to send an issue to. Readable by accounts that have a class themselves, and the office.
 --   shared     an issue a rebbi sent to other rebbeim. Only the people on it (members, by email) can read it.
@@ -14,6 +17,17 @@
 --              Same rule as the class itself: its rebbi and the office.
 
 create table if not exists public.admins (email text primary key);
+alter table public.admins add column if not exists added_by text not null default '';
+alter table public.admins add column if not exists added_at timestamptz not null default now();
+
+create table if not exists public.accounts (
+  email text primary key,
+  uid uuid not null,
+  name text not null default '',
+  wants_office boolean not null default false,
+  first_seen timestamptz not null default now(),
+  last_seen timestamptz not null default now()
+);
 
 create table if not exists public.classes (
   id text primary key,
@@ -87,23 +101,66 @@ alter table public.classes enable row level security;
 alter table public.people enable row level security;
 alter table public.shared enable row level security;
 alter table public.calendars enable row level security;
+alter table public.accounts enable row level security;
 
--- ---------- admins: you may only check yourself ----------
+-- ---------- admins: you can check yourself; the office sees and changes the list ----------
 drop policy if exists admins_self on public.admins;
-create policy admins_self on public.admins for select to authenticated using (lower(email) = public.my_email());
+drop policy if exists admins_add on public.admins;
+drop policy if exists admins_remove on public.admins;
+create policy admins_self on public.admins for select to authenticated using (lower(email) = public.my_email() or public.is_admin());
+create policy admins_add on public.admins for insert to authenticated
+  with check (public.is_admin() and email = lower(email) and added_by = public.my_email());
+-- (Not yourself, so the school can't lock itself out by accident.)
+create policy admins_remove on public.admins for delete to authenticated using (public.is_admin() and lower(email) <> public.my_email());
+
+-- ---------- accounts: your own row; the office sees everyone ----------
+drop policy if exists accounts_read on public.accounts;
+drop policy if exists accounts_add on public.accounts;
+drop policy if exists accounts_update on public.accounts;
+create policy accounts_read on public.accounts for select to authenticated using (email = public.my_email() or public.is_admin());
+create policy accounts_add on public.accounts for insert to authenticated with check (public.verified() and email = public.my_email() and uid = auth.uid());
+create policy accounts_update on public.accounts for update to authenticated
+  using (email = public.my_email() or public.is_admin()) with check (email = public.my_email() or public.is_admin());
+
+-- Signing in: note who you are (and, once, that you'd like office access).
+create or replace function public.hello(p_name text, p_wants_office boolean) returns boolean
+language plpgsql security invoker set search_path = public as $$
+begin
+  if not public.verified() then return false; end if;
+  insert into public.accounts as a (email, uid, name, wants_office) values (public.my_email(), auth.uid(), coalesce(p_name, ''), coalesce(p_wants_office, false))
+  on conflict (email) do update set uid = excluded.uid, last_seen = now(),
+    name = case when excluded.name <> '' then excluded.name else a.name end,
+    wants_office = a.wants_office or excluded.wants_office;
+  return true;
+end $$;
 
 -- ---------- classes ----------
 drop policy if exists classes_read on public.classes;
 drop policy if exists classes_create on public.classes;
 drop policy if exists classes_update on public.classes;
 drop policy if exists classes_delete on public.classes;
-create policy classes_read on public.classes for select to authenticated using (public.is_admin() or owner = auth.uid());
+-- A class belongs to the Google account in owner_email (owner is just who first uploaded it).
+create or replace function public.mine(p_owner_email text) returns boolean language sql stable as $$
+  select public.verified() and lower(p_owner_email) = public.my_email()
+$$;
+create policy classes_read on public.classes for select to authenticated using (public.is_admin() or public.mine(owner_email));
 -- New classes belong to whoever uploads them.
-create policy classes_create on public.classes for insert to authenticated with check (owner = auth.uid());
+create policy classes_create on public.classes for insert to authenticated with check (owner = auth.uid() and public.mine(owner_email));
 -- Only the office can hand a class to someone else.
 create policy classes_update on public.classes for update to authenticated
-  using (public.is_admin() or owner = auth.uid()) with check (public.is_admin() or owner = auth.uid());
-create policy classes_delete on public.classes for delete to authenticated using (public.is_admin() or owner = auth.uid());
+  using (public.is_admin() or public.mine(owner_email)) with check (public.is_admin() or public.mine(owner_email));
+create policy classes_delete on public.classes for delete to authenticated using (public.is_admin() or public.mine(owner_email));
+
+-- The office gives a class to someone (by Google email; they get it the next time they sign in).
+create or replace function public.assign_class(p_id text, p_email text) returns boolean
+language plpgsql security invoker set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'only the office can give a class to someone' using errcode = '42501'; end if;
+  if trim(coalesce(p_email, '')) !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'that is not an email address' using errcode = '22023'; end if;
+  update public.classes set owner_email = lower(trim(p_email)), updated_at = now(), updated_by = auth.uid() where id = p_id;
+  if not found then raise exception 'class % not found', p_id using errcode = 'P0002'; end if;
+  return true;
+end $$;
 
 -- Changes only the given keys of a class (others' edits to other keys are kept). Runs with the caller's rights.
 --   set_data / set_issues: { key: json string }, del_data / del_issues: keys to remove, meta: name / class_name.
@@ -186,27 +243,30 @@ drop policy if exists calendars_owner on public.calendars;
 create policy calendars_owner on public.calendars for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
 
 -- ---------- grants ----------
-revoke all on public.admins, public.classes, public.people, public.shared, public.calendars from anon;
-grant select on public.admins to authenticated;
+revoke all on public.admins, public.classes, public.people, public.shared, public.calendars, public.accounts from anon;
+grant select, insert, delete on public.admins to authenticated;
+grant select, insert, update on public.accounts to authenticated;
 grant select, insert, update, delete on public.classes, public.people, public.shared, public.calendars to authenticated;
-revoke all on function public.class_patch, public.shared_put, public.shared_reply, public.shared_seen, public.is_admin, public.has_class from public, anon;
-grant execute on function public.class_patch, public.shared_put, public.shared_reply, public.shared_seen, public.is_admin, public.has_class to authenticated;
+revoke all on function public.class_patch, public.shared_put, public.shared_reply, public.shared_seen, public.is_admin, public.has_class, public.hello, public.assign_class from public, anon;
+grant execute on function public.class_patch, public.shared_put, public.shared_reply, public.shared_seen, public.is_admin, public.has_class, public.hello, public.assign_class to authenticated;
 -- Works whether or not "Automatically expose new tables" was on when the project was made.
 grant usage on schema public to authenticated, service_role;
-grant execute on function public.my_email, public.verified to authenticated;
-grant all on public.admins, public.classes, public.people, public.shared, public.calendars to service_role;  -- the Edge Functions
+grant execute on function public.my_email, public.verified, public.mine to authenticated;
+grant all on public.admins, public.classes, public.people, public.shared, public.calendars, public.accounts to service_role;  -- the Edge Functions
 
 -- ---------- live updates ----------
 do $$ begin
   begin alter publication supabase_realtime add table public.classes; exception when others then null; end;
   begin alter publication supabase_realtime add table public.people; exception when others then null; end;
   begin alter publication supabase_realtime add table public.shared; exception when others then null; end;
+  begin alter publication supabase_realtime add table public.accounts; exception when others then null; end;
+  begin alter publication supabase_realtime add table public.admins; exception when others then null; end;
 end $$;
 
 -- ---------- documents (Storage) ----------
 -- May the signed-in account use this class's files? (Its owner, or the office.)
 create or replace function public.can_class(p_id text) returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.classes c where c.id = p_id and (c.owner = auth.uid() or public.is_admin()))
+  select exists (select 1 from public.classes c where c.id = p_id and (public.mine(c.owner_email) or public.is_admin()))
 $$;
 revoke all on function public.can_class from public, anon;
 grant execute on function public.can_class to authenticated;

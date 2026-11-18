@@ -82,6 +82,10 @@
           Store.login(id, pin.value.trim());
         } catch (e) { alert(e.message); return false; }
         UI.toast('Profile created');
+        // Office staff signed in without office access yet: ask for it (the office approves it on the Access page).
+        if (kind.value !== 'rebbi' && kind.value !== 'maintenance' && window.Sync && Sync.isOn() && !Sync.isAdmin()) {
+          Sync.requestOffice().then(function () { UI.toast('Asked the office for access to every class'); }, function () {});
+        }
         App.go(kind.value === 'maintenance' ? 'maint-home' : kind.value !== 'rebbi' ? 'admin' : 'talmidim');
       } }
     ]);

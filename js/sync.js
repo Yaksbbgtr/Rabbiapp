@@ -136,7 +136,8 @@
         sb.auth.onAuthStateChange(function (event, session) {
           var u = session && session.user;
           // Called again for every token refresh; only a different account starts over.
-          setTimeout(function () { onUser(u ? { uid: u.id, email: (u.email || '').toLowerCase() } : null); }, 0);
+          var md = (u && u.user_metadata) || {};
+          setTimeout(function () { onUser(u ? { uid: u.id, email: (u.email || '').toLowerCase(), name: md.full_name || md.name || '' } : null); }, 0);
           if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') cleanReturnURL();
         });
       });
@@ -217,6 +218,7 @@
     deviceOnly = {};
     Store.profiles().forEach(function (p) { if (!p.cloud) deviceOnly[p.id] = true; });
     setStatus('loading');
+    q(sb.rpc('hello', { p_name: u.name || '', p_wants_office: false })).catch(function () { /* just bookkeeping */ });
     S.adminP = q(sb.rpc('is_admin')).then(function (a) { S.admin = a === true; }, function () { S.admin = false; });
     S.adminP.then(listen).then(function () { if (window.Calendar && Calendar.publishSoon) Calendar.publishSoon(); });
   }
@@ -232,6 +234,9 @@
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, function () { if (sharedOn) loadPeopleSoon(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shared' }, function () { if (sharedOn) loadSharedSoon(); })
+      // Office access given or taken away (also by someone else): check again, and fetch every class if it's new.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admins' }, function () { recheckAdmin(); accessChanged(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, function () { accessChanged(); })
       .subscribe(function (st) {
         // (Re)connected: catch up on anything missed while away.
         if (st === 'SUBSCRIBED' && S.user === me && S.ready) loadAll();
@@ -260,6 +265,21 @@
       if (changed) renderSoon();
     }, function (e) { failed(e); });
   }
+  var adminTimer = null;
+  function recheckAdmin() {
+    clearTimeout(adminTimer);
+    adminTimer = setTimeout(function () {
+      var me = S.user, was = S.admin;
+      q(sb.rpc('is_admin')).then(function (a) {
+        if (S.user !== me || (a === true) === was) return;
+        S.admin = a === true;
+        UI.toast(S.admin ? 'You now have office access' : 'Office access was turned off');
+        loadAll(); renderSoon();
+      }, function () {});
+    }, 300);
+  }
+  var accessListeners = [];
+  function accessChanged() { accessListeners.forEach(function (fn) { try { fn(); } catch (e) { console.error(e); } }); }
   function refetchSoon(id) {
     clearTimeout(refetchTimers[id]);
     refetchTimers[id] = setTimeout(function () {
@@ -331,7 +351,10 @@
       ls(BASE_KEY + id, JSON.stringify(base));
     }, function (e) {
       failed(e);
-      if (!isNetwork(e)) ls(BASE_KEY + id, null); // re-merge from scratch next time the cloud copy arrives
+      if (!isNetwork(e)) {
+        ls(BASE_KEY + id, null); // re-merge from scratch next time the cloud copy arrives
+        if (/not yours/.test(e.message || '')) loadAll(); // given to someone else: catch up
+      }
     }).then(function () {
       sending[id] = false; inFlight--;
       if (again[id]) { again[id] = false; pushLocal(id); }
@@ -554,6 +577,15 @@
       return box;
     }
     box.appendChild(h('p', 'Signed in as ', h('strong', S.user.email), S.admin ? h('span.pill', { style: 'margin-left:6px' }, 'Office') : null));
+    if (!S.admin && Store.isAdmin()) {
+      // An office / principal profile, but the account can't see every class yet.
+      box.appendChild(h('div.callout',
+        h('p', 'This account doesn\'t have office access yet, so it only sees its own classes.'),
+        h('button.btn.small', { type: 'button', onclick: function (e) {
+          e.target.disabled = true;
+          requestOffice().then(function () { UI.toast('Asked – the office will see your request on its Access page'); }, function (er) { e.target.disabled = false; UI.toast(er.message); });
+        } }, 'Ask for office access')));
+    }
     box.appendChild(statusLine());
     var localOnly = Store.profiles().filter(function (p) { return !p.cloud; });
     if (localOnly.length) {
@@ -619,12 +651,38 @@
     return q(sb.storage.from(BUCKET).remove(paths));
   }
 
+  // ---------- managing access (office accounts only; the database checks that too) ----------
+  var access = {
+    // Everything the Access page shows. Classes without their contents, just who they belong to.
+    load: function () {
+      return Promise.all([
+        q(sb.from('accounts').select('email, name, wants_office, first_seen, last_seen')),
+        q(sb.from('admins').select('email, added_by, added_at')),
+        q(sb.from('classes').select('id, name, class_name, role, staff, sample, sample_grade, owner_email, updated_at'))
+      ]).then(function (r) { return { accounts: r[0] || [], admins: r[1] || [], classes: r[2] || [] }; });
+    },
+    addAdmin: function (email) {
+      email = String(email).trim().toLowerCase();
+      return q(sb.from('admins').insert({ email: email, added_by: S.user.email }))
+        .then(function () { return q(sb.from('accounts').update({ wants_office: false }).eq('email', email)).catch(function () {}); });
+    },
+    removeAdmin: function (email) { return q(sb.from('admins').delete().eq('email', email)); },
+    dismiss: function (email) { return q(sb.from('accounts').update({ wants_office: false }).eq('email', email)); },
+    assign: function (id, email) { return q(sb.rpc('assign_class', { p_id: id, p_email: email })); },
+    onChange: function (fn) { accessListeners.push(fn); return function () { accessListeners = accessListeners.filter(function (x) { return x !== fn; }); }; }
+  };
+  // A staff member asks for office access (the office approves it on the Access page).
+  function requestOffice() {
+    if (!S.user || !sb) return Promise.reject(new Error('not signed in'));
+    return q(sb.rpc('hello', { p_name: S.user.name || '', p_wants_office: true }));
+  }
+
   window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
     status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; },
     people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared,
     publishCalendar: publishCalendar, removeCalendar: removeCalendar, idToken: idToken,
     functionsURL: function (name) { return CONFIG.url ? CONFIG.url.replace(/\/+$/, '') + '/functions/v1/' + name : ''; },
-    configured: configured, uploadFile: uploadFile, fileURL: fileURL, removeFiles: removeFiles };
+    configured: configured, access: access, requestOffice: requestOffice, uploadFile: uploadFile, fileURL: fileURL, removeFiles: removeFiles };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   window.addEventListener('online', function () {

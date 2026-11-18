@@ -20,6 +20,7 @@
       maybeSingle: function () { op.single = true; return b; },
       insert: function (row) { op.kind = 'insert'; op.row = row; return b; },
       upsert: function (row) { op.kind = 'upsert'; op.row = row; return b; },
+      update: function (row) { op.kind = 'update'; op.row = row; return b; },
       delete: function () { op.kind = 'delete'; return b; },
       then: function (ok, fail) { return call(op).then(ok, fail); }
     };

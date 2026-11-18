@@ -127,6 +127,32 @@ async function until(page, fn, arg, ms = 10000) {
   ok(await until(A1, () => Calendar.publish(true)), 'live calendar publishes through Sync');
   ok(/Planner|VCALENDAR/.test((await db.query("select ics from public.calendars")).rows[0].ics), 'calendar text saved');
 
+  // ---------- Access page: office access by request, giving a class to someone ----------
+  await B.evaluate(() => Sync.requestOffice());
+  await O.evaluate(() => { const pid = Store.createProfile({ name: 'Main Office', admin: true, staff: 'office' }); Store.login(pid); location.hash = '#/admin-access'; });
+  ok(await until(O, () => /Asking for office access/.test(document.body.textContent) && /rebbi2@example\.com/.test(document.querySelector('.access-asking').textContent)), 'the office sees the request on the Access page');
+  await O.evaluate(() => [...document.querySelectorAll('.access-asking .btn')].find((b) => /Give office access/.test(b.textContent)).click());
+  await O.evaluate(() => [...document.querySelectorAll('.modal-actions .btn')].find((b) => /Give office access/.test(b.textContent)).click());
+  ok(await until(B, () => Sync.isAdmin()), 'approved: the other rebbi now has office access, without signing in again');
+  ok(await until(B, (id) => Store.hasData(id), id), '…and gets every class');
+  ok(await until(O, () => !document.querySelector('.access-asking')), 'the request goes away');
+  await O.evaluate(() => [...document.querySelectorAll('.access-row')].find((r) => /rebbi2@example\.com/.test(r.textContent) && /Take away/.test(r.textContent)).querySelector('.btn').click());
+  await O.evaluate(() => document.querySelector('.modal-actions .btn.danger, .modal-actions .btn.primary').click());
+  ok(await until(B, () => !Sync.isAdmin()), 'taking office access away works too');
+
+  // Give rebbi 1's class to a new rebbi who has never signed in
+  await O.evaluate((id) => { const row = [...document.querySelectorAll('.access-row')].find((r) => r.querySelector('.btn') && /Give to/.test(r.textContent) && r.textContent.includes(Store.profiles().find((p) => p.id === id).name)); row.querySelector('.btn').click(); }, id);
+  await O.evaluate(() => { const t = document.querySelector('.modal input[type=email]'); t.value = 'NewRebbi@example.com'; t.dispatchEvent(new Event('input')); [...document.querySelectorAll('.modal-actions .btn')].find((b) => /Give/.test(b.textContent)).click(); });
+  ok(await until(O, () => /newrebbi@example\.com/.test(document.body.textContent)), 'the Access page shows the new owner');
+  if (process.env.SHOT) { await O.setViewportSize({ width: 1000, height: 1400 }); await O.evaluate(() => document.body.classList.remove('nav-open')); await sleep(300); await O.screenshot({ path: process.env.SHOT, fullPage: true }); }
+  ok((await db.query('select owner_email from public.classes where id = $1', [id])).rows[0].owner_email === 'newrebbi@example.com', 'the class now belongs to the new rebbi');
+  const N = await device('new-rebbi', user('newrebbi'));
+  ok(await until(N, (id) => Store.hasData(id) && Store.peek(id).talmidim.length > 0, id), 'the new rebbi gets the class (with its talmidim) on first sign-in');
+  ok(await N.evaluate((id) => Sync.canOpen(Store.profiles().find((p) => p.id === id)), id), '…and can open it');
+  await A1.evaluate((id) => Store.updateProfile(id, (d) => { d.settings.school = 'old owner edit'; }), id);
+  await sleep(1500);
+  ok((await db.query("select data->>'settings' s from public.classes where id = $1", [id])).rows[0].s.indexOf('old owner edit') < 0, 'the old owner can no longer change it');
+
   // ---------- log out / skip / sign back in ----------
   await A2.evaluate(() => Profiles.logout());
   ok(await until(A2, () => !Sync.user() && Store.profiles().some((p) => p.cloud)), 'log out signs out and keeps synced classes on the device');

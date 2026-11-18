@@ -20,7 +20,7 @@
     var nav = document.getElementById('nav');
     nav.innerHTML = '';
     var admin = Store.isAdmin();
-    var names = order.filter(function (name) { var v = views[name]; return admin ? v.admin : !v.adminOnly; });
+    var names = order.filter(function (name) { var v = views[name]; return (admin ? v.admin : !v.adminOnly) && (!v.when || v.when()); });
     var maint = Store.staffRole() === 'maintenance';
     if (maint) names = MAINTENANCE_PAGES.filter(function (n) { return names.indexOf(n) >= 0; });
     else names = names.filter(function (n) { return !views[n].maintOnly; });

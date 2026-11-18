@@ -24,10 +24,12 @@ test('a rebbi uploads a class and only he (and the office) can see it', async ()
 
 test('nobody can put a class in someone else\'s name or take one', async () => {
   await fails(as(db, rebbiB, "insert into public.classes (id, owner) values ('c2', $1)", [rebbiA.id]), /row-level security/);
-  await as(db, rebbiB, "update public.classes set owner = $1 where id = 'c1'", [rebbiB.id]); // sees no row: nothing happens
-  await fails(as(db, rebbiA, "update public.classes set owner = $1 where id = 'c1'", [rebbiB.id]), /row-level security/);
-  const r = await rows(db.query("select owner from public.classes where id = 'c1'"));
-  assert.strictEqual(r[0].owner, rebbiA.id);
+  await fails(as(db, rebbiB, "insert into public.classes (id, owner_email) values ('c2', 'rebbia@example.com')"), /row-level security/);
+  await as(db, rebbiB, "update public.classes set owner_email = 'rebbib@example.com' where id = 'c1'"); // sees no row: nothing happens
+  await fails(as(db, rebbiA, "update public.classes set owner_email = 'rebbib@example.com' where id = 'c1'"), /row-level security/);
+  await fails(as(db, rebbiA, "select public.assign_class('c1', 'rebbib@example.com')"), /only the office/);
+  const r = await rows(db.query("select owner_email from public.classes where id = 'c1'"));
+  assert.strictEqual(r[0].owner_email, 'rebbia@example.com');
 });
 
 test('class_patch changes only the keys given, and only on your own class', async () => {
@@ -104,6 +106,47 @@ test('documents: only the class\'s rebbi and the office', async () => {
   assert.strictEqual((await see(rebbiA)).length, 2, 'another rebbi can\'t delete');
   await as(db, rebbiA, "delete from storage.objects where name = 'c1/u1/f1/sheet.pdf'");
   assert.deepStrictEqual(await see(office), ['c1/u1/f4/office.pdf']);
+});
+
+test('the office gives a class to someone, even before he has signed in', async () => {
+  await as(db, rebbiA, "insert into public.classes (id, owner_email, name) values ('c5', 'rebbia@example.com', 'Kitah Hei')");
+  await fails(as(db, office, "select public.assign_class('c5', 'not an email')"), /not an email/);
+  await as(db, office, "select public.assign_class('c5', ' NewRebbi@Example.com ')");
+  const newRebbi = user('newrebbi');
+  assert.deepStrictEqual((await rows(as(db, newRebbi, 'select id from public.classes'))).map((r) => r.id), ['c5'], 'the new rebbi gets it');
+  assert.ok(!(await rows(as(db, rebbiA, 'select id from public.classes'))).some((r) => r.id === 'c5'), 'the old one no longer sees it');
+  await fails(as(db, rebbiA, "select public.class_patch('c5', 'x', '{}', '{\"a\":\"1\"}', null, null, null)"), /not found or not yours/);
+  await as(db, newRebbi, "select public.class_patch('c5', 'x', '{}', '{\"a\":\"1\"}', null, null, null)");
+  await as(db, newRebbi, "insert into storage.objects (bucket_id, name) values ('limud-files', 'c5/u/f/x.pdf')");
+});
+
+test('office access: the office adds and removes people; nobody else can', async () => {
+  await fails(as(db, rebbiA, "insert into public.admins (email, added_by) values ('rebbia@example.com', 'rebbia@example.com')"), /row-level/);
+  await as(db, office, "insert into public.admins (email, added_by) values ('principal@example.com', 'office@example.com')");
+  await fails(as(db, office, "insert into public.admins (email, added_by) values ('x@example.com', 'someone@else.com')"), /row-level/, 'must say who added');
+  const principal = user('principal');
+  assert.strictEqual((await rows(as(db, principal, 'select public.is_admin() as a')))[0].a, true);
+  assert.strictEqual((await rows(as(db, principal, 'select * from public.admins'))).length, 2, 'the office sees the whole list');
+  await as(db, rebbiA, "delete from public.admins where email = 'principal@example.com'");
+  await as(db, office, "delete from public.admins where email = 'office@example.com'");
+  assert.strictEqual((await rows(db.query('select * from public.admins'))).length, 2, 'can\'t remove yourself; a rebbi can\'t remove anyone');
+  await as(db, principal, "delete from public.admins where email = 'office@example.com'");
+  await as(db, office, "select 1").catch(() => {});
+  assert.strictEqual((await rows(as(db, office, 'select public.is_admin() as a')))[0].a, false, 'removed');
+  await db.query("insert into public.admins (email) values ('office@example.com')");
+});
+
+test('accounts: you note yourself; only the office sees everyone', async () => {
+  await as(db, rebbiA, "select public.hello('Rabbi A', false)");
+  await as(db, rebbiB, "select public.hello('Rabbi B', true)");
+  await as(db, rebbiB, "select public.hello('', false)");
+  const b = (await rows(db.query("select * from public.accounts where email = 'rebbib@example.com'")))[0];
+  assert.deepStrictEqual([b.name, b.wants_office], ['Rabbi B', true], 'name and request are kept');
+  assert.strictEqual((await rows(as(db, rebbiA, 'select * from public.accounts'))).length, 1, 'a rebbi sees only himself');
+  assert.strictEqual((await rows(as(db, office, 'select * from public.accounts'))).length, 2);
+  await as(db, office, "update public.accounts set wants_office = false where email = 'rebbib@example.com'");
+  await fails(as(db, rebbiA, "insert into public.accounts (email, uid) values ('someone@example.com', $1)", [rebbiA.id]), /row-level/);
+  assert.strictEqual((await rows(as(db, faker, "select public.hello('x', true) as ok")))[0].ok, false, 'not a Google account');
 });
 
 test('schema.sql can be run a second time', async () => {

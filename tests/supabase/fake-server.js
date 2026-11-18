@@ -2,8 +2,8 @@
 // security applies exactly as on Supabase) and sends a live-update message to every open page after each change.
 const { as } = require('./db');
 
-const PK = { classes: 'id', people: 'email', shared: 'id', calendars: 'token' };
-const RPC_TABLE = { class_patch: 'classes', shared_put: 'shared', shared_reply: 'shared', shared_seen: 'shared' };
+const PK = { classes: 'id', people: 'email', shared: 'id', calendars: 'token', accounts: 'email', admins: 'email' };
+const RPC_TABLE = { class_patch: 'classes', shared_put: 'shared', shared_reply: 'shared', shared_seen: 'shared', assign_class: 'classes', hello: 'accounts' };
 
 // The files themselves, shared by every test device (the database only keeps who may see them, like Supabase Storage).
 const blobs = new Map();
@@ -60,6 +60,12 @@ async function attach(context, db) {
       const r = await as(db, user, `select ${op.cols} from public.${t}${wsql}`, params);
       const rows = r.rows.map(clean);
       return { data: op.single ? rows[0] || null : rows };
+    }
+    if (op.kind === 'update') {
+      const sets = Object.keys(op.row).map(name).map((k) => { params.push(val(types[k], op.row[k])); return `${k} = $${params.length}::${cast(types[k])}`; });
+      // the WHERE parameters were added first, so number the SET ones after them
+      await as(db, user, `update public.${t} set ${sets.join(', ')}${wsql}`, params);
+      return { data: null, changed: { table: t, key: op.filters[0] && op.filters[0][1] } };
     }
     if (op.kind === 'delete') { await as(db, user, `delete from public.${t}${wsql}`, params); return { data: null, changed: { table: t, key: op.filters[0] && op.filters[0][1] } }; }
     const keys = Object.keys(op.row).map(name);
