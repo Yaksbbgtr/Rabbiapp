@@ -189,6 +189,10 @@ grant select on public.admins to authenticated;
 grant select, insert, update, delete on public.classes, public.people, public.shared, public.calendars to authenticated;
 revoke all on function public.class_patch, public.shared_put, public.shared_reply, public.shared_seen, public.is_admin, public.has_class from public, anon;
 grant execute on function public.class_patch, public.shared_put, public.shared_reply, public.shared_seen, public.is_admin, public.has_class to authenticated;
+-- Works whether or not "Automatically expose new tables" was on when the project was made.
+grant usage on schema public to authenticated, service_role;
+grant execute on function public.my_email, public.verified to authenticated;
+grant all on public.admins, public.classes, public.people, public.shared, public.calendars to service_role;  -- the Edge Functions
 
 -- ---------- live updates ----------
 do $$ begin
