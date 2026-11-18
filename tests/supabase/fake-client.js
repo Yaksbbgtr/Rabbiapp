@@ -40,6 +40,17 @@
         signOut: function () { localStorage.removeItem(SESSION); setTimeout(function () { fire('SIGNED_OUT'); }, 0); return Promise.resolve({ error: null }); }
       },
       from: builder,
+      storage: { from: function (bucket) {
+        var st = function (op) { return { then: function (ok, fail) { return call(Object.assign({ kind: 'storage', bucket: bucket }, op)).then(ok, fail); } }; };
+        return {
+          upload: function (path, file, o) {
+            return new Promise(function (ok) { var r = new FileReader(); r.onload = function () { ok(r.result); }; r.readAsDataURL(file); })
+              .then(function (dataUrl) { return call({ kind: 'storage', bucket: bucket, op: 'upload', path: path, dataUrl: dataUrl }); });
+          },
+          createSignedUrl: function (path) { return st({ op: 'sign', path: path }); },
+          remove: function (paths) { return st({ op: 'remove', paths: paths }); }
+        };
+      } },
       rpc: function (name, args) { return { then: function (ok, fail) { return call({ kind: 'rpc', fn: name, args: args || {} }).then(ok, fail); } }; },
       channel: function () {
         var ch = { handlers: [], on: function (type, filter, cb) { ch.handlers.push([filter.table, cb]); return ch; },

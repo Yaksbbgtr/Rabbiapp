@@ -10,6 +10,8 @@
 --   shared     an issue a rebbi sent to other rebbeim. Only the people on it (members, by email) can read it.
 --              The sender writes it; the others may only add replies and read marks (shared_reply / shared_seen).
 --   calendars  a rebbi's live calendar (.ics text), served by the "calendar" Edge Function. Token = long secret.
+--   storage    limud-files bucket: documents added to a limud's source notes, at <class id>/<limud id>/<file id>/<name>.
+--              Same rule as the class itself: its rebbi and the office.
 
 create table if not exists public.admins (email text primary key);
 
@@ -200,3 +202,29 @@ do $$ begin
   begin alter publication supabase_realtime add table public.people; exception when others then null; end;
   begin alter publication supabase_realtime add table public.shared; exception when others then null; end;
 end $$;
+
+-- ---------- documents (Storage) ----------
+-- May the signed-in account use this class's files? (Its owner, or the office.)
+create or replace function public.can_class(p_id text) returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.classes c where c.id = p_id and (c.owner = auth.uid() or public.is_admin()))
+$$;
+revoke all on function public.can_class from public, anon;
+grant execute on function public.can_class to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('limud-files', 'limud-files', false, 26214400)  -- 25 MB a file
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit;
+
+drop policy if exists limud_files_read on storage.objects;
+drop policy if exists limud_files_add on storage.objects;
+drop policy if exists limud_files_change on storage.objects;
+drop policy if exists limud_files_remove on storage.objects;
+create policy limud_files_read on storage.objects for select to authenticated
+  using (bucket_id = 'limud-files' and public.can_class((storage.foldername(name))[1]));
+create policy limud_files_add on storage.objects for insert to authenticated
+  with check (bucket_id = 'limud-files' and public.can_class((storage.foldername(name))[1]));
+create policy limud_files_change on storage.objects for update to authenticated
+  using (bucket_id = 'limud-files' and public.can_class((storage.foldername(name))[1]))
+  with check (bucket_id = 'limud-files' and public.can_class((storage.foldername(name))[1]));
+create policy limud_files_remove on storage.objects for delete to authenticated
+  using (bucket_id = 'limud-files' and public.can_class((storage.foldername(name))[1]));

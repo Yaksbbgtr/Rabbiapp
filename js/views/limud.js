@@ -17,7 +17,8 @@
     UI.modal(isNew ? 'New limud' : 'Edit limud', h('div', dl,
       UI.field('Subject', subj), UI.field('What is being learned', title), UI.field('Started', date)), [
       isNew ? null : { label: 'Delete', danger: true, onClick: function () {
-        UI.confirm('Delete this limud, its source notes and its progress marks?', function () {
+        UI.confirm('Delete this limud, its source notes, documents and progress marks?', function () {
+          Docs.removeAll(u);
           Store.update(function (s) { s.units = s.units.filter(function (x) { return x.id !== u.id; }); delete s.mastery[u.id]; });
           App.go('limud');
         });
@@ -143,6 +144,7 @@
           h('div.row.between', h('h2', 'Source notes ', saved)),
           h('p.small.muted', 'Your own notes for teaching this limud. They save as you type and stay with this limud.'),
           ta));
+        main.appendChild(Docs.card(u));
       }
 
       if (unitTab === 'talmidim') {

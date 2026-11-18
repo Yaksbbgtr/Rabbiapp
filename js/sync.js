@@ -602,12 +602,29 @@
     });
   }
 
+  // ---------- documents (Supabase Storage, bucket limud-files) ----------
+  // Path: <class id>/<limud id>/<file id>/<name>. The class's rebbi and the office can use them (supabase/schema.sql).
+  var BUCKET = 'limud-files';
+  function uploadFile(path, file) {
+    if (!S.user || !sb) return Promise.reject(new Error('not signed in'));
+    return q(sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false }));
+  }
+  // A short-lived private link to open or download it.
+  function fileURL(path, download) {
+    if (!S.user || !sb) return Promise.reject(new Error('not signed in'));
+    return q(sb.storage.from(BUCKET).createSignedUrl(path, 300, download ? { download: download } : undefined)).then(function (d) { return d.signedUrl; });
+  }
+  function removeFiles(paths) {
+    if (!S.user || !sb || !paths.length) return Promise.resolve();
+    return q(sb.storage.from(BUCKET).remove(paths));
+  }
+
   window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
     status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; },
     people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared,
     publishCalendar: publishCalendar, removeCalendar: removeCalendar, idToken: idToken,
     functionsURL: function (name) { return CONFIG.url ? CONFIG.url.replace(/\/+$/, '') + '/functions/v1/' + name : ''; },
-    configured: configured };
+    configured: configured, uploadFile: uploadFile, fileURL: fileURL, removeFiles: removeFiles };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   window.addEventListener('online', function () {

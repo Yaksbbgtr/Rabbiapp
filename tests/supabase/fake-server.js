@@ -5,6 +5,9 @@ const { as } = require('./db');
 const PK = { classes: 'id', people: 'email', shared: 'id', calendars: 'token' };
 const RPC_TABLE = { class_patch: 'classes', shared_put: 'shared', shared_reply: 'shared', shared_seen: 'shared' };
 
+// The files themselves, shared by every test device (the database only keeps who may see them, like Supabase Storage).
+const blobs = new Map();
+
 async function attach(context, db) {
   const cols = {}, fns = {};
   for (const r of (await db.query("select table_name t, column_name c, udt_name u from information_schema.columns where table_schema = 'public'")).rows)
@@ -21,7 +24,27 @@ async function attach(context, db) {
   const clean = (row) => { for (const k in row) if (row[k] instanceof Date) row[k] = row[k].toISOString(); return row; };
   const name = (s) => { if (!/^[a-z_]+$/.test(s)) throw new Error('bad name ' + s); return s; };
 
+  async function storage(user, op) {
+    if (op.op === 'upload') {
+      await as(db, user, 'insert into storage.objects (bucket_id, name) values ($1, $2)', [op.bucket, op.path]);
+      blobs.set(op.bucket + '/' + op.path, op.dataUrl);
+      return { data: { path: op.path } };
+    }
+    if (op.op === 'sign') {
+      const r = await as(db, user, 'select name from storage.objects where bucket_id = $1 and name = $2', [op.bucket, op.path]);
+      if (!r.rows.length) throw new Error('Object not found');
+      return { data: { signedUrl: 'https://files.test/' + op.bucket + '/' + op.path } };
+    }
+    if (op.op === 'remove') {
+      const r = await as(db, user, 'delete from storage.objects where bucket_id = $1 and name = any($2::text[]) returning name', [op.bucket, '{' + op.paths.map((x) => '"' + x + '"').join(',') + '}']);
+      r.rows.forEach((x) => blobs.delete(op.bucket + '/' + x.name));
+      return { data: r.rows };
+    }
+    throw new Error('storage op ' + op.op);
+  }
+
   async function run(user, op) {
+    if (op.kind === 'storage') return storage(user, op);
     if (op.kind === 'rpc') {
       const sig = fns[name(op.fn)]; if (!sig) throw new Error('no function ' + op.fn);
       const params = sig.map(([a, t]) => val(t, op.args[a]));
@@ -56,6 +79,14 @@ async function attach(context, db) {
       }
       return { data: r.data === undefined ? null : r.data, error: null };
     } catch (e) { return { data: null, error: { message: e.message, code: e.code } }; }
+  });
+  // Signed links: served from the shared file store, like Supabase's own file links.
+  await context.route('https://files.test/**', (route) => {
+    const key = decodeURIComponent(new URL(route.request().url()).pathname.slice(1));
+    const d = blobs.get(key);
+    if (!d) return route.fulfill({ status: 404, body: 'not found' });
+    const m = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(d);
+    route.fulfill({ status: 200, contentType: m[1] || 'application/octet-stream', body: Buffer.from(m[3], m[2] ? 'base64' : 'utf8') });
   });
   await context.addInitScript({ path: require('node:path').join(__dirname, 'fake-client.js') });
 }

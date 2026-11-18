@@ -97,6 +97,28 @@ async function until(page, fn, arg, ms = 10000) {
   await sleep(1000);
   ok(await B.evaluate((id) => !Store.hasData(id), id), 'another rebbi does not get the class');
 
+  // ---------- documents on a limud ----------
+  const unitId = await A1.evaluate((id) => { Store.login(id); const u = Store.get().units[0]; location.hash = '#/unit/' + u.id; return u.id; }, id);
+  await A1.waitForSelector('.docs-card');
+  await A1.locator('.docs-card input[type=file]').setInputFiles([{ name: 'Kumatz worksheet.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') }]);
+  ok(await until(A1, (u) => (Store.get().units.find((x) => x.id === u).files || []).some((f) => f.where === 'cloud' && /Kumatz/.test(f.name)), unitId), 'a document added on a limud goes to the cloud');
+  ok(await until(A1, () => /Kumatz worksheet\.pdf/.test(document.querySelector('.docs-card').textContent)), 'it shows in the Documents list');
+  const docPath = await A1.evaluate((u) => Store.get().units.find((x) => x.id === u).files[0].path, unitId);
+  ok(docPath.startsWith(id + '/' + unitId + '/'), 'stored under the class and limud: ' + docPath);
+  ok(await until(A2, ([id, u]) => (Store.peek(id).units.find((x) => x.id === u).files || []).length === 1, [id, unitId]), 'device 2 sees the document in the list');
+  const u2 = await A2.evaluate((p) => Sync.fileURL(p).then((x) => x, (e) => 'ERR ' + e.message), docPath);
+  ok(await A2.evaluate((u) => fetch(u).then((r) => r.text()), u2) === '%PDF-1.4 test', 'device 2 can open it');
+  ok(await O.evaluate((p) => Sync.fileURL(p).then((u) => fetch(u).then((r) => r.ok), () => false), docPath), 'the office can open it');
+  ok(await B.evaluate((p) => Sync.fileURL(p).then(() => false, () => true), docPath), 'another rebbi cannot open it');
+  ok(await B.evaluate((p) => Sync.uploadFile(p.replace(/[^/]+$/, 'x.pdf'), new Blob(['x'])).then(() => false, () => true), docPath), 'another rebbi cannot add files to the class');
+  const [fileReq] = await Promise.all([A1.context().waitForEvent('request', (r) => /files\.test/.test(r.url())), A1.locator('.doc-open').first().click()]);
+  ok(/files\.test\/limud-files\//.test(fileReq.url()), 'tapping it opens the file in a new tab');
+  await A1.evaluate(() => { window.__confirm = UI.confirm; });
+  await A1.locator('.docs-card .lesson-x').first().click();
+  await A1.evaluate(() => document.querySelector('.modal-actions .btn.danger, .modal-actions .btn.primary').click());
+  ok(await until(A1, (u) => !(Store.get().units.find((x) => x.id === u).files || []).length, unitId), 'removing it takes it off the list');
+  ok(await until(A1, () => true) && (await db.query("select count(*)::int n from storage.objects")).rows[0].n === 0, 'and deletes the stored file');
+
   // ---------- live calendar row ----------
   ok(await A1.evaluate(() => Sync.publishCalendar('abcdefghijklmnopqrstuvwxyz12', 'BEGIN:VCALENDAR', 'x').then(() => true, () => false)), 'live calendar uploads');
   ok((await db.query("select count(*)::int n from public.calendars")).rows[0].n === 1, 'calendar row saved');

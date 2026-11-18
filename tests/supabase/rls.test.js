@@ -89,6 +89,23 @@ test('calendars: owner only; long token', async () => {
   assert.strictEqual((await rows(db.query('select * from public.calendars'))).length, 1);
 });
 
+test('documents: only the class\'s rebbi and the office', async () => {
+  const add = (u, path) => as(db, u, "insert into storage.objects (bucket_id, name) values ('limud-files', $1)", [path]);
+  await add(rebbiA, 'c1/u1/f1/sheet.pdf');
+  await fails(add(rebbiB, 'c1/u1/f2/hack.pdf'), /row-level/);
+  await fails(add(rebbiA, 'c3/u1/f3/x.pdf'), /row-level/, 'not his class');
+  await fails(add(rebbiA, 'sheet.pdf'), /row-level/, 'must be in a class folder');
+  await add(office, 'c1/u1/f4/office.pdf');
+  const see = async (u) => (await rows(as(db, u, "select name from storage.objects where bucket_id = 'limud-files' order by name"))).map((r) => r.name);
+  assert.deepStrictEqual(await see(rebbiA), ['c1/u1/f1/sheet.pdf', 'c1/u1/f4/office.pdf']);
+  assert.deepStrictEqual(await see(rebbiB), []);
+  assert.deepStrictEqual(await see(stranger), []);
+  await as(db, rebbiB, "delete from storage.objects where name = 'c1/u1/f1/sheet.pdf'");
+  assert.strictEqual((await see(rebbiA)).length, 2, 'another rebbi can\'t delete');
+  await as(db, rebbiA, "delete from storage.objects where name = 'c1/u1/f1/sheet.pdf'");
+  assert.deepStrictEqual(await see(office), ['c1/u1/f4/office.pdf']);
+});
+
 test('schema.sql can be run a second time', async () => {
   await db.exec(require('node:fs').readFileSync(require('node:path').join(__dirname, '../../supabase/schema.sql'), 'utf8'));
 });
