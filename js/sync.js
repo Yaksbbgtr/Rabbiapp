@@ -16,8 +16,8 @@
   // The Supabase project (Project Settings → API). The publishable key is meant to be public: the database's
   // row level security decides what each signed-in account may see.
   var CONFIG = window.REBBI_SYNC_CONFIG || { // REBBI_SYNC_CONFIG: the tests' stand-in project
-    url: '',
-    key: ''
+    url: 'https://ocfanjopridhiqsagmfl.supabase.co',
+    key: 'sb_publishable_kzLXn8Gu2sTQJh7Q4kS00A_L8ONq3Xo'
   };
   var SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js';
   var ON_KEY = 'rabbiapp.sync.on';
