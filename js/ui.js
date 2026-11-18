@@ -156,6 +156,20 @@
     var d = new Date(+p[0], +p[1] - 1, +p[2]);
     return d.toLocaleDateString(undefined, Object.assign({ weekday: 'short', month: 'short', day: 'numeric' }, opts || {}));
   }
+  // 'HH:MM' → '9:30 AM' (or 09:30, as the phone shows times).
+  function fmtTime(t) {
+    if (!t || !/^\d\d:\d\d/.test(t)) return '';
+    return new Date(2000, 0, 1, +t.slice(0, 2), +t.slice(3, 5)).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+  // Planner items in a day: the ones with a time first, by time; then the rest in the order they were added.
+  function byTime(list) {
+    return list.map(function (x, i) { return [x, i]; }).sort(function (a, b) {
+      var ta = a[0].time || '', tb = b[0].time || '';
+      if (ta && tb && ta !== tb) return ta < tb ? -1 : 1;
+      if (!ta !== !tb) return ta ? -1 : 1;
+      return a[1] - b[1];
+    }).map(function (x) { return x[0]; });
+  }
   function hebDate(iso, opts) {
     return HebCal.formatHebrew(HebCal.fromRD(HebCal.isoToRD(iso)), opts);
   }
@@ -314,6 +328,6 @@
     limudCommentParts: limudCommentParts,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,
     input: input, select: select, fmtDate: fmtDate, hebDate: hebDate, addDays: addDays,
-    empty: empty, download: download, copyText: copyText, talmidOptions: talmidOptions
+    empty: empty, download: download, fmtTime: fmtTime, byTime: byTime, copyText: copyText, talmidOptions: talmidOptions
   };
 })();

@@ -832,3 +832,5 @@ select.bulk-level {
   border-radius: 10px; cursor: pointer; background-repeat: no-repeat; background-position: right 10px center; background-size: 10px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 14' fill='none' stroke='%23999' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3'/%3E%3C/svg%3E");
 }
+.lesson-time { color: var(--navy-2); font-weight: 600; font-size: .85em; margin-inline-end: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+input[type=time] { min-width: 120px; }

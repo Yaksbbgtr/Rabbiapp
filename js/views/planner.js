@@ -8,10 +8,15 @@
   // l: an existing lesson, or nothing / a prefilled object (no id) for a new one.
   function editLesson(l, date) {
     var isNew = !l || !l.id;
-    if (isNew) l = Object.assign({ date: date || Store.todayISO(), subject: 'Chumash', plan: '', notes: '', done: false }, l || {});
-    var subj = UI.input({ value: l.subject, list: 'plan-subj' });
+    if (isNew) l = Object.assign({ date: date || Store.todayISO(), subject: '', plan: '', notes: '', done: false }, l || {});
+    var subj = UI.input({ value: l.subject || '', list: 'plan-subj', placeholder: 'e.g. Chumash' });
     var dl = h('datalist#plan-subj', SUBJECTS.map(function (s) { return h('option', { value: s }); }));
     var d = UI.input({ type: 'date', value: l.date });
+    // Optional time of day; "No time" clears it (iPhone's time wheel has no clear button).
+    var tm = UI.input({ type: 'time', value: l.time || '', step: 300, 'aria-label': 'Time' });
+    var noTime = h('button.link.small', { type: 'button', onclick: function () { tm.value = ''; showNoTime(); } }, 'No time');
+    function showNoTime() { noTime.hidden = !tm.value; }
+    tm.addEventListener('input', showNoTime); tm.addEventListener('change', showNoTime); showNoTime();
     // Nothing can be planned on Shabbos or Yom Tov: flag the date and block saving.
     var shabbosWarn = h('div.shabbos-warn', { role: 'alert' });
     var isShabbosDate = function () {
@@ -27,7 +32,8 @@
     var plan = h('textarea', { rows: 4, dir: 'auto', placeholder: 'Pesukim / mishnayos to cover, questions to ask, activities…' }, l.plan);
     var notes = h('textarea', { rows: 3, dir: 'auto', placeholder: 'After the shiur: how did it go? Where did we stop?' }, l.notes || '');
     var dlg = UI.modal(isNew ? 'Add to plan' : 'Edit plan', h('div', dl,
-      h('div.form-grid', UI.field('Subject', subj), UI.field('Date', d)), shabbosWarn,
+      h('div.form-grid', h('div.field', h('span.field-label', 'Subject ', h('span.muted', '(optional)')), subj), UI.field('Date', d),
+        h('div.field', h('span.field-label', 'Time ', h('span.muted', '(optional)')), h('div.row.gap', tm, noTime))), shabbosWarn,
       UI.field('Plan', plan), UI.field('Notes / where we stopped', notes)), [
       isNew ? null : { label: 'Delete', danger: true, onClick: function () {
         Store.update(function (s) { s.lessons = s.lessons.filter(function (x) { return x.id !== l.id; }); }); App.render();
@@ -35,8 +41,10 @@
       { label: 'Cancel' },
       { label: 'Save', primary: true, onClick: function () {
         if (isShabbosDate()) { UI.toast('Can\'t plan on Shabbos or Yom Tov'); d.focus(); return false; }
+        if (!subj.value.trim() && !plan.value.trim()) { UI.toast('Write a subject or a plan'); plan.focus(); return false; }
         Store.update(function (s) {
-          l.subject = subj.value.trim() || 'Other'; l.date = d.value; l.plan = plan.value.trim(); l.notes = notes.value.trim();
+          l.subject = subj.value.trim(); l.date = d.value;
+          if (tm.value) l.time = tm.value.slice(0, 5); else delete l.time; l.plan = plan.value.trim(); l.notes = notes.value.trim();
           if (isNew) { l.id = Store.uid(); s.lessons.push(l); }
         });
         App.render();
@@ -47,8 +55,11 @@
   }
 
   function lessonsOn(iso) {
-    return Store.get().lessons.filter(function (l) { return l.date === iso; });
+    return UI.byTime(Store.get().lessons.filter(function (l) { return l.date === iso; }));
   }
+
+  // "Chumash: Perek 3", or just the subject / the plan's first line when the other is empty.
+  function lessonName(l) { return [l.subject, (l.plan || '').split('\n')[0]].filter(Boolean).join(': ') || 'this item'; }
 
   // Tapping an item (or its checkbox) marks it done / not done; the pencil edits it, the x removes it.
   function lessonRow(l) {
@@ -56,11 +67,11 @@
     return h('div.lesson' + (l.done ? '.done' : ''),
       h('input', { type: 'checkbox', checked: l.done, 'aria-label': 'Done', onchange: toggle }),
       h('button.link.grow', { type: 'button', title: l.done ? 'Mark not done' : 'Mark done', onclick: toggle },
-        h('strong', l.subject), ' ', h('span', { dir: 'auto' }, l.plan),
+        l.time ? h('span.lesson-time', UI.fmtTime(l.time)) : null, l.subject ? [h('strong', l.subject), ' '] : null, h('span', { dir: 'auto' }, l.plan),
         l.notes ? h('div.small.muted', { dir: 'auto' }, '↳ ' + l.notes) : null),
-      h('button.lesson-x.lesson-edit', { type: 'button', title: 'Edit', 'aria-label': 'Edit ' + l.subject, onclick: function () { editLesson(l); } }, UI.icon('edit', 16)),
-      h('button.lesson-x', { type: 'button', title: 'Remove', 'aria-label': 'Remove ' + l.subject, onclick: function () {
-        UI.confirm('Remove "' + l.subject + (l.plan ? ': ' + l.plan.split('\n')[0] : '') + '" from the planner?', function () {
+      h('button.lesson-x.lesson-edit', { type: 'button', title: 'Edit', 'aria-label': 'Edit ' + lessonName(l), onclick: function () { editLesson(l); } }, UI.icon('edit', 16)),
+      h('button.lesson-x', { type: 'button', title: 'Remove', 'aria-label': 'Remove ' + lessonName(l), onclick: function () {
+        UI.confirm('Remove "' + lessonName(l) + '" from the planner?', function () {
           Store.update(function (s) { s.lessons = s.lessons.filter(function (x) { return x.id !== l.id; }); });
           UI.toast('Removed'); App.render();
         }, 'Remove');
@@ -161,7 +172,7 @@
           if (HebCal.weekday(rd) === 0) prev = lessonsOn(UI.addDays(iso, -2)); // Sunday copies Friday
           if (!prev.length) { UI.toast('Nothing planned the day before'); return; }
           Store.update(function (s) {
-            prev.forEach(function (l) { s.lessons.push({ id: Store.uid(), date: iso, subject: l.subject, plan: l.plan, notes: '', done: false }); });
+            prev.forEach(function (l) { s.lessons.push({ id: Store.uid(), date: iso, time: l.time, subject: l.subject, plan: l.plan, notes: '', done: false }); });
           });
           UI.toast('Copied ' + prev.length + (prev.length === 1 ? ' item' : ' items')); App.render();
         } }, UI.icon('copy'), 'Copy previous day'),
@@ -207,7 +218,7 @@
         if (!prev.length) { UI.toast('Nothing planned the week before'); return; }
         Store.update(function (s) {
           prev.forEach(function (l) {
-            s.lessons.push({ id: Store.uid(), date: UI.addDays(l.date, 7), subject: l.subject, plan: l.plan, notes: '', done: false });
+            s.lessons.push({ id: Store.uid(), date: UI.addDays(l.date, 7), time: l.time, subject: l.subject, plan: l.plan, notes: '', done: false });
           });
         });
         UI.toast('Copied ' + prev.length + ' items from the week before'); App.render();

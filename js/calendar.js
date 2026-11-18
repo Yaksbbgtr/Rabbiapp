@@ -28,7 +28,17 @@
   }
   function stamp() { return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); }
 
-  // ev: { uid, title, date (YYYY-MM-DD, all-day), details?, category? }
+  // A timed item lasts an hour, in the phone's own time zone ("floating" time: 9:30 stays 9:30 wherever you are).
+  var LEN = 60;
+  function when(ev) {
+    if (!ev.time) return { start: compact(ev.date), end: compact(UI.addDays(ev.date, 1)), allDay: true };
+    var p = ev.date.split('-'), t = ev.time.split(':');
+    var a = new Date(+p[0], +p[1] - 1, +p[2], +t[0], +t[1]), b = new Date(a.getTime() + LEN * 60000);
+    var f = function (d) { return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + 'T' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '00'; };
+    return { start: f(a), end: f(b), allDay: false };
+  }
+
+  // ev: { uid, title, date (YYYY-MM-DD), time? (HH:MM; without it, all-day), details?, category? }
   // live: a subscribed calendar; asks calendar apps to check back every hour.
   function ics(events, calName, live) {
     var now = stamp();
@@ -36,13 +46,14 @@
     if (calName) lines.push('X-WR-CALNAME:' + esc(calName));
     if (live) lines.push('REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H');
     events.forEach(function (ev) {
+      var w = when(ev);
       lines.push('BEGIN:VEVENT',
         'UID:' + ev.uid + '@rebbi-app',
         'DTSTAMP:' + now,
-        'DTSTART;VALUE=DATE:' + compact(ev.date),
-        'DTEND;VALUE=DATE:' + compact(UI.addDays(ev.date, 1)),
+        'DTSTART' + (w.allDay ? ';VALUE=DATE:' : ':') + w.start,
+        'DTEND' + (w.allDay ? ';VALUE=DATE:' : ':') + w.end,
         'SUMMARY:' + esc(ev.title),
-        'TRANSP:TRANSPARENT'); // all-day notes, not "busy" blocks
+        'TRANSP:TRANSPARENT'); // notes, not "busy" blocks
       if (ev.details) lines.push('DESCRIPTION:' + esc(ev.details));
       if (ev.category) lines.push('CATEGORIES:' + esc(ev.category));
       lines.push('END:VEVENT');
@@ -54,7 +65,7 @@
   function googleLink(ev) {
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
       '&text=' + encodeURIComponent(ev.title) +
-      '&dates=' + compact(ev.date) + '/' + compact(UI.addDays(ev.date, 1)) +
+      '&dates=' + when(ev).start + '/' + when(ev).end +
       (ev.details ? '&details=' + encodeURIComponent(ev.details) : '');
   }
 
@@ -83,8 +94,8 @@
     var out = [];
     if (opts.lessons) st.lessons.forEach(function (l) {
       if (!inRange(l.date)) return;
-      out.push({ uid: 'lesson-' + l.id, date: l.date, category: 'Planner',
-        title: l.subject + (l.plan ? ': ' + l.plan.split('\n')[0] : ''),
+      out.push({ uid: 'lesson-' + l.id, date: l.date, time: l.time, category: 'Planner',
+        title: [l.subject, (l.plan || '').split('\n')[0]].filter(Boolean).join(': ') || 'Planner',
         details: [l.plan.indexOf('\n') >= 0 ? l.plan : '', l.notes ? 'Notes: ' + l.notes : ''].filter(Boolean).join('\n\n') });
     });
     if (opts.tests) st.tests.forEach(function (x) { if (inRange(x.date)) out.push(testEvent(x)); });
@@ -120,7 +131,7 @@
   // One item: Google gets a ready-to-save event; Apple/Outlook get a one-event file.
   function addOne(ev) {
     UI.modal('Add to calendar', h('div',
-      h('p', h('strong', ev.title), h('br'), h('span.muted', UI.fmtDate(ev.date, { year: 'numeric' }))),
+      h('p', h('strong', ev.title), h('br'), h('span.muted', UI.fmtDate(ev.date, { year: 'numeric' }) + (ev.time ? ', ' + UI.fmtTime(ev.time) : ''))),
       h('div.cal-choices',
         h('a.btn', { href: googleLink(ev), target: '_blank', rel: 'noopener' }, UI.icon('calendar', 16), 'Google Calendar'),
         h('button.btn', { type: 'button', onclick: function () { openICS(ics([ev]), fileSafe(ev.title) + '.ics'); } },

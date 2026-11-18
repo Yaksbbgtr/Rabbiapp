@@ -61,14 +61,14 @@
         h('a.btn.primary', { href: '#/attendance' }, taken ? 'Edit attendance' : 'Take attendance')));
 
       // Today's plan
-      var lessons = st.lessons.filter(function (l) { return l.date === today; });
+      var lessons = UI.byTime(st.lessons.filter(function (l) { return l.date === today; }));
       grid.appendChild(h('div.card',
         h('h2', 'Today\'s plan'),
         lessons.length ? h('ul.list', lessons.map(function (l) {
           return h('li.check-row',
             h('input', { type: 'checkbox', checked: l.done, 'aria-label': 'Done',
               onchange: function (e) { Store.update(function () { l.done = e.target.checked; }); } }),
-            h('div', h('strong', l.subject), ' ', h('span', { dir: 'auto' }, l.plan)));
+            h('div', l.time ? h('span.lesson-time', UI.fmtTime(l.time)) : null, l.subject ? [h('strong', l.subject), ' '] : null, h('span', { dir: 'auto' }, l.plan)));
         })) : h('p.muted', 'Nothing planned for today.'),
         h('div.row.gap.wrap',
           h('a.btn', { href: '#/planner' }, 'Open planner'),
@@ -144,7 +144,7 @@
         lessons.length ? h('table.ds-table',
           h('thead', h('tr', h('th', { style: 'width:24px' }, ''), h('th', { style: 'width:110px' }, 'Subject'), h('th', 'Plan'), h('th', { style: 'width:30%' }, 'Where we stopped / notes'))),
           h('tbody', lessons.map(function (l) {
-            return h('tr', h('td', l.done ? '☑' : '☐'), h('td', h('strong', l.subject)), h('td.ds-pre', { dir: 'auto' }, l.plan || ''), h('td.ds-pre', { dir: 'auto' }, l.notes || ''));
+            return h('tr', h('td', l.done ? '☑' : '☐'), h('td', h('strong', l.subject), l.time ? h('div.small', UI.fmtTime(l.time)) : null), h('td.ds-pre', { dir: 'auto' }, l.plan || ''), h('td.ds-pre', { dir: 'auto' }, l.notes || ''));
           }))) : h('p', 'Nothing planned for today.')),
       h('section', h('h3', 'Attendance' + (taken ? '' : ' (not taken yet)')),
         h('div.ds-roster', talmidim.map(function (t) {
