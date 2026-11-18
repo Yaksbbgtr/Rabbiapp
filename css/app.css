@@ -864,3 +864,8 @@ input[type=time] { min-width: 120px; }
 .settings-group { margin-top: 26px; scroll-margin-top: 80px; }
 .settings-group:first-of-type { margin-top: 8px; }
 .settings-group-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px 4px; }
+@media (min-width: 720px) {
+  .settings-side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+  .settings-side > .card { margin-bottom: 0; }
+}
+.settings-side { margin-bottom: 16px; }

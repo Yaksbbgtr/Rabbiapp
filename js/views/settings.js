@@ -13,10 +13,12 @@
   }
 
   // One group of settings: a heading, then its cards. Groups are listed in a jump bar at the top.
-  function section(main, nav, id, title, cards) {
+  // side: put the cards next to each other on wide screens.
+  function section(main, nav, id, title, cards, side) {
     cards = cards.filter(Boolean);
     if (!cards.length) return;
-    var el = h('section.settings-group', { id: 'set-' + id }, h('h2.settings-group-title', title), cards);
+    var el = h('section.settings-group', { id: 'set-' + id }, h('h2.settings-group-title', title),
+      side && cards.length > 1 ? h('div.settings-side', cards) : cards);
     main.appendChild(el);
     nav.appendChild(h('button.chip', { type: 'button', onclick: function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, title));
   }
@@ -37,7 +39,7 @@
       main.appendChild(h('div.page-head', h('h1', 'Settings')));
       var nav = h('div.chips.settings-nav');
       main.appendChild(nav);
-      var add = function (id, title, cards) { section(main, nav, id, title, cards); };
+      var add = function (id, title, cards, side) { section(main, nav, id, title, cards, side); };
 
       if (Store.isAdmin()) {
         add('office', 'Office', [h('div.card', h('h2', 'Who this profile is'),
@@ -45,7 +47,7 @@
             'Rebbeim choose who a report goes to: the main office, the principal or maintenance.'),
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
           UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' }))))]);
-        add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()]);
+        add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()], true);
         add('look', 'Appearance', [appearanceCard()]);
         add('devices', 'Sync & updates', [Sync.card(), versionCard()]);
         return;
@@ -93,7 +95,7 @@
           }))));
 
       add('class', 'Your class', [classCard, optionsCard]);
-      add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()]);
+      add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()], true);
       add('calendar', 'Calendar', [Calendar.settingsCard()]);
       add('look', 'Appearance', [appearanceCard()]);
 
