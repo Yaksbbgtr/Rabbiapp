@@ -35,6 +35,11 @@ jobs:
           mkdir _site
           cp -r index.html manifest.webmanifest sw.js css js icons _site/
           touch _site/.nojekyll
+          # Morning-texts demo, running in the browser (no server code runs on Pages; school.json and state stay private)
+          mkdir -p _site/texts/src _site/texts/data
+          cp server/public/index.html server/public/browser-demo.js _site/texts/
+          cp server/src/parser.js server/src/attendance.js _site/texts/src/
+          cp server/data/school.sample.json _site/texts/data/
           # New cache name each deploy so installed apps pick up updates
           sed -i "s/var CACHE = 'rebbi-app-v1';/var CACHE = 'rebbi-app-${GITHUB_SHA::8}';/" _site/sw.js
           grep -q "rebbi-app-${GITHUB_SHA::8}" _site/sw.js

@@ -85,6 +85,7 @@
     </div>
   </section>
 </main>
+<script src="browser-demo.js"></script>
 <script>
 (function () {
   var data = null, current = null;
@@ -92,10 +93,21 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function label(s) { return { A: 'Absent', L: 'Late', P: 'Here' }[s]; }
 
+  // With the Node server (npm start) this talks to /api. On the GitHub Pages copy there is no server,
+  // so browser-demo.js runs the same code in the page instead.
+  var browserOnly = /\.github\.io$/.test(location.hostname) && window.BrowserDemo ? true : null;
+  function serverGet() {
+    return fetch('api/overview').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
   function load() {
-    return fetch('api/overview').then(function (r) { return r.json(); }).then(function (d) { data = d; render(); });
+    var get = browserOnly ? window.BrowserDemo.get() : serverGet().catch(function () {
+      if (browserOnly === false || !window.BrowserDemo) throw new Error('Server not reachable');
+      browserOnly = true; return window.BrowserDemo.get();
+    });
+    return get.then(function (d) { if (browserOnly === null) browserOnly = false; data = d; render(); });
   }
   function post(path, body) {
+    if (browserOnly) return window.BrowserDemo.post(path, body || {});
     return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); });
   }
 
@@ -103,7 +115,8 @@
     $('sub').textContent = (data.school || '') + ' · ' + data.date + ' · texts go out at ' + data.sendTime + ' (' + data.timeZone + ') on school days';
     $('banner').innerHTML = data.smsProvider === 'twilio'
       ? '<strong>Live mode:</strong> real text messages are being sent.'
-      : '<strong>Demo mode:</strong> no real texts are sent. Choose a rebbi on the phone, press “Send morning texts now”, and reply as him.';
+      : '<strong>Demo mode:</strong> no real texts are sent. Choose a rebbi on the phone, press “Send morning texts now”, and reply as him.' +
+        (data.browserOnly ? ' Everything stays on this device.' : '');
     var who = $('who');
     if (!who.options.length) {
       data.rebbeim.forEach(function (r) { who.add(new Option(r.name + ' – ' + r.className, r.id)); });
@@ -173,7 +186,7 @@
   $('reset').onclick = function () { if (confirm('Clear all demo messages and attendance?')) post('api/demo/reset').then(load); };
 
   load();
-  setInterval(load, 4000);
+  setInterval(function () { if (!browserOnly) load(); }, 4000);
 })();
 </script>
 </body>
