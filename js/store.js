@@ -40,6 +40,7 @@
       tests: [],               // bechinos: { id, title, subject, date, max }
       scores: {},              // { testId: { talmidId: number } }
       lessons: [],             // planner: { id, date, subject, plan, done, notes }
+      schedule: [],            // daily schedule: { id, time 'HH:MM', name, days: [0..5] } e.g. 9:00 Davening, Sun-Fri
       contacts: [],            // parent log: { id, talmidId, date, method, note, followUp, followUpDone }
       templates: window.MessageTemplates.defaults(uid),
       templatesVersion: window.MessageTemplates.VERSION,

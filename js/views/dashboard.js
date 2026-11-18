@@ -60,18 +60,21 @@
           : h('p.muted', talmidim.length ? 'Not taken yet today.' : 'Add talmidim to begin.'),
         h('a.btn.primary', { href: '#/attendance' }, taken ? 'Edit attendance' : 'Take attendance')));
 
-      // Today's plan
-      var lessons = UI.byTime(st.lessons.filter(function (l) { return l.date === today; }));
+      // Today's plan: the daily schedule's times with what's planned in them, then this week's jobs.
+      var rows = Planner.agenda(today);
+      var jobs = classJobs(st);
       grid.appendChild(h('div.card',
         h('h2', 'Today\'s plan'),
-        lessons.length ? h('ul.list', lessons.map(function (l) {
-          return h('li.check-row',
-            h('input', { type: 'checkbox', checked: l.done, 'aria-label': 'Done',
-              onchange: function (e) { Store.update(function () { l.done = e.target.checked; }); } }),
-            h('div', l.time ? h('span.lesson-time', UI.fmtTime(l.time)) : null, l.subject ? [h('strong', l.subject), ' '] : null, h('span', { dir: 'auto' }, l.plan)));
+        rows.length ? h('ul.list', rows.map(function (r) {
+          return r.slot
+            ? h('li', h('div', h('span.lesson-time', UI.fmtTime(r.time)), h('strong', r.name)),
+                r.lessons.map(function (l) { return planCheck(l, r.name); }))
+            : h('li', planCheck(r.lessons[0]));
         })) : h('p.muted', 'Nothing planned for today.'),
+        jobs.length ? h('div.small', h('strong', 'Jobs this week: '), jobs.map(function (j) { return j.name + ' – ' + j.who; }).join(' · ')) : null,
         h('div.row.gap.wrap',
           h('a.btn', { href: '#/planner' }, 'Open planner'),
+          (st.schedule || []).length ? null : h('button.btn', { type: 'button', onclick: function () { Planner.editSchedule(); } }, UI.icon('clipboard', 16), 'Set up daily schedule'),
           h('button.btn', { type: 'button', onclick: function () { window.print(); } }, UI.icon('print', 16), 'Print today\'s plan'))));
 
       // Follow-ups
@@ -121,18 +124,36 @@
             } }, '×'));
         })) : null));
       packCards(grid);
-      main.appendChild(daySheet(st, today, rd, hd, parsha, talmidim, events, due, lessons));
+      main.appendChild(daySheet(st, today, rd, hd, parsha, rows, jobs));
     }
   });
 
-  // The printed page for the day: date, parsha, plan, attendance, follow-ups, what's coming up, and room for notes.
-  function daySheet(st, today, rd, hd, parsha, talmidim, events, due, lessons) {
+  // A planned item with its done checkbox. Under a schedule time, its time (and the subject, when it's the same) isn't repeated.
+  function planCheck(l, slotName) {
+    var showSubj = l.subject && !(slotName && l.subject.trim().toLowerCase() === slotName.trim().toLowerCase());
+    return h('div.check-row',
+      h('input', { type: 'checkbox', checked: l.done, 'aria-label': 'Done',
+        onchange: function (e) { Store.update(function () { l.done = e.target.checked; }); } }),
+      h('div', l.time && !slotName ? h('span.lesson-time', UI.fmtTime(l.time)) : null, showSubj ? [h('strong', l.subject), ' '] : null, h('span', { dir: 'auto' }, l.plan)));
+  }
+
+  // The class jobs that have someone on them this week: [{ name, who }]
+  function classJobs(st) {
+    return (st.jobs || []).map(function (j) {
+      var t = j.holder && Store.talmid(j.holder);
+      return t ? { name: j.name, who: Store.displayName(t, { short: true }) } : null;
+    }).filter(Boolean);
+  }
+
+  // The printed page for the day: just the date, the day's schedule with what's planned, and this week's jobs.
+  // Nothing planned and no jobs: only the date.
+  function daySheet(st, today, rd, hd, parsha, rows, jobs) {
     var s = st.settings;
-    var att = st.attendance[today] || {};
-    var taken = Object.keys(att).length > 0;
-    var mark = { P: '', L: 'Late', A: 'Absent', E: 'Excused' };
     var omer = HebCal.omerDay(rd);
-    var notes = st.notes.filter(function (n) { return n.date === today; });
+    var subjPlan = function (l, slotName) {
+      var same = slotName && (l.subject || '').trim().toLowerCase() === slotName.trim().toLowerCase();
+      return (l.subject && !same ? l.subject + ': ' : '') + (l.plan || '');
+    };
     return h('div.print-only.day-sheet',
       h('div.ds-head',
         h('div', h('div.ds-title', UI.fmtDate(today, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })),
@@ -140,24 +161,18 @@
         h('div.ds-he', h('div.he', HebCal.formatHebrew(hd)),
           h('div.ds-sub', (parsha.holiday ? parsha.en : 'Parshas ' + parsha.en) + ' · ', h('span.he', parsha.he)))),
       omer ? h('p', 'Tonight: ' + omer + ' (' + HebCal.gematriya(omer) + ') la\'omer') : null,
-      h('section', h('h3', 'Today\'s plan'),
-        lessons.length ? h('table.ds-table',
-          h('thead', h('tr', h('th', { style: 'width:24px' }, ''), h('th', { style: 'width:110px' }, 'Subject'), h('th', 'Plan'), h('th', { style: 'width:30%' }, 'Where we stopped / notes'))),
-          h('tbody', lessons.map(function (l) {
-            return h('tr', h('td', l.done ? '☑' : '☐'), h('td', h('strong', l.subject), l.time ? h('div.small', UI.fmtTime(l.time)) : null), h('td.ds-pre', { dir: 'auto' }, l.plan || ''), h('td.ds-pre', { dir: 'auto' }, l.notes || ''));
-          }))) : h('p', 'Nothing planned for today.')),
-      h('section', h('h3', 'Attendance' + (taken ? '' : ' (not taken yet)')),
-        h('div.ds-roster', talmidim.map(function (t) {
-          var m = taken ? mark[att[t.id]] || '' : '';
-          return h('div', h('span.ds-box', m ? '' : taken ? '✓' : ''), Store.displayName(t), m ? h('strong', ' – ' + m) : null);
-        }))),
-      due.length ? h('section', h('h3', 'Parent follow-ups'),
-        h('ul', due.map(function (c) { return h('li', '☐ ', h('strong', Store.displayName(Store.talmid(c.talmidId))), ' – ', c.note, ' (due ' + UI.fmtDate(c.followUp) + ')'); }))) : null,
-      events.length ? h('section', h('h3', 'Coming up'),
-        h('ul', events.map(function (e) { return h('li', (e.rd === rd ? 'Today' : e.rd === rd + 1 ? 'Tomorrow' : UI.fmtDate(HebCal.rdToISO(e.rd))) + ' – ' + e.text.replace('🎂 ', '')); }))) : null,
-      h('section', h('h3', 'Notes'),
-        notes.length ? h('ul', notes.map(function (n) { return h('li', { dir: 'auto' }, n.text); })) : null,
-        h('div.ds-lines', [1, 2, 3, 4, 5].map(function () { return h('div.ds-line'); }))));
+      rows.length ? h('section', h('h3', 'Today\'s plan'),
+        h('table.ds-table',
+          h('thead', h('tr', h('th', { style: 'width:70px' }, 'Time'), h('th', { style: 'width:120px' }, 'What'), h('th', 'Plan'), h('th', { style: 'width:30%' }, 'Where we stopped / notes'))),
+          h('tbody', rows.map(function (r) {
+            var ls = r.lessons;
+            var what = r.slot ? r.name : (ls[0].subject || '');
+            return h('tr', h('td', UI.fmtTime(r.time)), h('td', h('strong', { dir: 'auto' }, what)),
+              h('td.ds-pre', { dir: 'auto' }, ls.map(function (l) { return (l.done ? '☑ ' : '') + subjPlan(l, what); }).join('\n')),
+              h('td.ds-pre', { dir: 'auto' }, ls.map(function (l) { return l.notes || ''; }).filter(Boolean).join('\n')));
+          })))) : null,
+      jobs.length ? h('section', h('h3', 'Jobs this week'),
+        h('div.ds-roster', jobs.map(function (j) { return h('div', h('strong', j.name), ' – ' + j.who); }))) : null);
   }
 
   // Cards have different heights, so a plain grid leaves gaps under the short ones. Give each card as many

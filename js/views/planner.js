@@ -58,16 +58,101 @@
     return UI.byTime(Store.get().lessons.filter(function (l) { return l.date === iso; }));
   }
 
+  // ---------- Daily schedule ----------
+  // The fixed times of the day (davening, recess, lunch…), each on the weekdays it happens. Nothing on Shabbos / Yom Tov.
+  var DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  var ALL_DAYS = [0, 1, 2, 3, 4, 5];
+  var norm = function (x) { return (x || '').trim().toLowerCase(); };
+
+  function slotsOn(iso) {
+    var rd = HebCal.isoToRD(iso);
+    var wd = HebCal.weekday(rd);
+    if (wd === 6 || HebCal.noMelacha(rd)) return [];
+    return (Store.get().schedule || []).filter(function (s) { return s.time && (s.days || ALL_DAYS).indexOf(wd) >= 0; })
+      .sort(function (a, b) { return a.time < b.time ? -1 : a.time > b.time ? 1 : 0; });
+  }
+
+  // The day in order: each schedule time with what's planned for it, plus planned items that fit no time.
+  // An item goes under a time when it has that time, or has no time and that time's name as its subject.
+  // Rows: { time, name, slot (the schedule entry, or null for a lone item), lessons: [] }
+  function agenda(iso) {
+    var slots = slotsOn(iso).map(function (s) { return { time: s.time, name: s.name, slot: s, lessons: [] }; });
+    var rows = slots.slice();
+    lessonsOn(iso).forEach(function (l) {
+      var home = l.time ? slots.find(function (s) { return s.time === l.time; })
+        : l.subject ? slots.find(function (s) { return norm(s.name) === norm(l.subject); }) : null;
+      if (home) home.lessons.push(l); else rows.push({ time: l.time || '', name: '', slot: null, lessons: [l] });
+    });
+    return UI.byTime(rows);
+  }
+
+  function editSchedule() {
+    var rows = (Store.get().schedule || []).map(function (s) { return Object.assign({}, s, { days: (s.days || ALL_DAYS).slice() }); });
+    var list = h('div.sched-edit');
+    function draw() {
+      list.innerHTML = '';
+      if (!rows.length) list.appendChild(h('p.muted', 'No times yet. Add the parts of the day: davening, recess, lunch…'));
+      rows.forEach(function (r, i) {
+        var tm = UI.input({ type: 'time', value: r.time || '', step: 300, 'aria-label': 'Time' });
+        var setTime = function () { r.time = tm.value.slice(0, 5); };
+        tm.addEventListener('input', setTime); tm.addEventListener('change', setTime);
+        var nm = UI.input({ value: r.name || '', list: 'plan-subj', placeholder: 'e.g. Davening', 'aria-label': 'What' });
+        nm.addEventListener('input', function () { r.name = nm.value; });
+        list.appendChild(h('div.sched-row',
+          h('div.row.gap', tm, nm,
+            h('button.icon-btn.small', { type: 'button', 'aria-label': 'Remove ' + (r.name || 'this time'), onclick: function () { rows.splice(i, 1); draw(); } }, '×')),
+          h('div.sched-days', DAY_NAMES.map(function (d, wd) {
+            var cb = h('input', { type: 'checkbox', checked: r.days.indexOf(wd) >= 0, onchange: function () {
+              r.days = cb.checked ? r.days.concat([wd]).sort() : r.days.filter(function (x) { return x !== wd; });
+            } });
+            return h('label.sched-day', cb, d);
+          }))));
+      });
+    }
+    draw();
+    UI.modal('Daily schedule', h('div',
+      h('datalist#plan-subj', SUBJECTS.concat(['Recess', 'Lunch', 'Dismissal']).map(function (s) { return h('option', { value: s }); })),
+      h('p.small.muted', 'The times of every day. They show on Today\'s plan and the printout; plan things into them from the planner\'s Day view.'),
+      list,
+      h('button.btn', { type: 'button', onclick: function () {
+        var last = rows[rows.length - 1];
+        rows.push({ time: '', name: '', days: last ? last.days.slice() : ALL_DAYS.slice() }); draw();
+        var inputs = list.querySelectorAll('input[type=time]'); if (inputs.length) inputs[inputs.length - 1].focus();
+      } }, UI.icon('plus'), 'Add a time')), [
+      { label: 'Cancel' },
+      { label: 'Save', primary: true, onClick: function () {
+        var keep = rows.filter(function (r) { return (r.name || '').trim() || r.time; });
+        var bad = keep.find(function (r) { return !r.time || !(r.name || '').trim() || !r.days.length; });
+        if (bad) { UI.toast(!bad.time ? 'Pick a time for ' + ((bad.name || '').trim() || 'each row') : !(bad.name || '').trim() ? 'Write what happens at ' + UI.fmtTime(bad.time) : 'Pick at least one day for ' + bad.name.trim()); return false; }
+        Store.update(function (s) {
+          s.schedule = keep.map(function (r) { return { id: r.id || Store.uid(), time: r.time, name: r.name.trim(), days: r.days }; })
+            .sort(function (a, b) { return a.time < b.time ? -1 : a.time > b.time ? 1 : 0; });
+        });
+        UI.toast('Schedule saved'); App.render();
+      } }
+    ]);
+  }
+
+  // A schedule time in the Day view, with what's planned for it and a button to plan something into it.
+  function slotBlock(r, iso) {
+    return h('div.slot',
+      h('div.slot-head', h('span.lesson-time', UI.fmtTime(r.time)), h('strong.grow', r.name),
+        h('button.btn.small.ghost', { type: 'button', 'aria-label': 'Add to ' + r.name, onclick: function () { editLesson({ date: iso, time: r.time, subject: r.name }); } }, UI.icon('plus', 14), 'Add')),
+      r.lessons.map(function (l) { return lessonRow(l, r.name); }));
+  }
+
   // "Chumash: Perek 3", or just the subject / the plan's first line when the other is empty.
   function lessonName(l) { return [l.subject, (l.plan || '').split('\n')[0]].filter(Boolean).join(': ') || 'this item'; }
 
   // Tapping an item (or its checkbox) marks it done / not done; the pencil edits it, the x removes it.
-  function lessonRow(l) {
+  // slotName: shown under that schedule time, so its time (and the subject, when it's the same) isn't repeated.
+  function lessonRow(l, slotName) {
     var toggle = function () { Store.update(function () { l.done = !l.done; }); App.render(); };
+    var showSubj = l.subject && !(slotName && norm(l.subject) === norm(slotName));
     return h('div.lesson' + (l.done ? '.done' : ''),
       h('input', { type: 'checkbox', checked: l.done, 'aria-label': 'Done', onchange: toggle }),
       h('button.link.grow', { type: 'button', title: l.done ? 'Mark not done' : 'Mark done', onclick: toggle },
-        l.time ? h('span.lesson-time', UI.fmtTime(l.time)) : null, l.subject ? [h('strong', l.subject), ' '] : null, h('span', { dir: 'auto' }, l.plan),
+        l.time && !slotName ? h('span.lesson-time', UI.fmtTime(l.time)) : null, showSubj ? [h('strong', l.subject), ' '] : null, h('span', { dir: 'auto' }, l.plan),
         l.notes ? h('div.small.muted', { dir: 'auto' }, '↳ ' + l.notes) : null),
       h('button.lesson-x.lesson-edit', { type: 'button', title: 'Edit', 'aria-label': 'Edit ' + lessonName(l), onclick: function () { editLesson(l); } }, UI.icon('edit', 16)),
       h('button.lesson-x', { type: 'button', title: 'Remove', 'aria-label': 'Remove ' + lessonName(l), onclick: function () {
@@ -96,7 +181,7 @@
   }
 
   // Other pages can open the Add to plan form prefilled, e.g. { date, subject, plan }.
-  window.Planner = { add: function (prefill) { editLesson(prefill || null); } };
+  window.Planner = { add: function (prefill) { editLesson(prefill || null); }, agenda: agenda, editSchedule: editSchedule };
 
   Views.register('planner', {
     title: 'Planner', icon: 'calendar',
@@ -130,6 +215,7 @@
       main.appendChild(h('div.page-head',
         h('div', h('h1', 'Planner')),
         h('div.row.gap.wrap',
+          h('button.btn', { type: 'button', onclick: editSchedule }, UI.icon('clipboard', 16), 'Daily schedule'),
           h('button.btn', { type: 'button', onclick: function () { Calendar.open(); } }, UI.icon('calendar', 16), 'Add to calendar'),
           h('div.seg', [['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(function (m) {
             return h('button' + (mode === m[0] ? '.on' : ''), { type: 'button', onclick: function () { mode = m[0]; App.render(); } }, m[1]);
@@ -155,14 +241,14 @@
     var iso = HebCal.rdToISO(rd);
     var hols = HebCal.holidaysBetween(rd, rd);
     var isShabbos = HebCal.weekday(rd) === 6;
-    var lessons = lessonsOn(iso);
+    var rows = agenda(iso);
     var ext = Calendar.importedOn(iso);
     main.appendChild(h('div.card.day.day-big' + (rd === todayRD ? '.today' : '') + (isShabbos ? '.shabbos' : ''),
       h('div.row.gap.wrap',
         hols.map(function (x) { return h('span.pill' + (x.fast ? '.neg' : '.gold'), x.en); }),
         isShabbos ? h('span.pill.gold', shabbosLabel(rd)) : null),
       ext.length ? h('div.lesson-list.ext-list', ext.map(Calendar.importedRow)) : null,
-      lessons.length ? h('div.lesson-list', lessons.map(lessonRow))
+      rows.length ? h('div.lesson-list', rows.map(function (r) { return r.slot ? slotBlock(r, iso) : lessonRow(r.lessons[0]); }))
         : h('p.muted', isShabbos ? 'Good Shabbos!' : 'Nothing planned for this day yet.'),
       h('button.btn.primary', { type: 'button', onclick: function () { editLesson(null, iso); } }, UI.icon('plus'), 'Add to this day')));
     if (!isShabbos) {
@@ -205,7 +291,7 @@
           dayHols.map(function (x) { return h('div.pill' + (x.fast ? '.neg' : '.gold'), x.en); }),
           Calendar.importedOn(iso).map(Calendar.importedRow),
           isShabbos ? h('div.muted.small', shabbosLabel(rd)) :
-            h('div', lessons.map(lessonRow),
+            h('div', lessons.map(function (l) { return lessonRow(l); }),
               h('button.btn.small.ghost', { type: 'button', onclick: function () { editLesson(null, iso); } }, UI.icon('plus', 16), 'Add'))));
       })(sunday + i);
     }

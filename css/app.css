@@ -542,6 +542,16 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .lesson-edit:hover, .lesson-edit:focus-visible { color: var(--navy-2); background: var(--blue-soft); }
 .lesson .link.grow { text-align: start; }
 .day .btn.ghost { align-self: flex-start; margin-top: 4px; }
+/* Daily schedule: a time of the day with what's planned in it */
+.slot { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.slot-head { display: flex; align-items: center; gap: 8px; }
+.slot-head .btn.ghost { margin-top: 0; }
+.slot .lesson { padding-inline-start: 18px; }
+.sched-edit { display: grid; gap: 10px; margin-bottom: 12px; }
+.sched-row { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.sched-row input[type=time] { width: 8.5em; flex: none; }
+.sched-days { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .85rem; }
+.sched-day { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 
 /* ---------- parents ---------- */
 .contact { display: flex; flex-direction: column; gap: 4px; }
