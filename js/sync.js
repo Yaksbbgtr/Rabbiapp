@@ -1,34 +1,36 @@
 /*
- * Cloud sync (Firebase). Optional: with sync off the app works exactly as before, from this device only.
+ * Cloud sync (Supabase). Optional: with sync off the app works exactly as before, from this device only.
  *
- * Each profile (a rebbi's class, or the office's own data) is one Firestore document, classes/{profileId}:
- *   { owner: uid, ownerEmail, name, className, role, updatedAt, updatedBy,
+ * Each profile (a rebbi's class, or the office's own data) is one row of the classes table:
+ *   { id, owner, owner_email, name, class_name, role, updated_at, updated_by, updated_device,
  *     data:   { <top-level key>: JSON string },   e.g. data.talmidim, data.lessons, data.settings
  *     issues: { <issue id>: JSON string } }       one entry per issue, so rebbi and office edits don't collide
- * Only the keys that changed are written. Each device remembers what the cloud last had (as small hashes), so it
- * can tell its own changes apart from changes made elsewhere and merge them, including edits made offline.
- * Who may read what is enforced by firestore.rules: a rebbi sees his own classes, the office sees all.
+ * Only the keys that changed are written (the class_patch database function). Each device remembers what the
+ * cloud last had (as small hashes), so it can tell its own changes apart from changes made elsewhere and merge
+ * them, including edits made offline. Live updates come over Supabase Realtime; each one re-reads the row.
+ * Who may read what is enforced in the database (supabase/schema.sql): a rebbi sees his own classes, the office all.
  */
 (function () {
   'use strict';
   var h = UI.h;
-  var CONFIG = {
-    apiKey: 'AIzaSyBVqaT6xNsuCoBuWH0CGzx2EQxiYV2DOX0',
-    authDomain: 'rabbi--app.firebaseapp.com',
-    projectId: 'rabbi--app',
-    storageBucket: 'rabbi--app.firebasestorage.app',
-    messagingSenderId: '115495989124',
-    appId: '1:115495989124:web:976263b22ebb671ff3b7d1'
+  // The Supabase project (Project Settings → API). The publishable key is meant to be public: the database's
+  // row level security decides what each signed-in account may see.
+  var CONFIG = window.REBBI_SYNC_CONFIG || { // REBBI_SYNC_CONFIG: the tests' stand-in project
+    url: '',
+    key: ''
   };
-  var SDK = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-';
+  var SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js';
   var ON_KEY = 'rabbiapp.sync.on';
   var BASE_KEY = 'rabbiapp.sync.base.';
-  var MAX_BYTES = 900000; // Firestore documents hold up to 1 MB
+  var DEVICE_KEY = 'rabbiapp.sync.device';
+  var RETURN_KEY = 'rabbiapp.sync.return';
+  var MAX_BYTES = 900000;
 
   var S = { status: 'off', user: null, admin: false, error: '', ready: false, people: [], shared: {} };
-  var auth = null, db = null, unsub = null, sdkPromise = null, unsubPeople = null, unsubShared = null;
+  var sb = null, sdkPromise = null, channel = null, sharedOn = false;
   var SENT_KEY = 'rabbiapp.shared.sent.'; // what this device last sent for each shared issue (a hash)
-  var timers = {};
+  var timers = {}, refetchTimers = {};
+  var inFlight = 0, sending = {}, again = {};
   var deviceOnly = {}; // profiles that were on this device before signing in: uploaded only when asked
   var pendingRender = false;
 
@@ -103,7 +105,20 @@
     })();
   }
 
-  // ---------- loading Firebase ----------
+  function configured() { return !!(CONFIG.url && CONFIG.key); }
+  function deviceId() {
+    var d = ls(DEVICE_KEY);
+    if (!d) { d = Math.random().toString(36).slice(2) + Date.now().toString(36); ls(DEVICE_KEY, d); }
+    return d;
+  }
+  function profileById(id) { return Store.profiles().filter(function (x) { return x.id === id; })[0]; }
+  function isNetwork(e) { return navigator.onLine === false || /fetch|network|load failed/i.test((e && e.message) || ''); }
+  function failed(e) { setStatus(isNetwork(e) ? 'offline' : 'error', isNetwork(e) ? '' : (e && e.message) || 'error'); }
+  function settle() { if (S.user && S.ready && !inFlight) setStatus(navigator.onLine === false ? 'offline' : 'synced'); }
+  // supabase-js answers { data, error }; turn that into a normal promise.
+  function q(p) { return Promise.resolve(p).then(function (r) { if (r && r.error) throw r.error; return r ? r.data : null; }); }
+
+  // ---------- loading Supabase ----------
   function script(src) {
     return new Promise(function (ok, fail) {
       var el = document.createElement('script');
@@ -112,66 +127,64 @@
     });
   }
   function loadSdk() {
+    if (!configured()) return Promise.reject(new Error('Sync isn\'t set up yet.'));
     if (!sdkPromise) {
-      sdkPromise = script(SDK + 'app-compat.js')
-        .then(function () { return Promise.all([script(SDK + 'auth-compat.js'), script(SDK + 'firestore-compat.js')]); })
-        .then(function () {
-          if (!firebase.apps.length) firebase.initializeApp(CONFIG);
-          auth = firebase.auth();
-          db = firebase.firestore();
-          // Developer testing only: point at local Firebase emulators when this device is set up for it.
-          var emu = ls('rabbiapp.sync.emulator');
-          if (emu) { auth.useEmulator('http://' + emu + ':9099'); db.useEmulator(emu, 8080); }
-          // Keep a copy on the device so the app works offline and catches up later.
-          try { db.enablePersistence({ synchronizeTabs: true }).catch(function () { /* another tab or private mode */ }); } catch (e) { /* ignore */ }
-          auth.onAuthStateChanged(onUser);
-          auth.getRedirectResult().catch(function (e) { setStatus('error', e.message); });
+      sdkPromise = (window.supabase && window.supabase.createClient ? Promise.resolve() : script(SDK)).then(function () {
+        sb = window.supabase.createClient(CONFIG.url, CONFIG.key, {
+          auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true, storageKey: 'rabbiapp.sync.auth' }
         });
+        sb.auth.onAuthStateChange(function (event, session) {
+          var u = session && session.user;
+          // Called again for every token refresh; only a different account starts over.
+          setTimeout(function () { onUser(u ? { uid: u.id, email: (u.email || '').toLowerCase() } : null); }, 0);
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') cleanReturnURL();
+        });
+      });
       sdkPromise.catch(function () { sdkPromise = null; });
     }
     return sdkPromise;
   }
+  // Back from Google: drop ?code=… from the address and go back to the page sign-in started from.
+  function cleanReturnURL() {
+    if (!/[?&](code|error)=/.test(location.search)) return;
+    var back = ls(RETURN_KEY) || '#/'; ls(RETURN_KEY, null);
+    history.replaceState(null, '', location.pathname + back);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  }
   function start() {
-    if (!wanted()) { setStatus('off'); return Promise.resolve(); }
+    if (!wanted() && !/[?&]code=/.test(location.search)) { setStatus('off'); return Promise.resolve(); }
     setStatus('loading');
-    return loadSdk().catch(function () {
-      setStatus(navigator.onLine === false ? 'offline' : 'error', 'Couldn\'t reach the sync service.');
+    return loadSdk().catch(function (e) {
+      setStatus(navigator.onLine === false ? 'offline' : 'error', configured() ? 'Couldn\'t reach the sync service.' : e.message);
     });
   }
 
   // ---------- signing in and out ----------
-  // Resolves with the signed-in user once we know whether it's an office account (or null if it didn't happen).
+  // Google sign-in leaves the app and comes back (works the same in Safari, Chrome and the home-screen app).
+  // Resolves with null; the app picks up the signed-in account when it reloads.
   var signingIn = null;
   function signIn() {
-    if (signingIn) return signingIn; // a second tap while the Google window is open would break it
-    signingIn = signInOnce().then(function (u) { signingIn = null; return u; }, function (e) { signingIn = null; throw e; });
-    return signingIn;
-  }
-  function signInOnce() {
+    if (signingIn) return signingIn;
     ls(ON_KEY, '1');
     setStatus('loading');
-    return loadSdk().then(function () {
-      var p = new firebase.auth.GoogleAuthProvider();
-      p.setCustomParameters({ prompt: 'select_account' });
-      return auth.signInWithPopup(p).then(function (res) {
-        return new Promise(function (ok) { (function wait() { if (S.user && S.user.uid === res.user.uid && S.adminP) S.adminP.then(function () { ok(S.user); }); else setTimeout(wait, 100); })(); });
-      }, function (e) {
-        if (/popup-blocked|operation-not-supported|web-storage-unsupported/.test(e.code || '')) return auth.signInWithRedirect(p).then(function () { return null; });
-        if (/popup-closed|cancelled-popup/.test(e.code || '')) { setStatus(S.user ? 'synced' : 'signedout'); return null; }
-        throw e;
-      });
-    }).catch(function (e) { setStatus('error', e.message); UI.toast('Sign-in didn\'t work: ' + e.message); return null; });
+    signingIn = loadSdk().then(function () {
+      ls(RETURN_KEY, location.hash || '#/');
+      return q(sb.auth.signInWithOAuth({ provider: 'google',
+        options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } }));
+    }).then(function () { return null; }, function (e) {
+      signingIn = null; setStatus('error', e.message); UI.toast('Sign-in didn\'t work: ' + e.message); return null;
+    });
+    return signingIn;
   }
-  // Log out of Google but keep the classes on the device (Log out on the profile menu).
-  function stopShared() {
-    if (unsubPeople) { unsubPeople(); unsubPeople = null; }
-    if (unsubShared) { unsubShared(); unsubShared = null; }
+  function stopLive() {
+    if (channel && sb) { sb.removeChannel(channel); }
+    channel = null; sharedOn = false;
     S.people = []; S.shared = {};
   }
+  // Log out of Google but keep the classes on the device (Log out on the profile menu).
   function lock() {
-    if (unsub) { unsub(); unsub = null; }
-    stopShared();
-    if (auth && S.user) auth.signOut();
+    stopLive();
+    if (sb && S.user) sb.auth.signOut({ scope: 'local' });
   }
   // May the signed-in account open this profile? The office may open any; a rebbi his own and this device's own.
   function canOpen(p) {
@@ -183,11 +196,10 @@
   function signOut() {
     if (S.status === 'offline' || S.status === 'syncing') { alert('Some changes haven\'t reached the cloud yet. Connect to the internet and wait for "Up to date" before signing out.'); return; }
     UI.confirm('Sign out? This account\'s classes are removed from this device. They stay in the cloud and come back when you sign in again.', function () {
-      if (unsub) { unsub(); unsub = null; }
-      stopShared();
+      stopLive();
       Store.profiles().filter(function (p) { return p.cloud; }).forEach(function (p) { Store.deleteProfile(p.id); ls(BASE_KEY + p.id, null); });
       ls(ON_KEY, null);
-      (auth ? auth.signOut() : Promise.resolve()).then(function () {
+      (sb ? sb.auth.signOut({ scope: 'local' }) : Promise.resolve()).then(function () {
         S.user = null; S.admin = false; setStatus('off');
         App.go('login'); App.render();
       });
@@ -195,40 +207,68 @@
   }
 
   function onUser(u) {
-    if (unsub) { unsub(); unsub = null; }
-    stopShared();
+    if (u && S.user && S.user.uid === u.uid) return; // same account, new token
+    if (!u && !S.user && S.status !== 'loading') return;
+    stopLive();
     S.user = u; S.admin = false; S.ready = false; S.adminP = null;
+    signingIn = null;
     if (!u) { setStatus(wanted() ? 'signedout' : 'off'); return; }
     ls(ON_KEY, '1');
     deviceOnly = {};
     Store.profiles().forEach(function (p) { if (!p.cloud) deviceOnly[p.id] = true; });
     setStatus('loading');
-    S.adminP = db.collection('admins').doc(u.email).get()
-      .then(function (d) { S.admin = d.exists; }, function () { S.admin = false; });
+    S.adminP = q(sb.rpc('is_admin')).then(function (a) { S.admin = a === true; }, function () { S.admin = false; });
     S.adminP.then(listen).then(function () { if (window.Calendar && Calendar.publishSoon) Calendar.publishSoon(); });
   }
 
+  // Live updates: any change to a class, the directory or a shared issue. Each class change re-reads that row,
+  // so the newest copy is always what gets merged (and big classes never depend on the size of a live message).
   function listen() {
-    var q = S.admin ? db.collection('classes') : db.collection('classes').where('owner', '==', S.user.uid);
-    unsub = q.onSnapshot({ includeMetadataChanges: true }, function (snap) {
-      var changed = false;
-      snap.docChanges().forEach(function (ch) {
-        if (ch.type === 'removed') return;
-        if (applyRemote(ch.doc)) changed = true;
+    var me = S.user;
+    channel = sb.channel('rebbi-' + me.uid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'classes' }, function (m) {
+        var id = (m.new && m.new.id) || (m.old && m.old.id);
+        if (id && m.eventType !== 'DELETE') refetchSoon(id);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, function () { if (sharedOn) loadPeopleSoon(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shared' }, function () { if (sharedOn) loadSharedSoon(); })
+      .subscribe(function (st) {
+        // (Re)connected: catch up on anything missed while away.
+        if (st === 'SUBSCRIBED' && S.user === me && S.ready) loadAll();
       });
-      if (!snap.metadata.fromCache && !S.ready) {
+    return loadAll();
+  }
+  function loadAll() {
+    var me = S.user;
+    return q(sb.from('classes').select('*')).then(function (rows) {
+      if (S.user !== me) return;
+      var changed = false;
+      rows.forEach(function (r) { if (applyRemote(r)) changed = true; });
+      if (!S.ready) {
         S.ready = true;
         // Classes this device thinks are in the cloud but aren't (deleted elsewhere) go back to device-only.
-        var ids = {}; snap.docs.forEach(function (d) { ids[d.id] = true; });
+        var ids = {}; rows.forEach(function (r) { ids[r.id] = true; });
         Store.profiles().forEach(function (p) {
           if (p.cloud && !ids[p.id] && (S.admin || p.ownerEmail === S.user.email)) { Store.setProfileFields(p.id, { cloud: undefined }); ls(BASE_KEY + p.id, null); }
         });
         Object.keys(deviceOnly).forEach(function (pid) { if (deviceOnly[pid] === false) { delete deviceOnly[pid]; upload(pid); } });
         startShared();
-      }
-      setStatus(snap.metadata.hasPendingWrites ? 'syncing' : snap.metadata.fromCache ? (navigator.onLine === false ? 'offline' : 'loading') : 'synced');
+      } else if (sharedOn) { loadPeople(); loadShared(); }
+      // Changes made here while offline that haven't gone up yet.
+      Store.profiles().forEach(function (p) { if (p.cloud) pushLocal(p.id); });
+      settle();
       if (changed) renderSoon();
-    }, function (e) { setStatus('error', e.message); });
+    }, function (e) { failed(e); });
+  }
+  function refetchSoon(id) {
+    clearTimeout(refetchTimers[id]);
+    refetchTimers[id] = setTimeout(function () {
+      var me = S.user;
+      q(sb.from('classes').select('*').eq('id', id).maybeSingle()).then(function (r) {
+        if (S.user !== me || !r) return;
+        if (applyRemote(r)) renderSoon();
+      }, failed);
+    }, 250);
   }
 
   // ---------- cloud -> device ----------
@@ -241,15 +281,14 @@
     if (hr === b) return 'l';           // only we changed it: send ours
     return 'r';                         // both changed: the cloud's copy wins
   }
-  function applyRemote(doc) {
-    if (doc.metadata.hasPendingWrites) return false; // our own write echoing back
-    var id = doc.id, r = doc.data() || {};
+  function applyRemote(r) {
+    var id = r.id;
     var remote = { data: r.data || {}, issues: r.issues || {} };
     var had = Store.hasData(id);
-    var before = Store.profiles().filter(function (p) { return p.id === id; })[0];
+    var before = profileById(id);
     // Sample classes keep their "Sample" tag on every device (older uploads are recognised by class and rebbi).
-    var g = r.sampleGrade || ((window.DemoData && DemoData.grades.filter(function (x) { return x.className === r.className && x.rebbi === r.name; })[0]) || {}).grade;
-    Store.ensureProfile({ id: id, name: r.name, className: r.className, role: r.role, cloud: true, ownerEmail: r.ownerEmail,
+    var g = r.sample_grade || ((window.DemoData && DemoData.grades.filter(function (x) { return x.className === r.class_name && x.rebbi === r.name; })[0]) || {}).grade;
+    Store.ensureProfile({ id: id, name: r.name, className: r.class_name, role: r.role, cloud: true, ownerEmail: r.owner_email,
       sampleGrade: g || undefined, sample: r.sample || undefined, staff: r.staff || undefined });
     var local = had ? split(Store.peek(id)) : { data: {}, issues: {} };
     var base = getBase(id) || { data: {}, issues: {} };
@@ -273,40 +312,54 @@
   }
 
   // ---------- device -> cloud ----------
+  // entries: [part, key, value or undefined to remove]. Once the cloud has them, the base remembers them.
+  // One write per class at a time; changes made meanwhile go in the next one.
   function send(id, entries) {
-    if (!db || !S.user) return;
-    var p = Store.profiles().filter(function (x) { return x.id === id; })[0] || {};
-    var FP = firebase.firestore.FieldPath, FV = firebase.firestore.FieldValue;
-    var args = [new FP('updatedAt'), FV.serverTimestamp(), new FP('updatedBy'), S.user.uid,
-      new FP('name'), p.name || '', new FP('className'), p.className || ''];
-    entries.forEach(function (e) { args.push(new FP(e[0], e[1]), e[2] === undefined ? FV.delete() : e[2]); });
-    var ref = db.collection('classes').doc(id);
+    if (!sb || !S.user) return;
+    if (sending[id]) { again[id] = true; return; }
+    var p = profileById(id) || {};
+    var args = { p_id: id, p_device: deviceId(), meta: { name: p.name || '', class_name: p.className || '' },
+      set_data: {}, del_data: [], set_issues: {}, del_issues: [] };
+    entries.forEach(function (e) {
+      if (e[2] === undefined) args['del_' + e[0]].push(e[1]); else args['set_' + e[0]][e[1]] = e[2];
+    });
+    sending[id] = true; inFlight++;
     setStatus('syncing');
-    ref.update.apply(ref, args).catch(function (err) {
-      setStatus('error', err.message);
-      ls(BASE_KEY + id, null); // re-merge from scratch next time the cloud copy arrives
+    q(sb.rpc('class_patch', args)).then(function () {
+      var base = getBase(id) || { data: {}, issues: {} };
+      entries.forEach(function (e) { if (e[2] === undefined) delete base[e[0]][e[1]]; else base[e[0]][e[1]] = hash(e[2]); });
+      ls(BASE_KEY + id, JSON.stringify(base));
+    }, function (e) {
+      failed(e);
+      if (!isNetwork(e)) ls(BASE_KEY + id, null); // re-merge from scratch next time the cloud copy arrives
+    }).then(function () {
+      sending[id] = false; inFlight--;
+      if (again[id]) { again[id] = false; pushLocal(id); }
+      settle();
     });
   }
   function pushLocal(id) {
-    var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
+    var p = profileById(id);
     if (!p || !p.cloud || !S.user || !S.ready) return;
     if (!S.admin && p.ownerEmail && p.ownerEmail !== S.user.email) return; // someone else's class opened with Skip
+    if (sending[id]) { again[id] = true; return; }
     var local = split(Store.peek(id));
     if (size(local) > MAX_BYTES) { setStatus('error', 'This class is too big to sync (over 900 KB).'); return; }
-    var base = getBase(id) || { data: {}, issues: {} };
+    var base = getBase(id);
+    if (!base) return; // waiting for the cloud copy to merge with
     var entries = [];
     ['data', 'issues'].forEach(function (part) {
       Object.keys(local[part]).forEach(function (k) { if (hash(local[part][k]) !== base[part][k]) entries.push([part, k, local[part][k]]); });
       Object.keys(base[part]).forEach(function (k) { if (!(k in local[part])) entries.push([part, k, undefined]); });
     });
     if (!entries.length) return;
-    setBase(id, local);
+    if (navigator.onLine === false) { setStatus('offline'); return; } // goes up when back online (loadAll)
     send(id, entries);
   }
   Store.onWrite(function (id) {
     if (!id || !S.user) return;
     // A profile made while signed in goes to the cloud by itself.
-    var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
+    var p = profileById(id);
     if (p && !p.cloud && !deviceOnly[id]) {
       if (S.ready) upload(id).then(function () { App.render(); }); else deviceOnly[id] = false;
       return;
@@ -317,33 +370,33 @@
 
   // Put a class that's only on this device into the cloud, owned by the signed-in account.
   function upload(id) {
-    var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
+    var p = profileById(id);
     if (!p || !S.user) return Promise.resolve();
     var local = split(Store.peek(id));
     if (size(local) > MAX_BYTES) { alert(p.name + '\'s class is too big to sync (over 900 KB).'); return Promise.resolve(); }
     Store.setProfileFields(id, { cloud: true, ownerEmail: S.user.email });
     setBase(id, local);
-    setStatus('syncing');
-    return db.collection('classes').doc(id).set({
-      owner: S.user.uid, ownerEmail: S.user.email, name: p.name || '', className: p.className || '', role: p.role === 'admin' ? 'admin' : 'rebbi',
-      sampleGrade: p.sampleGrade || 0, sample: !!p.sample, staff: p.staff || '',
-      data: local.data, issues: local.issues, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: S.user.uid
-    }).then(function () { publishPeople(); }, function (e) {
+    setStatus('syncing'); inFlight++;
+    return q(sb.from('classes').insert({
+      id: id, owner: S.user.uid, owner_email: S.user.email, name: p.name || '', class_name: p.className || '', role: p.role === 'admin' ? 'admin' : 'rebbi',
+      sample_grade: p.sampleGrade || 0, sample: !!p.sample, staff: p.staff || '',
+      data: local.data, issues: local.issues, updated_by: S.user.uid, updated_device: deviceId()
+    })).then(function () { publishPeople(); }, function (e) {
       Store.setProfileFields(id, { cloud: undefined }); ls(BASE_KEY + id, null);
-      setStatus('error', e.message); UI.toast('Upload failed: ' + e.message);
-    });
+      failed(e); UI.toast('Upload failed: ' + e.message);
+    }).then(function () { inFlight--; settle(); });
   }
 
   // ---------- issues sent from one rebbi to another ----------
-  // A rebbi can't read another rebbi's class, so an issue sent to other rebbeim is also copied to shared/{issueId},
-  // which only the people on it can open. Replies from the others are added there and copied back into the
+  // A rebbi can't read another rebbi's class, so an issue sent to other rebbeim is also copied to the shared table,
+  // which only the people on it can read. Replies from the others are added there and copied back into the
   // sender's own issue by the sender's device.
   function myRebbiProfiles() {
     return Store.profiles().filter(function (p) { return p.cloud && p.role !== 'admin' && p.ownerEmail === S.user.email; });
   }
   var lastPeople = '';
   function publishPeople() {
-    if (!db || !S.user || !S.ready) return;
+    if (!sb || !S.user || !S.ready) return Promise.resolve();
     var profiles = {};
     myRebbiProfiles().forEach(function (p) {
       var st = Store.peek(p.id).settings || {};
@@ -353,34 +406,45 @@
     if (key === lastPeople) return Promise.resolve();
     if (key === '{}') return Promise.resolve(); // only rebbeim with a class are in the directory
     lastPeople = key;
-    return db.collection('people').doc(S.user.email).set({ uid: S.user.uid, email: S.user.email, profiles: profiles, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
-      .then(function () { if (!unsubPeople) listenPeople(); }, function () { lastPeople = ''; });
+    return q(sb.from('people').upsert({ email: S.user.email, uid: S.user.uid, profiles: profiles, updated_at: new Date().toISOString() }))
+      .then(function () { if (sharedOn) loadPeople(); }, function () { lastPeople = ''; });
   }
   // The directory of rebbeim (readable once this account has a class in it, or by the office).
-  function listenPeople() {
-    if (!db || !S.user || unsubPeople) return;
-    unsubPeople = db.collection('people').onSnapshot(function (snap) {
+  function loadPeople() {
+    var me = S.user;
+    return q(sb.from('people').select('email, profiles')).then(function (rows) {
+      if (S.user !== me) return;
       var list = [];
-      snap.forEach(function (d) {
-        var v = d.data() || {};
-        Object.keys(v.profiles || {}).forEach(function (pid) { list.push({ key: 'rebbi:' + pid, id: pid, name: v.profiles[pid].name, cls: v.profiles[pid].className, email: v.email || d.id }); });
+      rows.forEach(function (v) {
+        Object.keys(v.profiles || {}).forEach(function (pid) { list.push({ key: 'rebbi:' + pid, id: pid, name: v.profiles[pid].name, cls: v.profiles[pid].className, email: v.email }); });
       });
       S.people = list;
       myRebbiProfiles().forEach(function (p) { pushShared(p.id); }); // now that we know everyone's address
-    }, function () { S.people = []; unsubPeople = null; }); // not in the directory yet: try again once we are
+    }, function () { S.people = []; });
   }
+  function loadShared() {
+    var me = S.user;
+    return q(sb.from('shared').select('*')).then(function (rows) {
+      if (S.user !== me) return;
+      var all = {};
+      rows.forEach(function (r) {
+        all[r.id] = { from: r.from_uid, fromEmail: r.from_email, fromProfileId: r.from_profile_id, members: r.members,
+          toKeys: r.to_keys, issue: r.issue, byPhone: r.by_phone, replies: r.replies || {}, seen: r.seen || {} };
+      });
+      S.shared = all;
+      mergeReplies();
+      renderSoon();
+    }, failed);
+  }
+  var peopleTimer = null, sharedTimer = null;
+  function loadPeopleSoon() { clearTimeout(peopleTimer); peopleTimer = setTimeout(loadPeople, 300); }
+  function loadSharedSoon() { clearTimeout(sharedTimer); sharedTimer = setTimeout(loadShared, 300); }
   function startShared() {
-    if (!db || !S.user || unsubShared) return;
+    if (!sb || !S.user || sharedOn) return;
+    sharedOn = true;
     Promise.resolve(publishPeople()).then(function () {
       if (!S.user) return;
-      listenPeople();
-      unsubShared = db.collection('shared').where('members', 'array-contains', S.user.email).onSnapshot(function (snap) {
-        var all = {};
-        snap.forEach(function (d) { all[d.id] = d.data(); });
-        S.shared = all;
-        mergeReplies();
-        renderSoon();
-      }, function (e) { setStatus('error', e.message); });
+      loadPeople(); loadShared();
     });
   }
   function noteKey(n) { return n.id || [n.date, n.by, n.text].join('|'); }
@@ -416,24 +480,22 @@
   }
   // On the sender's device: send his issues that go to other rebbeim (only what changed).
   function pushShared(id) {
-    if (!db || !S.user || !S.ready) return;
-    var p = Store.profiles().filter(function (x) { return x.id === id; })[0];
+    if (!sb || !S.user || !S.ready) return;
+    var p = profileById(id);
     if (!p || !p.cloud || p.ownerEmail !== S.user.email) return;
     var data = Store.peek(id);
     (data.issues || []).forEach(function (i) {
       var keys = (Array.isArray(i.to) ? i.to : []).filter(function (k) { return k.indexOf('rebbi:') === 0; });
       if (!keys.length) return;
       var members = [S.user.email];
-      keys.forEach(function (k) { var e = emailFor(k, i); if (e && members.indexOf(e) < 0) members.push(e); });
+      keys.forEach(function (k) { var e = (emailFor(k, i) || '').toLowerCase(); if (e && members.indexOf(e) < 0) members.push(e); });
       var json = JSON.stringify(i);
       var sig = hash(json + members.join(','));
       if (ls(SENT_KEY + i.id) === sig) return;
       if (members.length < 2 && !S.shared[i.id]) return; // nobody to send it to yet
-      db.collection('shared').doc(i.id).set({
-        from: S.user.uid, fromEmail: S.user.email, fromProfileId: id, members: members, toKeys: keys,
-        issue: json, byPhone: i.byPhone || (data.settings && data.settings.rebbiPhone) || '',
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).then(function () { ls(SENT_KEY + i.id, sig); }, function (e) { setStatus('error', e.message); });
+      q(sb.rpc('shared_put', { p_id: i.id, p_profile: id, p_members: members, p_to_keys: keys, p_issue: json,
+        p_phone: i.byPhone || (data.settings && data.settings.rebbiPhone) || '' }))
+        .then(function () { ls(SENT_KEY + i.id, sig); }, failed);
     });
   }
   // On a recipient's device: issues other rebbeim sent to this profile.
@@ -456,19 +518,18 @@
     return out;
   }
   function replyShared(issueId, note) {
-    if (!db || !S.user) return Promise.reject(new Error('Not signed in'));
-    var FP = firebase.firestore.FieldPath;
+    if (!sb || !S.user) return Promise.reject(new Error('Not signed in'));
     var doc = S.shared[issueId];
     if (doc) { doc.replies = Object.assign({}, doc.replies || {}); doc.replies[note.id] = JSON.stringify(note); } // show it right away
-    return db.collection('shared').doc(issueId).update(new FP('replies', note.id), JSON.stringify(note), new FP('updatedAt'), firebase.firestore.FieldValue.serverTimestamp())
-      .catch(function (e) { setStatus('error', e.message); UI.toast('Reply didn\'t send: ' + e.message); });
+    return q(sb.rpc('shared_reply', { p_id: issueId, p_note_id: note.id, p_note: JSON.stringify(note) }))
+      .catch(function (e) { failed(e); UI.toast('Reply didn\'t send: ' + e.message); });
   }
   function seenShared(issueId, profileId, n) {
-    if (!db || !S.user || !S.shared[issueId]) return;
+    if (!sb || !S.user || !S.shared[issueId]) return;
     var doc = S.shared[issueId];
     if ((doc.seen || {})[profileId] === n) return;
     doc.seen = Object.assign({}, doc.seen || {}); doc.seen[profileId] = n;
-    db.collection('shared').doc(issueId).update(new firebase.firestore.FieldPath('seen', profileId), n).catch(function () { /* try again next time */ });
+    q(sb.rpc('shared_seen', { p_id: issueId, p_profile: profileId, p_n: n })).catch(function () { /* try again next time */ });
   }
   function people() { return S.people.slice(); }
 
@@ -481,6 +542,10 @@
   // Settings card.
   function card() {
     var box = h('div.card.sync-card', h('h2', 'Sync across devices'));
+    if (!configured()) {
+      box.appendChild(h('p.muted', 'Sync isn\'t set up in this version of the app yet. Everything stays on this device.'));
+      return box;
+    }
     if (!S.user) {
       box.appendChild(h('p', 'Sign in with Google to keep your classes, issues and planner the same on your phone and computer. Without signing in, everything stays on this device only.'));
       if (S.status === 'error' || S.status === 'offline' || S.status === 'loading') box.appendChild(statusLine());
@@ -510,6 +575,7 @@
   }
   // Short version for the log-in screen.
   function loginCard() {
+    if (!configured()) return h('div');
     if (S.user) return h('div.sync-login.small', statusLine(), h('span.muted', 'Signed in as ' + S.user.email));
     return h('div.sync-login',
       h('button.btn.big', { type: 'button', onclick: signIn }, 'Sign in with Google to get your classes'),
@@ -517,24 +583,36 @@
   }
 
   // ---------- live calendar feed ----------
-  // calendars/{token}: the rebbi's calendar as ready-made .ics text. The calendar Cloud Function serves it at a
-  // secret link that Google / Apple Calendar subscribe to. Only the owner can write it; nobody reads it from the app.
+  // calendars: the rebbi's calendar as ready-made .ics text. The "calendar" Edge Function serves it at a
+  // secret link that Google / Apple Calendar subscribe to. Only the owner can write it.
   function publishCalendar(token, ics, name) {
-    if (!S.user || !db) return Promise.reject(new Error('not signed in'));
-    return db.collection('calendars').doc(token).set({ owner: S.user.uid, name: name || '', ics: ics,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    if (!S.user || !sb) return Promise.reject(new Error('not signed in'));
+    return q(sb.from('calendars').upsert({ token: token, owner: S.user.uid, name: name || '', ics: ics, updated_at: new Date().toISOString() }));
   }
   function removeCalendar(token) {
-    if (!S.user || !db) return Promise.reject(new Error('not signed in'));
-    return db.collection('calendars').doc(token).delete();
+    if (!S.user || !sb) return Promise.reject(new Error('not signed in'));
+    return q(sb.from('calendars').delete().eq('token', token));
+  }
+  function idToken() {
+    if (!S.user || !sb) return Promise.reject(new Error('not signed in'));
+    return sb.auth.getSession().then(function (r) {
+      var s = r.data && r.data.session;
+      if (!s) throw new Error('not signed in');
+      return s.access_token;
+    });
   }
 
   window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
     status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; },
     people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared,
-    publishCalendar: publishCalendar, removeCalendar: removeCalendar,
-    idToken: function () { return S.user ? S.user.getIdToken() : Promise.reject(new Error('not signed in')); } };
+    publishCalendar: publishCalendar, removeCalendar: removeCalendar, idToken: idToken,
+    functionsURL: function (name) { return CONFIG.url ? CONFIG.url.replace(/\/+$/, '') + '/functions/v1/' + name : ''; },
+    configured: configured };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
-  window.addEventListener('online', function () { if (wanted() && !S.user) start(); });
+  window.addEventListener('online', function () {
+    if (wanted() && !S.user) start();
+    else if (S.user && S.ready) loadAll();
+  });
+  window.addEventListener('offline', function () { if (S.user) setStatus('offline'); });
 })();

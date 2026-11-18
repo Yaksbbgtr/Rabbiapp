@@ -1,0 +1,7 @@
+# Supabase CLI settings for deploying the Edge Functions (supabase functions deploy).
+# Both check who's asking themselves: the calendar link is public by design, calimport checks the sign-in token.
+[functions.calendar]
+verify_jwt = false
+
+[functions.calimport]
+verify_jwt = false

@@ -21,9 +21,28 @@ An all-in-one classroom app for **yeshiva ketana rebbeim**. It runs entirely in 
 
 ## Sync across devices (test version)
 
-Settings → **Sync across devices** → *Sign in with Google* keeps a rebbi's classes, issues and planner the same on all his devices, and lets the office see every class live. It uses the Firebase project `rabbi--app` (Firestore + Google sign-in); `js/sync.js` has the details and `firestore.rules` decides who can see what (a rebbi: his own classes; the office: everything). Office accounts are listed in the `admins` collection, added from the Firebase console. Issues a rebbi sends to other rebbeim also go to `shared/{issueId}`, which only the people on the issue can read, and `people/{email}` is the rebbeim directory used to pick them (readable only by accounts that have a class, and the office). Without signing in, the app works from the device only, as before. Deploy rule changes with `firebase deploy --only firestore:rules`; the end-to-end test is in `tests/sync/`.
+Settings → **Sync across devices** → *Sign in with Google* keeps a rebbi's classes, issues and planner the same on all his devices, and lets the office see every class live. It runs on **Supabase** (Postgres + Google sign-in + Realtime); `js/sync.js` has the details and `supabase/schema.sql` decides who can see what (a rebbi: his own classes; the office: everything). Office accounts are rows in the `admins` table, added from the Supabase dashboard. Issues a rebbi sends to other rebbeim also go to the `shared` table, which only the people on the issue can read, and `people` is the rebbeim directory used to pick them (readable only by accounts that have a class, and the office). Without signing in, the app works from the device only, as before.
 
-**Test version: use sample classes only, not real talmidim's information,** until the school owns the Firebase project.
+The live calendar and "show your calendar in the planner" use two Edge Functions in `supabase/functions/` (`calendar`, `calimport`).
+
+**Setting up the Supabase project (once):**
+
+1. supabase.com → New project. Then *SQL Editor* → paste all of `supabase/schema.sql` → Run.
+2. *Authentication → Sign In / Providers → Google*: turn on, with a Google OAuth client ID and secret (Google Cloud console → APIs & Services → Credentials → OAuth client, Web application; authorised redirect URI = the callback URL Supabase shows there).
+3. *Authentication → URL Configuration*: Site URL `https://yaksbbgtr.github.io/Rabbiapp/`; add redirect URLs `https://yaksbbgtr.github.io/Rabbiapp/` and `http://localhost:8765/`.
+4. Put the project URL and publishable (anon) key from *Project Settings → API* into `CONFIG` at the top of `js/sync.js`.
+5. Office accounts: *Table Editor → admins → Insert row* with the office's Google email.
+6. Edge Functions: `npx supabase login`, then `npx supabase functions deploy calendar calimport --project-ref <ref> --use-api` from this folder.
+
+**Tests** (no Supabase account needed: an in-memory Postgres with the real schema and security rules):
+
+```
+cd tests/supabase && npm install && npm test     # who-can-see-what rules, and the calendar functions
+cd ../.. && node tests/supabase/e2e.js            # the real app: two devices, offline edits, office, sign out
+node tests/supabase/shared.js                     # issues sent from one rebbi to another
+```
+
+**Test version: use sample classes only, not real talmidim's information,** until the school owns the Supabase project.
 
 ## Morning attendance texts (demo)
 

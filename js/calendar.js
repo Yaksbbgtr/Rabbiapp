@@ -186,12 +186,12 @@
 
 
   // ---------- live calendar (updates itself) ----------
-  // The app keeps a copy of the calendar in the cloud (calendars/{token}) whenever the class changes.
+  // The app keeps a copy of the calendar in the cloud (the calendars table) whenever the class changes.
   // Google / Apple Calendar subscribe to a secret link that always serves the newest copy.
-  var FEED_BASE = 'https://us-central1-rabbi--app.cloudfunctions.net/calendar/';
+  function feedBase() { return Sync.functionsURL('calendar') + '/'; }
   var SENT_KEY = 'rabbiapp.calfeed.sent.';
   function feed() { return Store.get().settings.calFeed || null; }
-  function feedURL(f) { return FEED_BASE + f.token + '.ics'; }
+  function feedURL(f) { return feedBase() + f.token + '.ics'; }
   function webcalURL(f) { return feedURL(f).replace(/^https:/, 'webcal:'); }
   function googleSubscribeURL(f) { return 'https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(webcalURL(f)); }
   function newToken() {
@@ -311,9 +311,8 @@
 
   // ---------- the other way: your Apple / Google calendar inside the planner ----------
   // The rebbi pastes his calendar's share link (kept on this device only: the office can see class data, not this).
-  // The calimport Cloud Function reads it (browsers can't, no CORS) and sends back its events; they're kept here
+  // The calimport Edge Function reads it (browsers can't, no CORS) and sends back its events; they're kept here
   // and shown read-only in the planner, refreshed every 15 minutes while the app is open.
-  var IMPORT_URL = 'https://us-central1-rabbi--app.cloudfunctions.net/calimport';
   var LINKS_KEY = 'rabbiapp.calimport.links', CACHE_KEY = 'rabbiapp.calimport.cache', STALE = 15 * 60000;
   var importing = null;
   function links() { try { return JSON.parse(ls(LINKS_KEY)) || []; } catch (e) { return []; } }
@@ -328,7 +327,7 @@
 
   function fetchOne(link) {
     return Sync.idToken().then(function (tok) {
-      return fetch(IMPORT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+      return fetch(Sync.functionsURL('calimport'), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
         body: JSON.stringify({ url: link.url }) });
     }).then(function (r) {
       return r.json().catch(function () { return { error: 'fetch' }; }).then(function (b) {

@@ -1,7 +1,3 @@
 .DS_Store
 node_modules/
-firebase-debug.log
-firestore-debug.log
-ui-debug.log
-tests/sync/node_modules/
-tests/sync/firestore.rules
+supabase/.temp/

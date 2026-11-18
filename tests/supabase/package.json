@@ -1,0 +1,1 @@
+{"name":"rebbi-app-supabase-tests","private":true,"scripts":{"test":"node --test"},"devDependencies":{"@electric-sql/pglite":"0.5.16","node-ical":"^0.27.6"}}
