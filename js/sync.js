@@ -562,13 +562,10 @@
       h('span.sync-dot.' + S.status),
       h('span', STATUS_TEXT[S.status] + (S.error && S.status === 'error' ? ' – ' + S.error : '')));
   }
-  // Settings card.
-  function card() {
-    var box = h('div.card.sync-card', h('h2', 'Sync across devices'));
-    if (!configured()) {
-      box.appendChild(h('p.muted', 'Sync isn\'t set up in this version of the app yet. Everything stays on this device.'));
-      return box;
-    }
+  // Settings → Account: the Google sign-in (and asking for office access).
+  function accountCard() {
+    if (!configured()) return null;
+    var box = h('div.card.sync-card', h('h2', 'Google account'));
     if (!S.user) {
       box.appendChild(h('p', 'Sign in with Google to keep your classes, issues and planner the same on your phone and computer. Without signing in, everything stays on this device only.'));
       if (S.status === 'error' || S.status === 'offline' || S.status === 'loading') box.appendChild(statusLine());
@@ -586,6 +583,20 @@
           requestOffice().then(function () { UI.toast('Asked – the office will see your request on its Access page'); }, function (er) { e.target.disabled = false; UI.toast(er.message); });
         } }, 'Ask for office access')));
     }
+    box.appendChild(h('div.row.gap.wrap', { style: 'margin-top:10px' }, h('button.btn', { type: 'button', onclick: signOut }, 'Sign out')));
+    return box;
+  }
+  // Settings → Devices: is it syncing, and profiles still only on this device.
+  function card() {
+    var box = h('div.card.sync-card', h('h2', 'Sync across devices'));
+    if (!configured()) {
+      box.appendChild(h('p.muted', 'Sync isn\'t set up in this version of the app yet. Everything stays on this device.'));
+      return box;
+    }
+    if (!S.user) {
+      box.appendChild(h('p', 'Not syncing: everything stays on this device. Sign in with Google (under Account, above) to keep your phone and computer the same.'));
+      return box;
+    }
     box.appendChild(statusLine());
     var localOnly = Store.profiles().filter(function (p) { return !p.cloud; });
     if (localOnly.length) {
@@ -602,7 +613,6 @@
     } else {
       box.appendChild(h('p.small.muted', 'Every profile on this device is synced.'));
     }
-    box.appendChild(h('div.row.gap.wrap', { style: 'margin-top:10px' }, h('button.btn', { type: 'button', onclick: signOut }, 'Sign out')));
     return box;
   }
   // Short version for the log-in screen.
@@ -677,7 +687,7 @@
     return q(sb.rpc('hello', { p_name: S.user.name || '', p_wants_office: true }));
   }
 
-  window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, loginCard: loginCard, upload: upload,
+  window.Sync = { start: start, signIn: signIn, signOut: signOut, lock: lock, canOpen: canOpen, isAdmin: function () { return S.admin; }, card: card, accountCard: accountCard, loginCard: loginCard, upload: upload,
     status: function () { return S.status; }, user: function () { return S.user; }, isOn: function () { return !!S.user; },
     people: people, receivedFor: receivedFor, replyShared: replyShared, seenShared: seenShared,
     publishCalendar: publishCalendar, removeCalendar: removeCalendar, idToken: idToken,

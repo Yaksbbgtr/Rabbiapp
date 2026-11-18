@@ -12,24 +12,42 @@
       h('button.btn', { type: 'button', onclick: function () { UI.toast('Getting the newest version…'); App.forceUpdate(); } }, 'Get the newest version'));
   }
 
+  // One group of settings: a heading, then its cards. Groups are listed in a jump bar at the top.
+  function section(main, nav, id, title, cards) {
+    cards = cards.filter(Boolean);
+    if (!cards.length) return;
+    var el = h('section.settings-group', { id: 'set-' + id }, h('h2.settings-group-title', title), cards);
+    main.appendChild(el);
+    nav.appendChild(h('button.chip', { type: 'button', onclick: function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, title));
+  }
+  function appearanceCard() {
+    var seg = h('div.seg');
+    UI.themeButtons(seg, function () { App.render(); });
+    return h('div.card',
+      h('h2', 'Light or dark'),
+      seg,
+      h('p.small.muted', 'Light or Dark stays that way on this device. Auto follows the phone\'s own light/dark setting.'));
+  }
+
   Views.register('settings', {
     title: 'Settings', icon: 'gear', admin: true,
     render: function (main) {
       var st = Store.get();
       var s = st.settings;
       main.appendChild(h('div.page-head', h('h1', 'Settings')));
+      var nav = h('div.chips.settings-nav');
+      main.appendChild(nav);
+      var add = function (id, title, cards) { section(main, nav, id, title, cards); };
+
       if (Store.isAdmin()) {
-        main.appendChild(h('div.card', h('h2', 'Office'),
+        add('office', 'Office', [h('div.card', h('h2', 'Who this profile is'),
           UI.field('This profile is for', bind('staffRole', UI.select([['office', 'Main office – every class'], ['principal', 'Principal – every class'], ['maintenance', 'Maintenance – issues sent to maintenance']], Store.staffRole())),
             'Rebbeim choose who a report goes to: the main office, the principal or maintenance.'),
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
-          UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' })))));
-        main.appendChild(Profiles.settingsCard());
-        var aseg = h('div.seg');
-        UI.themeButtons(aseg, function () { App.render(); });
-        main.appendChild(h('div.card', h('h2', 'Appearance'), aseg));
-        main.appendChild(Sync.card());
-        main.appendChild(versionCard());
+          UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' }))))]);
+        add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()]);
+        add('look', 'Appearance', [appearanceCard()]);
+        add('devices', 'Sync & updates', [Sync.card(), versionCard()]);
         return;
       }
 
@@ -42,8 +60,8 @@
         return el;
       }
 
-      main.appendChild(h('div.card',
-        h('h2', 'Class'),
+      var classCard = h('div.card',
+        h('h2', 'Class details'),
         h('div.form-grid',
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
           UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' })), 'Shown to the office on issues you report'),
@@ -52,10 +70,10 @@
           UI.field('Remind me to be in touch with a family after', bind('contactReminderDays',
             UI.select([[7, '1 week'], [14, '2 weeks'], [21, '3 weeks'], [30, '1 month'], [45, '6 weeks'], [60, '2 months'], [90, '3 months']], s.contactReminderDays || 30)),
             'Families you haven\'t called or texted in this long show up on the Parents page'),
-          UI.field('School office email', bind('officeEmail', UI.input({ type: 'email', value: s.officeEmail || '', placeholder: 'office@yeshiva.org' })), 'Where report cards are sent'))));
+          UI.field('School office email', bind('officeEmail', UI.input({ type: 'email', value: s.officeEmail || '', placeholder: 'office@yeshiva.org' })), 'Where report cards are sent')));
 
-      main.appendChild(h('div.card',
-        h('h2', 'Additional settings'),
+      var optionsCard = h('div.card',
+        h('h2', 'Options'),
         h('label.check-row', bind('hebrewFirst', h('input', { type: 'checkbox', checked: s.hebrewFirst }), 'checked'), ' Show Hebrew names throughout the app'),
         h('label.check-row', h('input', { type: 'checkbox', checked: s.coloringPages !== false, onchange: function (e) {
           Store.update(function (x) { x.settings.coloringPages = e.target.checked; });
@@ -72,17 +90,12 @@
               });
               App.render();
             } }, d);
-          })))));
+          }))));
 
-      main.appendChild(Profiles.settingsCard());
-      main.appendChild(Calendar.settingsCard());
-
-      var seg = h('div.seg');
-      UI.themeButtons(seg, function () { App.render(); });
-      main.appendChild(h('div.card',
-        h('h2', 'Appearance'),
-        seg,
-        h('p.small.muted', 'Light or Dark stays that way on this device. Auto follows the phone\'s own light/dark setting.')));
+      add('class', 'Your class', [classCard, optionsCard]);
+      add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()]);
+      add('calendar', 'Calendar', [Calendar.settingsCard()]);
+      add('look', 'Appearance', [appearanceCard()]);
 
       var file = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
       file.addEventListener('change', function () {
@@ -98,9 +111,8 @@
         r.readAsText(f);
       });
       var last = localStorage.getItem('rabbiapp.lastBackup');
-      main.appendChild(Sync.card());
-      main.appendChild(h('div.card',
-        h('h2', 'Backup & devices'),
+      var backupCard = h('div.card',
+        h('h2', 'Backup'),
         h('p', Store.currentProfile() && Store.currentProfile().cloud
           ? 'This class syncs to your other devices. A downloaded backup is still a good extra copy.'
           : 'This profile\'s data is saved only in this browser on this device. Download a backup regularly, and use it to move your class to another device or browser.'),
@@ -111,9 +123,10 @@
             try { localStorage.setItem('rabbiapp.lastBackup', String(Date.now())); } catch (e) { /* ignore */ }
           } }, 'Download backup'),
           h('button.btn', { onclick: function () { file.click(); } }, 'Restore from backup'),
-          file)));
+          file));
+      add('devices', 'Sync, backup & updates', [Sync.card(), backupCard, versionCard()]);
 
-      main.appendChild(h('div.card',
+      add('reset', 'Start over', [h('div.card',
         h('h2', 'New year / start over'),
         h('div.row.gap.wrap',
           h('button.btn', { onclick: function () {
@@ -128,9 +141,8 @@
           } }, 'Start a new school year'),
           h('button.btn.danger', { onclick: function () {
             UI.confirm('Erase this profile\'s whole class (talmidim, attendance, grades, plans and logs)? This cannot be undone.', function () { Store.reset(); App.go('talmidim'); }, 'Erase everything');
-          } }, 'Erase this class'))));
+          } }, 'Erase this class')))]);
 
-      main.appendChild(versionCard());
       main.appendChild(h('div.card',
         h('h2', 'About'),
         h('p.small.muted', 'Rebbi App works offline. Install it to your home screen from your browser\'s menu ("Add to Home Screen" / "Install app"). Yomim tovim and the parsha schedule follow chutz la\'aretz.')));

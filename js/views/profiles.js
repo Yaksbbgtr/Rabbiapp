@@ -160,8 +160,8 @@
     if (!p) return null;
     var has = Store.hasPin(p.id);
     return h('div.card',
-      h('h2', 'Profile'),
-      h('p', 'Logged in as ', h('strong', p.name), p.role === 'admin' ? ' (administrator)' : p.className ? ' · ' + p.className : '', p.role === 'admin' ? '.' : '. Change the name and class above.'),
+      h('h2', 'This profile'),
+      h('p', 'Logged in as ', h('strong', p.name), p.role === 'admin' ? ' (administrator)' : p.className ? ' · ' + p.className : '', '.'),
       h('div.row.gap.wrap',
         h('button.btn', { onclick: function () {
           var pin = UI.input({ type: 'password', inputmode: 'numeric', autocomplete: 'off', placeholder: has ? 'New PIN (empty to remove)' : 'Choose a PIN' });
