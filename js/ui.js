@@ -64,7 +64,8 @@
     image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1.5 1.5 0 1 0 0-.01',
     chevl: 'M15 6l-6 6 6 6',
     chat: 'M4 5h16v11H9l-5 4z',
-    mail: 'M3 6h18v12H3zM3 7l9 6 9-6'
+    mail: 'M3 6h18v12H3zM3 7l9 6 9-6',
+    dots: 'M5 12h.01M12 12h.01M19 12h.01'
   };
   function icon(name, size) {
     var ns = 'http://www.w3.org/2000/svg';
@@ -200,6 +201,30 @@
     setTimeout(function () { window.print(); }, 50); // let pictures load
   }
 
+  // A "⋯" button that opens a small menu. items: [{ label, onClick, danger }] (null items are skipped).
+  function dotsMenu(items, label) {
+    var wrap = h('div.dots-menu');
+    var list = h('div.dots-list', { role: 'menu', hidden: true });
+    function close() { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', outside, true); }
+    function outside(e) { if (!wrap.contains(e.target)) close(); }
+    var btn = h('button.icon-btn.dots-btn', { type: 'button', 'aria-label': label || 'More', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: function () {
+      if (!list.hidden) { close(); return; }
+      list.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      document.addEventListener('click', outside, true);
+    } }, icon('dots', 22));
+    items.filter(Boolean).forEach(function (it) {
+      list.appendChild(h('button.dots-item' + (it.danger ? '.danger' : ''), { type: 'button', role: 'menuitem', onclick: function () { close(); it.onClick(); } }, it.label));
+    });
+    wrap.addEventListener('keydown', function (e) { if (e.key === 'Escape') { close(); btn.focus(); } });
+    wrap.appendChild(btn); wrap.appendChild(list);
+    return wrap;
+  }
+  // An on/off switch with a label. onChange(on).
+  function toggle(label, on, onChange, hint) {
+    var input = h('input', { type: 'checkbox', role: 'switch', checked: !!on, onchange: function () { onChange(input.checked); } });
+    return h('label.switch-row', h('span.grow', h('span.switch-label', label), hint ? h('span.hint', hint) : null), input, h('span.switch', { 'aria-hidden': 'true' }));
+  }
+
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { toast('Copied to clipboard'); });
@@ -329,6 +354,6 @@
     limudCommentParts: limudCommentParts,
     h: h, icon: icon, modal: modal, confirm: confirmDialog, toast: toast, field: field,
     input: input, select: select, fmtDate: fmtDate, hebDate: hebDate, addDays: addDays,
-    empty: empty, download: download, fmtTime: fmtTime, byTime: byTime, copyText: copyText, talmidOptions: talmidOptions
+    empty: empty, download: download, fmtTime: fmtTime, byTime: byTime, copyText: copyText, talmidOptions: talmidOptions, dotsMenu: dotsMenu, toggle: toggle
   };
 })();

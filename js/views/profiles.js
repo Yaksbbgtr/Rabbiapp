@@ -154,13 +154,12 @@
       [{ label: 'Close' }]);
   }
 
-  // Settings card for the logged-in profile
+  // Logged in as …, PIN, log out, delete (inside Settings → Profile).
   function settingsCard() {
     var p = Store.currentProfile();
     if (!p) return null;
     var has = Store.hasPin(p.id);
-    return h('div.card',
-      h('h2', 'This profile'),
+    return h('div.card-split',
       h('p', 'Logged in as ', h('strong', p.name), p.role === 'admin' ? ' (administrator)' : p.className ? ' · ' + p.className : '', '.'),
       h('div.row.gap.wrap',
         h('button.btn', { onclick: function () {

@@ -864,8 +864,28 @@ input[type=time] { min-width: 120px; }
 .settings-group { margin-top: 26px; scroll-margin-top: 80px; }
 .settings-group:first-of-type { margin-top: 8px; }
 .settings-group-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px 4px; }
-@media (min-width: 720px) {
-  .settings-side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
-  .settings-side > .card { margin-bottom: 0; }
-}
-.settings-side { margin-bottom: 16px; }
+
+/* "⋯" menu */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: .5rem; }
+.card-head h2 { margin: 0; }
+.dots-menu { position: relative; }
+.dots-btn { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+.dots-btn:hover, .dots-btn[aria-expanded="true"] { background: var(--line); color: var(--ink); }
+.dots-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 200px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .18); padding: 6px; display: flex; flex-direction: column; }
+.dots-list[hidden] { display: none; }
+.dots-item { text-align: left; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: .95rem; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
+.dots-item:hover, .dots-item:focus-visible { background: var(--line); }
+.dots-item.danger { color: var(--red); }
+
+/* On/off switch */
+.switch-row { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 6px 0; }
+.switch-row .grow { flex: 1; }
+.switch-label { font-weight: 600; display: block; }
+.switch-row input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch { flex: none; width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .15s; }
+.switch-row input:checked + .switch { background: var(--green); }
+.switch-row input:checked + .switch::after { transform: translateX(18px); }
+.switch-row input:focus-visible + .switch { outline: 2px solid var(--navy-2); outline-offset: 2px; }
+.card-split { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+.card-split h3 { margin: 0 0 8px; font-size: .95rem; }

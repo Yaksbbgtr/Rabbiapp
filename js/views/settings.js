@@ -13,12 +13,11 @@
   }
 
   // One group of settings: a heading, then its cards. Groups are listed in a jump bar at the top.
-  // side: put the cards next to each other on wide screens.
-  function section(main, nav, id, title, cards, side) {
+  function section(main, nav, id, title, cards) {
     cards = cards.filter(Boolean);
     if (!cards.length) return;
     var el = h('section.settings-group', { id: 'set-' + id }, h('h2.settings-group-title', title),
-      side && cards.length > 1 ? h('div.settings-side', cards) : cards);
+      cards);
     main.appendChild(el);
     nav.appendChild(h('button.chip', { type: 'button', onclick: function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, title));
   }
@@ -39,15 +38,15 @@
       main.appendChild(h('div.page-head', h('h1', 'Settings')));
       var nav = h('div.chips.settings-nav');
       main.appendChild(nav);
-      var add = function (id, title, cards, side) { section(main, nav, id, title, cards, side); };
+      var add = function (id, title, cards) { section(main, nav, id, title, cards); };
 
       if (Store.isAdmin()) {
-        add('office', 'Office', [h('div.card', h('h2', 'Who this profile is'),
+        add('office', 'Profile', [h('div.card', h('h2', 'Profile'),
           UI.field('This profile is for', bind('staffRole', UI.select([['office', 'Main office – every class'], ['principal', 'Principal – every class'], ['maintenance', 'Maintenance – issues sent to maintenance']], Store.staffRole())),
             'Rebbeim choose who a report goes to: the main office, the principal or maintenance.'),
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
-          UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' }))))]);
-        add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()], true);
+          UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' }))),
+          Profiles.settingsCard(), Sync.accountCard())]);
         add('look', 'Appearance', [appearanceCard()]);
         add('devices', 'Sync & updates', [Sync.card(), versionCard()]);
         return;
@@ -63,19 +62,20 @@
       }
 
       var classCard = h('div.card',
-        h('h2', 'Class details'),
+        h('h2', 'Profile'),
         h('div.form-grid',
           UI.field('Your name', bind('rebbiName', UI.input({ value: s.rebbiName }))),
           UI.field('Your cell', bind('rebbiPhone', UI.input({ type: 'tel', value: s.rebbiPhone || '' })), 'Shown to the office on issues you report'),
           UI.field('Class name', bind('className', UI.input({ value: s.className }))),
           UI.field('Yeshiva', bind('school', UI.input({ value: s.school }))),
-          UI.field('Remind me to be in touch with a family after', bind('contactReminderDays',
-            UI.select([[7, '1 week'], [14, '2 weeks'], [21, '3 weeks'], [30, '1 month'], [45, '6 weeks'], [60, '2 months'], [90, '3 months']], s.contactReminderDays || 30)),
-            'Families you haven\'t called or texted in this long show up on the Parents page'),
-          UI.field('School office email', bind('officeEmail', UI.input({ type: 'email', value: s.officeEmail || '', placeholder: 'office@yeshiva.org' })), 'Where report cards are sent')));
+          UI.field('School office email', bind('officeEmail', UI.input({ type: 'email', value: s.officeEmail || '', placeholder: 'office@yeshiva.org' })), 'Where report cards are sent')),
+        Profiles.settingsCard(), Sync.accountCard());
 
       var optionsCard = h('div.card',
         h('h2', 'Options'),
+        UI.field('Remind me to be in touch with a family after', bind('contactReminderDays',
+          UI.select([[7, '1 week'], [14, '2 weeks'], [21, '3 weeks'], [30, '1 month'], [45, '6 weeks'], [60, '2 months'], [90, '3 months']], s.contactReminderDays || 30)),
+          'Families you haven\'t called or texted in this long show up on the Parents page'),
         h('label.check-row', bind('hebrewFirst', h('input', { type: 'checkbox', checked: s.hebrewFirst }), 'checked'), ' Show Hebrew names throughout the app'),
         h('label.check-row', h('input', { type: 'checkbox', checked: s.coloringPages !== false, onchange: function (e) {
           Store.update(function (x) { x.settings.coloringPages = e.target.checked; });
@@ -94,8 +94,7 @@
             } }, d);
           }))));
 
-      add('class', 'Your class', [classCard, optionsCard]);
-      add('account', 'Account', [Sync.accountCard(), Profiles.settingsCard()], true);
+      add('profile', 'Profile', [classCard, optionsCard]);
       add('calendar', 'Calendar', [Calendar.settingsCard()]);
       add('look', 'Appearance', [appearanceCard()]);
 

@@ -261,16 +261,9 @@
     return Promise.resolve();
   }
 
-  // refresh: called after turning it on / off / new link (Settings re-renders the page).
-  function liveCard(refresh) {
-    refresh = refresh || function () { App.render(); };
+  // The class calendar in Google / Apple Calendar. Apple and Google buttons up front; the rest in the ⋯ menu.
+  function liveSection(card, refresh) {
     var f = feed();
-    var card = h('div.card', h('h2', 'Live calendar (updates itself)'));
-    if (!window.Sync || !Sync.isOn()) {
-      card.appendChild(h('p', 'Your planner, bechinos and birthdays show in Google or Apple Calendar and stay up to date as you make changes. ' +
-        'To use it, first turn on sync and sign in (see "Sync" on this page).'));
-      return card;
-    }
     var pick = f || { lessons: true, tests: true, birthdays: true, holidays: false };
     var boxes = {};
     function box(key, label) {
@@ -281,42 +274,56 @@
       } });
       return h('label.check-row', boxes[key], h('span', label));
     }
-    var choices = h('div', box('lessons', 'Planner'), box('tests', 'Bechinos'), box('birthdays', 'Talmidim\'s Hebrew birthdays'), box('holidays', 'Yomim tovim & fast days'));
+    function choices() { return h('div', box('lessons', 'Planner'), box('tests', 'Bechinos'), box('birthdays', 'Talmidim\'s Hebrew birthdays'), box('holidays', 'Yomim tovim & fast days')); }
     if (!f) {
-      card.appendChild(h('p', 'Add your class to Google or Apple Calendar once, and it keeps itself up to date: whatever you add, change or delete here shows up there too.'));
-      card.appendChild(choices);
+      card.appendChild(h('p', 'Put your planner, bechinos and birthdays in Apple or Google Calendar. It keeps itself up to date: whatever you add, change or delete here shows up there too.'));
+      card.appendChild(choices());
       card.appendChild(h('div.cal-choices', h('button.btn.primary', { type: 'button', onclick: function (e) {
         var inc = {}; Object.keys(boxes).forEach(function (k) { inc[k] = boxes[k].checked; });
         e.target.disabled = true;
-        turnOn(inc).then(function (ok) { UI.toast(ok ? 'Live calendar is on' : 'Turned on – it will upload when you\'re online'); refresh(); });
-      } }, UI.icon('calendar', 16), 'Turn on live calendar')));
-      return card;
+        turnOn(inc).then(function (ok) { UI.toast(ok ? 'Calendar is on' : 'Turned on – it will upload when you\'re online'); refresh(); });
+      } }, UI.icon('calendar', 16), 'Turn on')));
+      return;
     }
-    card.appendChild(h('p', 'Add it once on each phone or computer:'));
-    card.appendChild(h('div.cal-choices',
-      h('a.btn.primary', { href: webcalURL(f) }, UI.icon('calendar', 16), 'Apple Calendar'),
-      h('a.btn', { href: googleSubscribeURL(f), target: '_blank', rel: 'noopener' }, UI.icon('calendar', 16), 'Google Calendar'),
-      h('button.btn', { type: 'button', onclick: function () { UI.copyText(feedURL(f)); } }, UI.icon('copy', 16), 'Copy link')));
-    card.appendChild(h('details.cal-help',
-      h('summary', 'How it works'),
-      h('p.small', h('strong', 'iPhone / iPad / Mac: '), 'tap Apple Calendar, then Subscribe. ',
-        h('strong', 'Google: '), 'tap Google Calendar, then Add. It then shows in the Google Calendar app on Android and iPhone too. ',
-        h('strong', 'Outlook: '), 'Add calendar → Subscribe from web, and paste the copied link.'),
-      h('p.small.muted', 'Changes reach Apple Calendar within about an hour. Google checks on its own schedule, usually a few times a day. ' +
-        'The calendar is read-only there: make changes in Rebbi App. Anyone with the link can see the calendar, so only share it with people you trust; "New link" stops the old one.')));
-    card.appendChild(h('div', { style: 'margin-top:10px' }, h('span.field-label', 'Show in the calendar'), choices));
-    card.appendChild(h('div.row.gap.wrap', { style: 'margin-top:12px' },
-      h('button.btn', { type: 'button', onclick: function () {
+    card.querySelector('.card-head').appendChild(UI.dotsMenu([
+      { label: 'Copy link', onClick: function () { UI.copyText(feedURL(f)); } },
+      { label: 'Choose what shows…', onClick: function () { UI.modal('What shows in your calendar', choices(), [{ label: 'Done' }]); } },
+      { label: 'How it works', onClick: function () {
+        UI.modal('How it works', h('div',
+          h('p', h('strong', 'iPhone / iPad / Mac: '), 'tap Apple, then Subscribe.'),
+          h('p', h('strong', 'Google: '), 'tap Google, then Add. It then shows in the Google Calendar app on Android and iPhone too.'),
+          h('p', h('strong', 'Outlook: '), 'Add calendar → Subscribe from web, and paste the copied link.'),
+          h('p.small.muted', 'Changes reach Apple Calendar within about an hour. Google checks on its own schedule, usually a few times a day. ' +
+            'The calendar is read-only there: make changes in Rebbi App. Anyone with the link can see the calendar, so only share it with people you trust; "New link" stops the old one.')), [{ label: 'Close' }]);
+      } },
+      { label: 'New link', onClick: function () {
         UI.confirm('Make a new link? Calendars added with the old link stop updating, and you\'ll need to add the calendar again on each device.', function () {
           var inc = Object.assign({}, feed()); delete inc.token;
           turnOff().then(function () { return turnOn(inc); }).then(function () { UI.toast('New link made'); refresh(); });
         }, 'New link');
-      } }, 'New link'),
-      h('button.btn.danger', { type: 'button', onclick: function () {
-        UI.confirm('Turn off the live calendar? It will stop updating and disappear from calendars that subscribed to it.', function () {
-          turnOff().then(function () { UI.toast('Live calendar turned off'); refresh(); });
+      } },
+      { label: 'Turn off', danger: true, onClick: function () {
+        UI.confirm('Turn off the calendar? It will stop updating and disappear from calendars that subscribed to it.', function () {
+          turnOff().then(function () { UI.toast('Calendar turned off'); refresh(); });
         }, 'Turn off');
-      } }, 'Turn off')));
+      } }
+    ], 'Calendar options'));
+    card.appendChild(h('p', 'Add it once on each phone or computer:'));
+    card.appendChild(h('div.cal-choices',
+      h('a.btn.primary', { href: webcalURL(f) }, UI.icon('calendar', 16), 'Apple'),
+      h('a.btn', { href: googleSubscribeURL(f), target: '_blank', rel: 'noopener' }, UI.icon('calendar', 16), 'Google')));
+  }
+
+  // The whole Calendar card (Settings, and the planner's "Add to calendar").
+  function calendarCard(refresh) {
+    refresh = refresh || function () { App.render(); };
+    var card = h('div.card', h('div.card-head', h('h2', 'Calendar')));
+    if (!window.Sync || !Sync.isOn()) {
+      card.appendChild(h('p', 'Put your planner in Apple or Google Calendar, and see your own calendar in the planner. To use it, first sign in with Google (Settings → Profile).'));
+      return card;
+    }
+    liveSection(card, refresh);
+    card.appendChild(importSection(refresh));
     return card;
   }
 
@@ -325,7 +332,9 @@
   // The calimport Edge Function reads it (browsers can't, no CORS) and sends back its events; they're kept here
   // and shown read-only in the planner, refreshed every 15 minutes while the app is open.
   var LINKS_KEY = 'rabbiapp.calimport.links', CACHE_KEY = 'rabbiapp.calimport.cache', STALE = 15 * 60000;
-  var importing = null;
+  var importing = null, ON_KEY = 'rabbiapp.calimport.on';
+  // On unless switched off; with no calendar added yet, off until switched on.
+  function importOn() { var v = ls(ON_KEY); return v === null || v === undefined ? links().length > 0 : v === '1'; }
   function links() { try { return JSON.parse(ls(LINKS_KEY)) || []; } catch (e) { return []; } }
   function setLinks(a) { ls(LINKS_KEY, a.length ? JSON.stringify(a) : null); }
   function cache() { try { return JSON.parse(ls(CACHE_KEY)) || { at: 0, cals: {} }; } catch (e) { return { at: 0, cals: {} }; } }
@@ -351,7 +360,7 @@
   // Reads every linked calendar again. Keeps the last good copy if one can't be reached.
   function refreshImported(force) {
     var list = links();
-    if (!list.length || !window.Sync || !Sync.isOn() || !navigator.onLine) return Promise.resolve(false);
+    if (!list.length || !importOn() || !window.Sync || !Sync.isOn() || !navigator.onLine) return Promise.resolve(false);
     if (importing) return importing;
     var c = cache();
     if (!force && Date.now() - c.at < STALE) return Promise.resolve(false);
@@ -380,6 +389,7 @@
   function localISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   // Events from your own calendars on one day: all-day ones first, then by time.
   function importedOn(iso) {
+    if (!importOn()) return [];
     var c = cache(), out = [], seen = {};
     links().forEach(function (l, i) {
       var cal = c.cals[l.url];
@@ -408,16 +418,17 @@
         ev.location ? h('div.small.muted', { dir: 'auto' }, ev.location) : null));
   }
 
-  function importCard(refresh) {
-    refresh = refresh || function () { App.render(); };
-    var card = h('div.card', h('h2', 'Show your calendar in the planner'));
-    if (!window.Sync || !Sync.isOn()) {
-      card.appendChild(h('p', 'Events from your Apple or Google Calendar can show in the planner too. To use it, first turn on sync and sign in (see "Sync" on this page).'));
-      return card;
-    }
+  // "Show your calendar in the planner": an on/off switch; when on, the calendars it shows and adding one.
+  function importSection(refresh) {
+    var card = h('div.card-split');
+    var on = importOn();
+    card.appendChild(UI.toggle('Show your calendar in the planner', on, function (v) {
+      ls(ON_KEY, v ? '1' : '0');
+      if (v) refreshImported(true);
+      refresh();
+    }, on ? 'Checks for changes every 15 minutes. To change an event, use your calendar app.' : 'See what\'s on your Apple or Google Calendar next to your plans.'));
+    if (!on) return card;
     var list = links(), c = cache();
-    card.appendChild(h('p', 'See what\'s on your Apple or Google Calendar right in the planner, next to your plans. ' +
-      'It checks for changes every 15 minutes. They show here only; to change them, use your calendar app.'));
     list.forEach(function (l, i) {
       var cal = c.cals[l.url];
       var status = !cal ? 'Loading…' : cal.error ? '⚠ ' + (IMPORT_ERRORS[cal.error] || IMPORT_ERRORS.fetch)
@@ -472,22 +483,16 @@
     var holder = h('div');
     function fill() {
       holder.innerHTML = '';
-      holder.appendChild(liveCard(fill));
-      holder.appendChild(importCard(fill));
+      holder.appendChild(calendarCard(fill));
     }
     fill();
     UI.modal('Add to calendar', holder, [{ label: 'Close' }]);
   }
 
-  function settingsCard() {
-    var wrap = h('div');
-    wrap.appendChild(liveCard());
-    wrap.appendChild(importCard());
-    return wrap;
-  }
+  function settingsCard() { return calendarCard(); }
 
   window.Calendar = { ics: ics, googleLink: googleLink, collect: collect, testEvent: testEvent,
     addOne: addOne, exportDialog: exportDialog, open: open, settingsCard: settingsCard,
     publish: publish, publishSoon: publishSoon,
-    importedOn: importedOn, importedRow: importedRow, refreshImported: refreshImported, hasImported: function () { return links().length > 0; }, feedEvents: feedEvents, feedURL: function () { var f = feed(); return f ? feedURL(f) : null; } };
+    importedOn: importedOn, importedRow: importedRow, refreshImported: refreshImported, hasImported: function () { return importOn() && links().length > 0; }, feedEvents: feedEvents, feedURL: function () { var f = feed(); return f ? feedURL(f) : null; } };
 })();

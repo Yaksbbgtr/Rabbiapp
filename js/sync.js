@@ -562,10 +562,10 @@
       h('span.sync-dot.' + S.status),
       h('span', STATUS_TEXT[S.status] + (S.error && S.status === 'error' ? ' – ' + S.error : '')));
   }
-  // Settings → Account: the Google sign-in (and asking for office access).
+  // Settings → Profile: the Google sign-in (and asking for office access).
   function accountCard() {
     if (!configured()) return null;
-    var box = h('div.card.sync-card', h('h2', 'Google account'));
+    var box = h('div.card-split.sync-card', h('h3', 'Google account'));
     if (!S.user) {
       box.appendChild(h('p', 'Sign in with Google to keep your classes, issues and planner the same on your phone and computer. Without signing in, everything stays on this device only.'));
       if (S.status === 'error' || S.status === 'offline' || S.status === 'loading') box.appendChild(statusLine());
@@ -594,7 +594,7 @@
       return box;
     }
     if (!S.user) {
-      box.appendChild(h('p', 'Not syncing: everything stays on this device. Sign in with Google (under Account, above) to keep your phone and computer the same.'));
+      box.appendChild(h('p', 'Not syncing: everything stays on this device. Sign in with Google (under Profile, above) to keep your phone and computer the same.'));
       return box;
     }
     box.appendChild(statusLine());

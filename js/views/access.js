@@ -82,7 +82,7 @@
     main.appendChild(h('div.page-head', h('div', h('h1', 'Access'),
       h('p.muted', 'Who sees which classes, and who has office access.'))));
     if (!window.Sync || !Sync.isOn()) {
-      main.appendChild(h('div.card', h('p', 'Sign in (Settings → Account) with an office account to manage access.')));
+      main.appendChild(h('div.card', h('p', 'Sign in (Settings → Profile) with an office account to manage access.')));
       return;
     }
     if (!Sync.isAdmin()) {
