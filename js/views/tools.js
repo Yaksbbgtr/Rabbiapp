@@ -175,8 +175,8 @@
         st.jobs.length ? h('ul.list', st.jobs.map(function (j) {
           var sel = UI.select(UI.talmidOptions('— nobody —'), j.holder || '');
           sel.addEventListener('change', function () { Store.update(function () { j.holder = sel.value || null; }); });
-          return h('li.row.between.gap', h('span', j.name), h('span.row.gap', sel,
-            h('button.icon-btn.small', { 'aria-label': 'Remove job', onclick: function () { Store.update(function (s) { s.jobs = s.jobs.filter(function (x) { return x !== j; }); }); App.render(); } }, '×')));
+          return h('li.job-row', h('span.job-name', { title: j.name }, j.name), sel,
+            h('button.icon-btn.small', { 'aria-label': 'Remove job', onclick: function () { Store.update(function (s) { s.jobs = s.jobs.filter(function (x) { return x !== j; }); }); App.render(); } }, '×'));
         })) : null,
         h('div.row.gap.wrap',
           h('button.btn.primary', { onclick: function () {

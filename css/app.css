@@ -565,6 +565,10 @@ select.level-select option { background: var(--card); color: var(--ink); }
 .picker-display.final { color: var(--navy); background: var(--gold-soft); }
 .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
 .group { background: var(--bg); border-radius: 10px; padding: 10px; }
+.job-row { display: grid; grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.job-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-row select { width: 100%; }
+@media (max-width: 420px) { .job-row { grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) auto; gap: 8px; } }
 /* seating chart */
 .seating-card { margin-top: 16px; }
 .seat-size select { width: auto; min-height: 34px; padding: 4px 8px; margin-inline-start: 4px; }
